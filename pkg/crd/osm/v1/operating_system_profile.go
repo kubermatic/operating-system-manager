@@ -16,7 +16,10 @@ limitations under the License.
 
 package v1
 
-import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+)
 
 const (
 	// OperatingSystemProfileResourceName represents "Resource" defined in Kubernetes
@@ -46,11 +49,19 @@ type OperatingSystemProfileSpec struct {
 	// OSVersion the version of the operaitng system
 	OSVersion string `json:"osVersion"`
 	// SupportedCloudProviders represent the cloud providers that support the os name and version
-	SupportedCloudProviders []string `json:"supportedCloudProviders"`
+	SupportedCloudProviders []SupportedCloudProvider `json:"supportedCloudProviders"`
 	// Units a list of units that represent the systemd units which will run on the instance
 	Units []Unit `json:"units,omitempty"`
 	// Files a list of files that should exist in the instance
 	Files []File `json:"files,omitempty"`
+}
+
+// SupportedCloudProvider
+type SupportedCloudProvider struct {
+	// Name represents the name of the supported cloud provider
+	Name string `json:"name"`
+	// Spec represents the os/image reference in the supported cloud provider
+	Spec runtime.RawExtension `json:"spec"`
 }
 
 // Unit is a systemd unit used for the operating system config.
