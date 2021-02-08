@@ -46,13 +46,13 @@ type OperatingSystemProfile struct {
 type OperatingSystemProfileSpec struct {
 	// OSType represent the operating system name e.g: ubuntu
 	OSName string `json:"osName"`
-	// OSVersion the version of the operaitng system
+	// OSVersion the version of the operating system
 	OSVersion string `json:"osVersion"`
-	// SupportedCloudProviders represent the cloud providers that support the os name and version
+	// SupportedCloudProviders represent the cloud providers that support the given operating system version
 	SupportedCloudProviders []SupportedCloudProvider `json:"supportedCloudProviders"`
-	// Units a list of units that represent the systemd units which will run on the instance
+	// Units a list of the systemd unit files which will run on the instance
 	Units []Unit `json:"units,omitempty"`
-	// Files a list of files that should exist in the instance
+	// Files is a list of files that should exist in the instance
 	Files []File `json:"files,omitempty"`
 }
 
