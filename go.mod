@@ -1,4 +1,4 @@
-module github.com/moadqassem/operating-system-manager
+module k8c.io/operating-system-manager
 
 go 1.15
 

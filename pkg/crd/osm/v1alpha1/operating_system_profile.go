@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1
+package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -68,8 +68,6 @@ type SupportedCloudProvider struct {
 type Unit struct {
 	// Name is the name of a unit.
 	Name string `json:"name"`
-	// Command is the unit's command.
-	Command *string `json:"command,omitempty"`
 	// Enable describes whether the unit is enabled or not.
 	Enable *bool `json:"enable,omitempty"`
 	// Content is the unit's content.
