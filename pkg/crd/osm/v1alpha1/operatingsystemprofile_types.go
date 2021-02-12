@@ -23,7 +23,7 @@ import (
 
 const (
 	// OperatingSystemProfileResourceName represents "Resource" defined in Kubernetes
-	OperatingSystemProfileResourceName = "operatingsystemprofile"
+	OperatingSystemProfileResourceName = "operatingsystemprofiles"
 
 	// OperatingSystemProfileKindName represents "Kind" defined in Kubernetes
 	OperatingSystemProfileKindName = "OperatingSystemProfile"
@@ -55,7 +55,7 @@ type OperatingSystemProfileSpec struct {
 	Files []File `json:"files,omitempty"`
 }
 
-// SupportedCloudProvider
+// SupportedCloudProvider contains the os/image reference for a specific supported cloud provider
 type SupportedCloudProvider struct {
 	// Name represents the name of the supported cloud provider
 	Name string `json:"name"`
