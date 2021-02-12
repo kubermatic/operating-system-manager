@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// +groupName=k8c.io
+// +groupName=operatingsystemmanager.k8c.io
 // +k8s:deepcopy-gen=package,register
 
 // Package v1alpha1 defines the v1alpha1 version of the OSM API
