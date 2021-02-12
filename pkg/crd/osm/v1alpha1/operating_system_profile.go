@@ -30,7 +30,6 @@ const (
 )
 
 //+genclient
-//+genclient:Namespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // OperatingSystemProfile is the object that represents the OperatingSystemProfile
