@@ -27,9 +27,13 @@ var (
 	AddToScheme   = SchemeBuilder.AddToScheme
 )
 
-// GroupName is the group name use in this package
-const GroupName = "operatingsystemmanager.k8c.io"
-const GroupVersion = "v1alpha1"
+const (
+	// GroupName is the group name used in this package
+	GroupName = "operatingsystemmanager.k8c.io"
+
+	// GroupVersion is the group version used in this package
+	GroupVersion = "v1alpha1"
+) 
 
 // SchemeGroupVersion is group version used to register these objects
 var SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: GroupVersion}
@@ -44,6 +48,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&OperatingSystemProfile{},
 		&OperatingSystemProfileList{},
+		&OperatingSystemConfig{},
+		&OperatingSystemConfigList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
