@@ -28,20 +28,13 @@ chmod +x vendor/k8s.io/code-generator/generate-groups.sh
 echodate "Removing old clients"
 rm -rf "pkg/crd/client"
 
-echo "" > /tmp/headerfile
-
 # -trimpath would cause the code generation to fail, so undo the
 # Makefile's value and also force mod=readonly here
 export "GOFLAGS=-mod=readonly"
 
 echodate "Generating osm:v1alpha1"
 ./vendor/k8s.io/code-generator/generate-groups.sh all \
-   k8c.io/operating-system-manager/v1alpha1/pkg/crd/client \
-   k8c.io/operating-system-manager/v1alpha1/pkg/crd \
+   k8c.io/operating-system-manager/pkg/crd/client \
+   k8c.io/operating-system-manager/pkg/crd \
    osm:v1alpha1 \
   --go-header-file ${SCRIPT_ROOT}/header.txt
-
-cp -r v1alpha1/* .
-rm -rf v1alpha1/
-
-rm /tmp/headerfile
