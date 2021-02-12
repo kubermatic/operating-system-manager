@@ -108,3 +108,10 @@ type FileContentInline struct {
 	// Data is the file's data.
 	Data string `json:"data"`
 }
+
+type OperatingSystemProfileList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+
+	Items []OperatingSystemProfile `json:"items"`
+}
