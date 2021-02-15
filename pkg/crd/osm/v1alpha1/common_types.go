@@ -25,6 +25,7 @@ type CloudProviderSpec struct {
 	// Name represents the name of the supported cloud provider
 	Name string `json:"name"`
 	// Spec represents the os/image reference in the supported cloud provider
+	// +kubebuilder:pruning:PreserveUnknownFields
 	Spec runtime.RawExtension `json:"spec"`
 }
 

@@ -122,6 +122,7 @@ spec:
                       description: Spec represents the os/image reference in the supported
                         cloud provider
                       type: object
+                      x-kubernetes-preserve-unknown-fields: true
               units:
                 description: Units a list of the systemd unit files which will run
                   on the instance
