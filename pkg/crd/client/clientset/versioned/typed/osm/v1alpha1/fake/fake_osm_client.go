@@ -28,6 +28,10 @@ type FakeOperatingsystemmanagerV1alpha1 struct {
 	*testing.Fake
 }
 
+func (c *FakeOperatingsystemmanagerV1alpha1) OperatingSystemConfigs(namespace string) v1alpha1.OperatingSystemConfigInterface {
+	return &FakeOperatingSystemConfigs{c, namespace}
+}
+
 func (c *FakeOperatingsystemmanagerV1alpha1) OperatingSystemProfiles(namespace string) v1alpha1.OperatingSystemProfileInterface {
 	return &FakeOperatingSystemProfiles{c, namespace}
 }

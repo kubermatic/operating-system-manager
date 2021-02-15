@@ -53,6 +53,8 @@ func (f *genericInformer) Lister() cache.GenericLister {
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
 	// Group=operatingsystemmanager.k8c.io, Version=v1alpha1
+	case v1alpha1.SchemeGroupVersion.WithResource("operatingsystemconfigs"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Operatingsystemmanager().V1alpha1().OperatingSystemConfigs().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("operatingsystemprofiles"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Operatingsystemmanager().V1alpha1().OperatingSystemProfiles().Informer()}, nil
 

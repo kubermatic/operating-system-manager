@@ -18,6 +18,14 @@ limitations under the License.
 
 package v1alpha1
 
+// OperatingSystemConfigListerExpansion allows custom methods to be added to
+// OperatingSystemConfigLister.
+type OperatingSystemConfigListerExpansion interface{}
+
+// OperatingSystemConfigNamespaceListerExpansion allows custom methods to be added to
+// OperatingSystemConfigNamespaceLister.
+type OperatingSystemConfigNamespaceListerExpansion interface{}
+
 // OperatingSystemProfileListerExpansion allows custom methods to be added to
 // OperatingSystemProfileLister.
 type OperatingSystemProfileListerExpansion interface{}

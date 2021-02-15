@@ -26,12 +26,17 @@ import (
 
 type OperatingsystemmanagerV1alpha1Interface interface {
 	RESTClient() rest.Interface
+	OperatingSystemConfigsGetter
 	OperatingSystemProfilesGetter
 }
 
 // OperatingsystemmanagerV1alpha1Client is used to interact with features provided by the operatingsystemmanager.k8c.io group.
 type OperatingsystemmanagerV1alpha1Client struct {
 	restClient rest.Interface
+}
+
+func (c *OperatingsystemmanagerV1alpha1Client) OperatingSystemConfigs(namespace string) OperatingSystemConfigInterface {
+	return newOperatingSystemConfigs(c, namespace)
 }
 
 func (c *OperatingsystemmanagerV1alpha1Client) OperatingSystemProfiles(namespace string) OperatingSystemProfileInterface {
