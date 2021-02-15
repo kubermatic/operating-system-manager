@@ -16,7 +16,7 @@ presubmits:
   #########################################################
   # verify, build, and unit tests
   #########################################################
-  - name: pre-operating-system-manager-verify-boilerplate
+  - name: pull-operating-system-manager-verify-boilerplate
     always_run: true
     decorate: true
     clone_uri: "ssh://git@github.com/kubermatic/operating-system-manager.git"
@@ -30,7 +30,7 @@ presubmits:
           args:
             - verify-boilerplate
 
-  - name: pre-operating-system-manager-verify-codegen
+  - name: pull-operating-system-manager-verify-codegen
     always_run: true
     decorate: true
     clone_uri: "ssh://git@github.com/kubermatic/operating-system-manager.git"
@@ -52,7 +52,7 @@ presubmits:
               memory: 1Gi
               cpu: 1
 
-  - name: pre-operating-system-manager-license-validation
+  - name: pull-operating-system-manager-license-validation
     always_run: true
     decorate: true
     clone_uri: "ssh://git@github.com/kubermatic/operating-system-manager.git"
@@ -73,7 +73,7 @@ presubmits:
               memory: 2Gi
               cpu: 2
 
-  - name: pre-operating-system-manager-lint
+  - name: pull-operating-system-manager-lint
     always_run: true
     decorate: true
     clone_uri: "ssh://git@github.com/kubermatic/operating-system-manager.git"
