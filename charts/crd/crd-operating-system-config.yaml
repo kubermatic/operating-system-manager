@@ -71,6 +71,7 @@ spec:
                     description: Spec represents the os/image reference in the supported
                       cloud provider
                     type: object
+                    x-kubernetes-preserve-unknown-fields: true
               files:
                 description: Files is a list of files that should exist in the instance
                 type: array
