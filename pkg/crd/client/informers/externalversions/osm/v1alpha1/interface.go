@@ -24,6 +24,8 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
+	// OperatingSystemConfigs returns a OperatingSystemConfigInformer.
+	OperatingSystemConfigs() OperatingSystemConfigInformer
 	// OperatingSystemProfiles returns a OperatingSystemProfileInformer.
 	OperatingSystemProfiles() OperatingSystemProfileInformer
 }
@@ -37,6 +39,11 @@ type version struct {
 // New returns a new Interface.
 func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakListOptions internalinterfaces.TweakListOptionsFunc) Interface {
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
+}
+
+// OperatingSystemConfigs returns a OperatingSystemConfigInformer.
+func (v *version) OperatingSystemConfigs() OperatingSystemConfigInformer {
+	return &operatingSystemConfigInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // OperatingSystemProfiles returns a OperatingSystemProfileInformer.

@@ -21,33 +21,33 @@ import (
 )
 
 const (
-	// OperatingSystemProfileResourceName represents "Resource" defined in Kubernetes
-	OperatingSystemProfileResourceName = "operatingsystemprofiles"
+	// OperatingSystemConfigResourceName represents "Resource" defined in Kubernetes
+	OperatingSystemConfigResourceName = "operatingsystemconfigs"
 
-	// OperatingSystemProfileKindName represents "Kind" defined in Kubernetes
-	OperatingSystemProfileKindName = "OperatingSystemProfile"
+	// OperatingSystemConfigKindName represents "Kind" defined in Kubernetes
+	OperatingSystemConfigKindName = "OperatingSystemConfig"
 )
 
 //+genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// OperatingSystemProfile is the object that represents the OperatingSystemProfile
-type OperatingSystemProfile struct {
+// OperatingSystemConfig is the object that represents the OperatingSystemConfig
+type OperatingSystemConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// OperatingSystemProfileSpec represents the operating system confuration spec.
-	Spec OperatingSystemProfileSpec `json:"spec"`
+	// OperatingSystemConfigSpec represents the operating system configuration spec.
+	Spec OperatingSystemConfigSpec `json:"spec"`
 }
 
-// OperatingSystemProfileSpec represents the data in the newly created OperatingSystemProfile
-type OperatingSystemProfileSpec struct {
+// OperatingSystemConfigSpec represents the data in the newly created OperatingSystemConfig
+type OperatingSystemConfigSpec struct {
 	// OSType represent the operating system name e.g: ubuntu
 	OSName string `json:"osName"`
 	// OSVersion the version of the operating system
 	OSVersion string `json:"osVersion"`
-	// SupportedCloudProviders represent the cloud providers that support the given operating system version
-	SupportedCloudProviders []CloudProviderSpec `json:"supportedCloudProviders"`
+	// CloudProvider represent the cloud provider that support the given operating system version
+	CloudProvider CloudProviderSpec `json:"cloudProvider"`
 	// Units a list of the systemd unit files which will run on the instance
 	Units []Unit `json:"units,omitempty"`
 	// Files is a list of files that should exist in the instance
@@ -56,10 +56,10 @@ type OperatingSystemProfileSpec struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// OperatingSystemProfileList is a list of OperatingSystemProfiles
-type OperatingSystemProfileList struct {
+// OperatingSystemConfigList is a list of OperatingSystemConfigs
+type OperatingSystemConfigList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 
-	Items []OperatingSystemProfile `json:"items"`
+	Items []OperatingSystemConfig `json:"items"`
 }
