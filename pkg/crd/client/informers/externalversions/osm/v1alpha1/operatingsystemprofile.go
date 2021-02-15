@@ -62,13 +62,13 @@ func NewFilteredOperatingSystemProfileInformer(client versioned.Interface, names
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.OperatingsystemmanagerV1alpha1().OperatingSystemProfiles(namespace).List(context.TODO(), options)
+				return client.K8cV1alpha1().OperatingSystemProfiles(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.OperatingsystemmanagerV1alpha1().OperatingSystemProfiles(namespace).Watch(context.TODO(), options)
+				return client.K8cV1alpha1().OperatingSystemProfiles(namespace).Watch(context.TODO(), options)
 			},
 		},
 		&osmv1alpha1.OperatingSystemProfile{},

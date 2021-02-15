@@ -56,7 +56,7 @@ type operatingSystemConfigs struct {
 }
 
 // newOperatingSystemConfigs returns a OperatingSystemConfigs
-func newOperatingSystemConfigs(c *OperatingsystemmanagerV1alpha1Client, namespace string) *operatingSystemConfigs {
+func newOperatingSystemConfigs(c *K8cV1alpha1Client, namespace string) *operatingSystemConfigs {
 	return &operatingSystemConfigs{
 		client: c.RESTClient(),
 		ns:     namespace,

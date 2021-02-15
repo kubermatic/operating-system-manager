@@ -56,7 +56,7 @@ type operatingSystemProfiles struct {
 }
 
 // newOperatingSystemProfiles returns a OperatingSystemProfiles
-func newOperatingSystemProfiles(c *OperatingsystemmanagerV1alpha1Client, namespace string) *operatingSystemProfiles {
+func newOperatingSystemProfiles(c *K8cV1alpha1Client, namespace string) *operatingSystemProfiles {
 	return &operatingSystemProfiles{
 		client: c.RESTClient(),
 		ns:     namespace,

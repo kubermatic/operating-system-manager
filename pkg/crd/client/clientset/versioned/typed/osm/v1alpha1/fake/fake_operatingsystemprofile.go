@@ -32,13 +32,13 @@ import (
 
 // FakeOperatingSystemProfiles implements OperatingSystemProfileInterface
 type FakeOperatingSystemProfiles struct {
-	Fake *FakeOperatingsystemmanagerV1alpha1
+	Fake *FakeK8cV1alpha1
 	ns   string
 }
 
-var operatingsystemprofilesResource = schema.GroupVersionResource{Group: "operatingsystemmanager.k8c.io", Version: "v1alpha1", Resource: "operatingsystemprofiles"}
+var operatingsystemprofilesResource = schema.GroupVersionResource{Group: "k8c.io", Version: "v1alpha1", Resource: "operatingsystemprofiles"}
 
-var operatingsystemprofilesKind = schema.GroupVersionKind{Group: "operatingsystemmanager.k8c.io", Version: "v1alpha1", Kind: "OperatingSystemProfile"}
+var operatingsystemprofilesKind = schema.GroupVersionKind{Group: "k8c.io", Version: "v1alpha1", Kind: "OperatingSystemProfile"}
 
 // Get takes name of the operatingSystemProfile, and returns the corresponding operatingSystemProfile object, and an error if there is any.
 func (c *FakeOperatingSystemProfiles) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.OperatingSystemProfile, err error) {

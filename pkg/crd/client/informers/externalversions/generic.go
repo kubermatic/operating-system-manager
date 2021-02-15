@@ -52,11 +52,11 @@ func (f *genericInformer) Lister() cache.GenericLister {
 // TODO extend this to unknown resources with a client pool
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
-	// Group=operatingsystemmanager.k8c.io, Version=v1alpha1
+	// Group=k8c.io, Version=v1alpha1
 	case v1alpha1.SchemeGroupVersion.WithResource("operatingsystemconfigs"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Operatingsystemmanager().V1alpha1().OperatingSystemConfigs().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.K8c().V1alpha1().OperatingSystemConfigs().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("operatingsystemprofiles"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Operatingsystemmanager().V1alpha1().OperatingSystemProfiles().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.K8c().V1alpha1().OperatingSystemProfiles().Informer()}, nil
 
 	}
 

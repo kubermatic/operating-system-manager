@@ -24,21 +24,21 @@ import (
 	testing "k8s.io/client-go/testing"
 )
 
-type FakeOperatingsystemmanagerV1alpha1 struct {
+type FakeK8cV1alpha1 struct {
 	*testing.Fake
 }
 
-func (c *FakeOperatingsystemmanagerV1alpha1) OperatingSystemConfigs(namespace string) v1alpha1.OperatingSystemConfigInterface {
+func (c *FakeK8cV1alpha1) OperatingSystemConfigs(namespace string) v1alpha1.OperatingSystemConfigInterface {
 	return &FakeOperatingSystemConfigs{c, namespace}
 }
 
-func (c *FakeOperatingsystemmanagerV1alpha1) OperatingSystemProfiles(namespace string) v1alpha1.OperatingSystemProfileInterface {
+func (c *FakeK8cV1alpha1) OperatingSystemProfiles(namespace string) v1alpha1.OperatingSystemProfileInterface {
 	return &FakeOperatingSystemProfiles{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *FakeOperatingsystemmanagerV1alpha1) RESTClient() rest.Interface {
+func (c *FakeK8cV1alpha1) RESTClient() rest.Interface {
 	var ret *rest.RESTClient
 	return ret
 }

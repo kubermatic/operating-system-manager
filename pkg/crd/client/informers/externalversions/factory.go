@@ -172,9 +172,9 @@ type SharedInformerFactory interface {
 	ForResource(resource schema.GroupVersionResource) (GenericInformer, error)
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
-	Operatingsystemmanager() osm.Interface
+	K8c() osm.Interface
 }
 
-func (f *sharedInformerFactory) Operatingsystemmanager() osm.Interface {
+func (f *sharedInformerFactory) K8c() osm.Interface {
 	return osm.New(f, f.namespace, f.tweakListOptions)
 }

@@ -20,8 +20,8 @@ package fake
 
 import (
 	clientset "k8c.io/operating-system-manager/pkg/crd/client/clientset/versioned"
-	operatingsystemmanagerv1alpha1 "k8c.io/operating-system-manager/pkg/crd/client/clientset/versioned/typed/osm/v1alpha1"
-	fakeoperatingsystemmanagerv1alpha1 "k8c.io/operating-system-manager/pkg/crd/client/clientset/versioned/typed/osm/v1alpha1/fake"
+	k8cv1alpha1 "k8c.io/operating-system-manager/pkg/crd/client/clientset/versioned/typed/osm/v1alpha1"
+	fakek8cv1alpha1 "k8c.io/operating-system-manager/pkg/crd/client/clientset/versioned/typed/osm/v1alpha1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -76,7 +76,7 @@ func (c *Clientset) Tracker() testing.ObjectTracker {
 
 var _ clientset.Interface = &Clientset{}
 
-// OperatingsystemmanagerV1alpha1 retrieves the OperatingsystemmanagerV1alpha1Client
-func (c *Clientset) OperatingsystemmanagerV1alpha1() operatingsystemmanagerv1alpha1.OperatingsystemmanagerV1alpha1Interface {
-	return &fakeoperatingsystemmanagerv1alpha1.FakeOperatingsystemmanagerV1alpha1{Fake: &c.Fake}
+// K8cV1alpha1 retrieves the K8cV1alpha1Client
+func (c *Clientset) K8cV1alpha1() k8cv1alpha1.K8cV1alpha1Interface {
+	return &fakek8cv1alpha1.FakeK8cV1alpha1{Fake: &c.Fake}
 }

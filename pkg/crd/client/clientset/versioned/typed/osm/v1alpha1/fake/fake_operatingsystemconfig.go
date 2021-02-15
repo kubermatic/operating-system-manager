@@ -32,13 +32,13 @@ import (
 
 // FakeOperatingSystemConfigs implements OperatingSystemConfigInterface
 type FakeOperatingSystemConfigs struct {
-	Fake *FakeOperatingsystemmanagerV1alpha1
+	Fake *FakeK8cV1alpha1
 	ns   string
 }
 
-var operatingsystemconfigsResource = schema.GroupVersionResource{Group: "operatingsystemmanager.k8c.io", Version: "v1alpha1", Resource: "operatingsystemconfigs"}
+var operatingsystemconfigsResource = schema.GroupVersionResource{Group: "k8c.io", Version: "v1alpha1", Resource: "operatingsystemconfigs"}
 
-var operatingsystemconfigsKind = schema.GroupVersionKind{Group: "operatingsystemmanager.k8c.io", Version: "v1alpha1", Kind: "OperatingSystemConfig"}
+var operatingsystemconfigsKind = schema.GroupVersionKind{Group: "k8c.io", Version: "v1alpha1", Kind: "OperatingSystemConfig"}
 
 // Get takes name of the operatingSystemConfig, and returns the corresponding operatingSystemConfig object, and an error if there is any.
 func (c *FakeOperatingSystemConfigs) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.OperatingSystemConfig, err error) {
