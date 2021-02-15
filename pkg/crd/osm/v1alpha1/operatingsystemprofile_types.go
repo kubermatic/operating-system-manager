@@ -23,7 +23,7 @@ import (
 
 const (
 	// OperatingSystemProfileResourceName represents "Resource" defined in Kubernetes
-	OperatingSystemProfileResourceName = "operatingsystemprofile"
+	OperatingSystemProfileResourceName = "operatingsystemprofiles"
 
 	// OperatingSystemProfileKindName represents "Kind" defined in Kubernetes
 	OperatingSystemProfileKindName = "OperatingSystemProfile"
@@ -55,7 +55,7 @@ type OperatingSystemProfileSpec struct {
 	Files []File `json:"files,omitempty"`
 }
 
-// SupportedCloudProvider
+// SupportedCloudProvider contains the os/image reference for a specific supported cloud provider
 type SupportedCloudProvider struct {
 	// Name represents the name of the supported cloud provider
 	Name string `json:"name"`
@@ -107,4 +107,13 @@ type FileContentInline struct {
 	Encoding string `json:"encoding"`
 	// Data is the file's data.
 	Data string `json:"data"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type OperatingSystemProfileList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+
+	Items []OperatingSystemProfile `json:"items"`
 }
