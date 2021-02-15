@@ -1,4 +1,4 @@
-# Copyright 2020 The XXX Authors.
+# Copyright 2021 The Kubermatic Kubernetes Platform contributors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,17 +12,83 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# presubmits:
-#   - name: pre-PROJECT-verify-boilerplate
-#     always_run: true
-#     decorate: true
-#     clone_uri: "ssh://git@github.com/OWNER/PROJECT.git"
-#     spec:
-#       containers:
-#         - image: quay.io/kubermatic-labs/boilerplate:v0.1.1
-#           command:
-#             - ./hack/verify-boilerplate.sh
-#           resources:
-#             requests:
-#               cpu: 200m
-#               memory: 256Mi
+presubmits:
+  #########################################################
+  # verify, build, and unit tests
+  #########################################################
+  - name: pull-operating-system-manager-verify-boilerplate
+    always_run: true
+    decorate: true
+    clone_uri: "ssh://git@github.com/kubermatic/operating-system-manager.git"
+    labels:
+      preset-goproxy: "true"
+    spec:
+      containers:
+        - image: quay.io/kubermatic-labs/boilerplate:v0.1.1
+          command:
+            - make
+          args:
+            - verify-boilerplate
+
+  - name: pull-operating-system-manager-verify-codegen
+    always_run: true
+    decorate: true
+    clone_uri: "ssh://git@github.com/kubermatic/operating-system-manager.git"
+    path_alias: k8c.io/operating-system-manager
+    labels:
+      preset-goproxy: "true"
+    spec:
+      containers:
+        - image: golang:1.15.7
+          command:
+            - make
+          args:
+            - verify-codegen
+          resources:
+            requests:
+              memory: 512Mi
+              cpu: 500m
+            limits:
+              memory: 1Gi
+              cpu: 1
+
+  - name: pull-operating-system-manager-license-validation
+    always_run: true
+    decorate: true
+    clone_uri: "ssh://git@github.com/kubermatic/operating-system-manager.git"
+    labels:
+      preset-goproxy: "true"
+    spec:
+      containers:
+        - image: quay.io/kubermatic/wwhrd:0.2.1-1
+          command:
+            - make
+          args:
+            - verify-licence
+          resources:
+            requests:
+              memory: 1Gi
+              cpu: 1
+            limits:
+              memory: 2Gi
+              cpu: 2
+
+  - name: pull-operating-system-manager-lint
+    always_run: true
+    decorate: true
+    clone_uri: "ssh://git@github.com/kubermatic/operating-system-manager.git"
+    labels:
+      preset-goproxy: "true"
+    spec:
+      containers:
+        - image: golangci/golangci-lint:v1.31.0
+          command:
+            - make
+          args:
+            - lint
+          resources:
+            requests:
+              memory: 1Gi
+              cpu: 4
+            limits:
+              memory: 2Gi

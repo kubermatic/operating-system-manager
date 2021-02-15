@@ -33,7 +33,7 @@ const (
 
 	// GroupVersion is the group version used in this package
 	GroupVersion = "v1alpha1"
-) 
+)
 
 // SchemeGroupVersion is group version used to register these objects
 var SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: GroupVersion}

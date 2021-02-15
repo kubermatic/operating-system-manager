@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright 2020 The XXX Authors.
+# Copyright 2021 The Kubermatic Kubernetes Platform contributors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,5 +19,4 @@ set -euo pipefail
 cd $(dirname $0)/..
 
 boilerplate \
-  -boilerplates hack/boilerplate/ \
-  .
+  -boilerplates hack/boilerplate/
