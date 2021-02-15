@@ -18,6 +18,9 @@ export GOPROXY?=https://proxy.golang.org
 export GO111MODULE=on
 export GOFLAGS?=-mod=readonly -trimpath
 
+CMD = $(notdir $(wildcard ./cmd/*))
+BUILD_DEST ?= _build
+
 .PHONY: lint
 lint:
 	@golangci-lint --version
@@ -59,3 +62,15 @@ verify-crds-openapi: vendor
 update-crds-openapi: GOFLAGS = -mod=readonly
 update-crds-openapi: vendor
 	./hack/update-crds-openapi.sh
+
+.PHONY: all
+all: build
+
+.PHONY: build
+build: $(CMD)
+
+.PHONY: $(CMD)
+$(CMD): %: $(BUILD_DEST)/%
+
+$(BUILD_DEST)/%: cmd/% 
+	go build -o $@ ./cmd/$*
