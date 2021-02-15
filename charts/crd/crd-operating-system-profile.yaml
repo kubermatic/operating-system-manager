@@ -15,13 +15,16 @@
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: operatingsystemprofiles.k8c.io
+  name: operatingsystemprofiles.operatingsystemmanager.k8c.io
 spec:
-  group: k8c.io
+  group: operatingsystemmanager.k8c.io
   names:
     kind: OperatingSystemProfile
     listKind: OperatingSystemProfileList
     plural: operatingsystemprofiles
     singular: operatingsystemprofile
   scope: Namespaced
-  version: v1alpha1
+  versions:
+  - name: v1alpha1
+    storage: true
+    served: true
