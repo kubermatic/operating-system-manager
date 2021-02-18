@@ -49,3 +49,13 @@ verify-codegen: vendor
 update-codegen: GOFLAGS = -mod=readonly
 update-codegen: vendor
 	./hack/update-codegen.sh
+
+.PHONY: verify-crds-openapi
+verify-crds-openapi: GOFLAGS = -mod=readonly
+verify-crds-openapi: vendor
+	./hack/verify-crds-openapi.sh
+
+.PHONY: update-crds-openapi
+update-crds-openapi: GOFLAGS = -mod=readonly
+update-crds-openapi: vendor
+	./hack/update-crds-openapi.sh
