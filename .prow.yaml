@@ -52,6 +52,28 @@ presubmits:
               memory: 1Gi
               cpu: 1
 
+  - name: pull-operating-system-manager-verify-crds-openapi
+    always_run: true
+    decorate: true
+    clone_uri: "ssh://git@github.com/kubermatic/operating-system-manager.git"
+    path_alias: k8c.io/operating-system-manager
+    labels:
+      preset-goproxy: "true"
+    spec:
+      containers:
+        - image: golang:1.15.7
+          command:
+            - make
+          args:
+            - verify-crds-openapi
+          resources:
+            requests:
+              memory: 512Mi
+              cpu: 500m
+            limits:
+              memory: 1Gi
+              cpu: 1
+
   - name: pull-operating-system-manager-license-validation
     always_run: true
     decorate: true
