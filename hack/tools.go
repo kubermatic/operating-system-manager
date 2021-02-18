@@ -22,4 +22,5 @@ import (
 	_ "k8s.io/code-generator/cmd/conversion-gen"
 	_ "k8s.io/code-generator/cmd/deepcopy-gen"
 	_ "k8s.io/code-generator/cmd/defaulter-gen"
+	_ "sigs.k8s.io/controller-tools/cmd/controller-gen"
 )
