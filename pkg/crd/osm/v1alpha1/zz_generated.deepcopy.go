@@ -194,6 +194,11 @@ func (in *OperatingSystemConfigSpec) DeepCopyInto(out *OperatingSystemConfigSpec
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.UserSSHKeys != nil {
+		in, out := &in.UserSSHKeys, &out.UserSSHKeys
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 

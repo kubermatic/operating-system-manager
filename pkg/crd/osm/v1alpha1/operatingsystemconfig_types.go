@@ -52,6 +52,8 @@ type OperatingSystemConfigSpec struct {
 	Units []Unit `json:"units,omitempty"`
 	// Files is a list of files that should exist in the instance
 	Files []File `json:"files,omitempty"`
+	// UserSSHKeys is a list of attached user ssh keys
+	UserSSHKeys []string `json:"userSSHKeys,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
