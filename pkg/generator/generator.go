@@ -73,21 +73,6 @@ type fileSpec struct {
 	Name        string
 }
 
-// TODO(mq): add config generating for Unit data.
-type unitSpec struct {
-	Name string
-	// TODO(mq): include this field in the CRDs.
-	Command string
-	Enable  *bool
-	Content *string
-	DropIns []dropIn
-}
-
-type dropIn struct {
-	Name    string
-	Content string
-}
-
 var cloudInitTemplate = `
 #cloud-config
 

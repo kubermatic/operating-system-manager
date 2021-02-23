@@ -73,7 +73,8 @@ runcmd:
 	}
 
 	for _, testCase := range testCases {
-		t.Run("test cloud-init generating", func(t *testing.T) {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
 			generator, err := NewDefaultCloudInitGenerator("")
 			if err != nil {
 				t.Fatalf("failed to create cloud-init generator: %v", err)
