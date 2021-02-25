@@ -38,7 +38,7 @@ type Unit struct {
 	// Content is the unit's content.
 	Content *string `json:"content,omitempty"`
 	// DropIns is a list of drop-ins for this unit.
-	DropIns []DropIn `json:"dropIns,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
+	DropIns []DropIn `json:"dropIns,omitempty"`
 }
 
 // DropIn is a drop-in configuration for a systemd unit.
