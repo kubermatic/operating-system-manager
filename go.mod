@@ -3,6 +3,7 @@ module k8c.io/operating-system-manager
 go 1.15
 
 require (
+	github.com/Masterminds/sprig/v3 v3.2.2
 	github.com/emicklei/go-restful v2.11.2+incompatible // indirect
 	github.com/fatih/color v1.9.0 // indirect
 	github.com/go-logr/zapr v0.3.0 // indirect
@@ -25,6 +26,7 @@ require (
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/code-generator v0.20.2
 	k8s.io/klog v1.0.0
+	k8s.io/utils v0.0.0-20210111153108-fddb29f9d009
 	sigs.k8s.io/controller-runtime v0.8.2
 	sigs.k8s.io/controller-tools v0.4.1
 )
