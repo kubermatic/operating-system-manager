@@ -86,6 +86,46 @@ runcmd:
 - systemctl daemon-reload
 `,
 		},
+		{
+			name: "generated cloud-init for ubuntu without a service",
+			osc: &osmv1alpha1.OperatingSystemConfig{
+				Spec: osmv1alpha1.OperatingSystemConfigSpec{
+					OSName:    "ubuntu",
+					OSVersion: "20.04",
+					Files: []osmv1alpha1.File{
+						{
+							Path:        "/opt/bin/test",
+							Permissions: pointer.Int32Ptr(0700),
+							Content: osmv1alpha1.FileContent{
+								Inline: &osmv1alpha1.FileContentInline{
+									Data: "#!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    cloud-init init\n    systemctl start provision.service",
+								},
+							},
+						},
+					},
+					UserSSHKeys: []string{
+						"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3",
+						"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4",
+					},
+				},
+			},
+			expectedCloudInit: `
+#cloud-config
+
+ssh_pwauth: no
+ssh_authorized_keys:
+- 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3'
+- 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4'
+write_files:
+- path: '/opt/bin/test'
+  permissions: '0700'
+  encoding: b64
+  content: |
+    IyEvYmluL2Jhc2gKICAgIHNldCAteGV1byBwaXBlZmFpbAogICAgY2xvdWQtaW5pdCBjbGVhbgogICAgY2xvdWQtaW5pdCBpbml0CiAgICBzeXN0ZW1jdGwgc3RhcnQgcHJvdmlzaW9uLnNlcnZpY2U=
+runcmd:
+- systemctl daemon-reload
+`,
+		},
 	}
 
 	for _, testCase := range testCases {
