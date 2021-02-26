@@ -17,7 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"flag"
 	"os"
 
@@ -63,9 +62,8 @@ func main() {
 	}
 
 	log := logger.Sugar()
-	ctx := context.Background()
 
-	if err := osp.Add(ctx, log, mgr, opt.namespace, opt.workerCount); err != nil {
+	if err := osp.Add(log, mgr, opt.namespace, opt.workerCount); err != nil {
 		klog.Fatal(err)
 	}
 

@@ -39,3 +39,6 @@ echodate "Generating osm:v1alpha1"
    k8c.io/operating-system-manager/pkg/crd \
    osm:v1alpha1 \
   --go-header-file ${SCRIPT_ROOT}/header.txt
+
+echodate "Generating reconciling functions"
+go generate pkg/resources/reconciling/ensure.go
