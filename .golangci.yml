@@ -51,7 +51,5 @@ linters:
     - whitespace
 
 linters-settings:
-  govet:
-    check-shadowing: true
   goimports:
     local-prefixes: k8c.io/operating-system-manager

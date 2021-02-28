@@ -25,6 +25,8 @@ import (
 	"k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	ctrlruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -45,7 +47,7 @@ type Reconciler struct {
 	log *zap.SugaredLogger
 }
 
-func Add(ctx context.Context, log *zap.SugaredLogger, mgr manager.Manager, namespace string, workerCount int) error {
+func Add(log *zap.SugaredLogger, mgr manager.Manager, namespace string, workerCount int) error {
 	reconciler := &Reconciler{
 		Client: mgr.GetClient(),
 		log:    log,
@@ -56,10 +58,12 @@ func Add(ctx context.Context, log *zap.SugaredLogger, mgr manager.Manager, names
 		return err
 	}
 	return c.Watch(&source.Kind{Type: &v1alpha1.OperatingSystemProfile{}}, &handler.EnqueueRequestForObject{},
-		predicate.NewPredicateFuncs(func(o client.Object) bool { return o.GetNamespace() == namespace }))
+		predicate.NewPredicateFuncs(func(o metav1.Object, _ runtime.Object) bool { return o.GetNamespace() == namespace }))
 }
 
-func (r *Reconciler) Reconcile(ctx context.Context, req ctrlruntime.Request) (reconcile.Result, error) {
+func (r *Reconciler) Reconcile(req ctrlruntime.Request) (reconcile.Result, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	log := r.log.With("request", req)
 	log.Debug("Reconciling OSP resource..")
 
