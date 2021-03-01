@@ -38,14 +38,14 @@ type DefaultCloudInitGenerator struct {
 }
 
 // NewDefaultCloudInitGenerator creates a new cloud-init generator.
-func NewDefaultCloudInitGenerator(unitsPath string) (CloudInitGenerator, error) {
+func NewDefaultCloudInitGenerator(unitsPath string) CloudInitGenerator {
 	if unitsPath == "" {
 		unitsPath = defaultUnitsPath
 	}
 
 	return &DefaultCloudInitGenerator{
 		unitsPath: unitsPath,
-	}, nil
+	}
 }
 
 func (d *DefaultCloudInitGenerator) Generate(osc *osmv1alpha1.OperatingSystemConfig) ([]byte, error) {
@@ -89,8 +89,7 @@ type fileSpec struct {
 	Name        string
 }
 
-var cloudInitTemplate = `
-#cloud-config
+var cloudInitTemplate = `#cloud-config
 
 ssh_pwauth: no
 ssh_authorized_keys:
@@ -106,7 +105,8 @@ write_files:
 {{- end }}
   encoding: b64
   content: |
-    {{ $file.Content }}
+{{ $file.Content }}
+
 {{ end -}}
 
 runcmd:

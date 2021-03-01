@@ -19,13 +19,16 @@ package osc
 import (
 	"context"
 	"fmt"
+
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	"go.uber.org/zap"
+
 	"k8c.io/operating-system-manager/pkg/controllers/osc/resrources"
 	"k8c.io/operating-system-manager/pkg/controllers/osp/resources"
 	"k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/generator"
 	"k8c.io/operating-system-manager/pkg/resources/reconciling"
+
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	ctrlruntime "sigs.k8s.io/controller-runtime"
@@ -43,10 +46,10 @@ const (
 
 type Reconciler struct {
 	client.Client
-	log         *zap.SugaredLogger
-	namespace   string
-	clusterName string
-	generator   generator.CloudInitGenerator
+	log            *zap.SugaredLogger
+	namespace      string
+	clusterAddress string
+	generator      generator.CloudInitGenerator
 }
 
 func Add(
@@ -57,11 +60,11 @@ func Add(
 	workerCount int,
 	generator generator.CloudInitGenerator) error {
 	reconciler := &Reconciler{
-		Client:      mgr.GetClient(),
-		log:         log,
-		namespace:   namespace,
-		clusterName: clusterName,
-		generator:   generator,
+		Client:         mgr.GetClient(),
+		log:            log,
+		namespace:      namespace,
+		clusterAddress: clusterName,
+		generator:      generator,
 	}
 
 	c, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: reconciler, MaxConcurrentReconciles: workerCount})
@@ -126,9 +129,13 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 		return fmt.Errorf("failed to get OperatingSystemProfile: %v", err)
 	}
 
+	bootstrapOsp, err := resources.BootstrapOSP("", md)
+	if err != nil {
+		return err
+	}
 	if err := reconciling.ReconcileOperatingSystemConfigs(ctx, []reconciling.NamedOperatingSystemConfigCreatorGetter{
 		// TODO(mq): add api server address
-		resrources.OperatingSystemConfigCreator(false, md, resources.BootstrapOSP("", md)),
+		resrources.OperatingSystemConfigCreator(false, md, bootstrapOsp),
 	}, r.namespace, r.Client); err != nil {
 		return fmt.Errorf("failed to reconcile cloud-init bootstrap operating system config: %v", err)
 	}
@@ -143,15 +150,16 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 }
 
 func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
-	oscs := &v1alpha1.OperatingSystemConfigList{}
-	if err := r.List(ctx, oscs, &client.ListOptions{Namespace: r.namespace}); err != nil {
+	oscList := &v1alpha1.OperatingSystemConfigList{}
+	if err := r.List(ctx, oscList, &client.ListOptions{Namespace: r.namespace}); err != nil {
 		return fmt.Errorf("failed to list OperatingSystemConfigs: %v", err)
 	}
 
-	for _, osc := range oscs.Items {
-		switch osc.Name {
+	oscs := oscList.Items
+	for i := range oscs {
+		switch oscs[i].Name {
 		case fmt.Sprintf("%s-osc-%s", md.Name, resrources.BootstrapCloudInit):
-			bootstrapData, err := r.generator.Generate(&osc)
+			bootstrapData, err := r.generator.Generate(&oscs[i])
 			if err != nil {
 				return fmt.Errorf("failed to generate bootstrap cloud-init data")
 			}
@@ -162,7 +170,7 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.M
 				return fmt.Errorf("failed to reconcile cloud-init bootstrap secrets: %v", err)
 			}
 		case fmt.Sprintf("%s-osc-%s", md.Name, resrources.ProvisioningCloudInit):
-			provisionData, err := r.generator.Generate(&osc)
+			provisionData, err := r.generator.Generate(&oscs[i])
 			if err != nil {
 				return fmt.Errorf("failed to generate provisioing cloud-init data")
 			}
@@ -173,7 +181,7 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.M
 				return fmt.Errorf("failed to reconcile cloud-init provisioning secrets: %v", err)
 			}
 		default:
-			return fmt.Errorf("unkown OperatingSystemType name: %v", osc.Name)
+			return fmt.Errorf("unknown OperatingSystemType name: %v", oscs[i].Name)
 		}
 	}
 	return nil

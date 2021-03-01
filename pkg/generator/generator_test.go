@@ -131,11 +131,7 @@ runcmd:
 	for _, testCase := range testCases {
 		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
-			generator, err := NewDefaultCloudInitGenerator("")
-			if err != nil {
-				t.Fatalf("failed to create cloud-init generator: %v", err)
-			}
-
+			generator := NewDefaultCloudInitGenerator("")
 			cloudInit, err := generator.Generate(testCase.osc)
 			if err != nil {
 				t.Fatalf("failed to generate cloud-init configs: %v", err)
