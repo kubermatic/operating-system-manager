@@ -98,17 +98,15 @@ ssh_authorized_keys:
 {{ end -}}
 
 write_files:
-{{ range $_, $file := .Files -}}
+{{- range $_, $file := .Files }}
 - path: '{{ $file.Path }}'
 {{- if $file.Permissions }}
   permissions: '{{ $file.Permissions }}'
 {{- end }}
   encoding: b64
   content: |
-{{ $file.Content }}
-
-{{ end -}}
-
+    {{ $file.Content }}
+{{ end }}
 runcmd:
 {{ range $_, $cmd := runCMDs .Files -}}
 - systemctl restart {{ $cmd }}

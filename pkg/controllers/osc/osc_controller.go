@@ -95,14 +95,16 @@ func (r *Reconciler) Reconcile(req ctrlruntime.Request) (reconcile.Result, error
 	}
 
 	if machineDeployment.DeletionTimestamp != nil {
+		// TODO(mq): delete oscs and secrets when md is deleted.
 		return reconcile.Result{}, nil
 	}
 
-	if err := r.reconcile(ctx, machineDeployment); err != nil {
+	err := r.reconcile(ctx, machineDeployment)
+	if err != nil {
 		r.log.Errorw("Reconciling failed", zap.Error(err))
 	}
 
-	return reconcile.Result{}, nil
+	return reconcile.Result{}, err
 }
 
 func (r *Reconciler) reconcile(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
@@ -181,7 +183,7 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.M
 				return fmt.Errorf("failed to reconcile cloud-init provisioning secrets: %v", err)
 			}
 		default:
-			return fmt.Errorf("unknown OperatingSystemType name: %v", oscs[i].Name)
+			r.log.Debugw("skipping osc %s secret reconciliation for machine deployment %s", oscs[i].Name, md.Name)
 		}
 	}
 	return nil

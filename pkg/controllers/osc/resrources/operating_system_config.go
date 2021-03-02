@@ -26,6 +26,15 @@ import (
 	"k8c.io/operating-system-manager/pkg/resources/reconciling"
 )
 
+type CloudInitSecret string
+
+const (
+	BootstrapCloudInit    CloudInitSecret = "bootstrap"
+	ProvisioningCloudInit CloudInitSecret = "provisioning"
+
+	MachineDeploymentOSPAnnotation = "k8c.io/operating-system-profile"
+)
+
 func OperatingSystemConfigCreator(provision bool, md *v1alpha1.MachineDeployment, osp *osmv1alpha1.OperatingSystemProfile) reconciling.NamedOperatingSystemConfigCreatorGetter {
 	return func() (string, reconciling.OperatingSystemConfigCreator) {
 		var oscName string
@@ -43,11 +52,12 @@ func OperatingSystemConfigCreator(provision bool, md *v1alpha1.MachineDeployment
 				return nil, fmt.Errorf("failed to get user ssh keys: %v", err)
 			}
 
+			ospOriginal := osp.DeepCopy()
 			osc.Spec = osmv1alpha1.OperatingSystemConfigSpec{
-				OSName:      osp.Spec.OSName,
-				OSVersion:   osp.Spec.OSVersion,
-				Units:       osp.Spec.Units,
-				Files:       osp.Spec.Files,
+				OSName:      ospOriginal.Spec.OSName,
+				OSVersion:   ospOriginal.Spec.OSVersion,
+				Units:       ospOriginal.Spec.Units,
+				Files:       ospOriginal.Spec.Files,
 				UserSSHKeys: userSSHKeys.SSHPublicKeys,
 			}
 
