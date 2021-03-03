@@ -18,7 +18,8 @@ package generator
 
 import "strings"
 
-func getServiceName(path string) string {
+// GetServiceName get the name of the service file if it was a service one.
+func GetServiceName(path string) string {
 	parts := strings.Split(path, "/")
 	if len(parts) > 0 {
 		fileName := parts[len(parts)-1]

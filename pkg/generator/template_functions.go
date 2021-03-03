@@ -34,7 +34,7 @@ func TxtFuncMap() template.FuncMap {
 func runCMDs(fSpecs []*fileSpec) []string {
 	var services []string
 	for _, spec := range fSpecs {
-		if service := getServiceName(spec.Path); service != "" {
+		if service := GetServiceName(spec.Path); service != "" {
 			services = append(services, service)
 		}
 	}

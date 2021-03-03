@@ -40,6 +40,11 @@ func main() {
 				ImportAlias:        "corev1",
 				ResourceImportPath: "k8s.io/api/core/v1",
 			},
+			{
+				ResourceName:       "OperatingSystemConfig",
+				ImportAlias:        "osmv1alpha1",
+				ResourceImportPath: "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1",
+			},
 		},
 	}
 

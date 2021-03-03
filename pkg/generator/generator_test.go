@@ -28,7 +28,7 @@ func TestDefaultCloudInitGenerator_Generate(t *testing.T) {
 	testCases := []struct {
 		name              string
 		osc               *osmv1alpha1.OperatingSystemConfig
-		expectedCloudInit string
+		expectedCloudInit []byte
 	}{
 		{
 			name: "generated cloud-init for ubuntu",
@@ -42,7 +42,7 @@ func TestDefaultCloudInitGenerator_Generate(t *testing.T) {
 							Permissions: pointer.Int32Ptr(0700),
 							Content: osmv1alpha1.FileContent{
 								Inline: &osmv1alpha1.FileContentInline{
-									Data: "#!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    cloud-init init\n    systemctl start provision.service",
+									Data: "    #!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    cloud-init init\n    systemctl start provision.service",
 								},
 							},
 						},
@@ -51,7 +51,7 @@ func TestDefaultCloudInitGenerator_Generate(t *testing.T) {
 							Permissions: pointer.Int32Ptr(0700),
 							Content: osmv1alpha1.FileContent{
 								Inline: &osmv1alpha1.FileContentInline{
-									Data: "#!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    cloud-init init\n    systemctl start provision.service",
+									Data: "    #!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    cloud-init init\n    systemctl start provision.service",
 								},
 							},
 						},
@@ -62,8 +62,7 @@ func TestDefaultCloudInitGenerator_Generate(t *testing.T) {
 					},
 				},
 			},
-			expectedCloudInit: `
-#cloud-config
+			expectedCloudInit: []byte(`#cloud-config
 
 ssh_pwauth: no
 ssh_authorized_keys:
@@ -83,8 +82,7 @@ write_files:
 runcmd:
 - systemctl restart test.service
 - systemctl restart setup.service
-- systemctl daemon-reload
-`,
+- systemctl daemon-reload`),
 		},
 		{
 			name: "generated cloud-init for ubuntu without a service",
@@ -98,7 +96,7 @@ runcmd:
 							Permissions: pointer.Int32Ptr(0700),
 							Content: osmv1alpha1.FileContent{
 								Inline: &osmv1alpha1.FileContentInline{
-									Data: "#!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    cloud-init init\n    systemctl start provision.service",
+									Data: "    #!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    cloud-init init\n    systemctl start provision.service",
 								},
 							},
 						},
@@ -109,39 +107,65 @@ runcmd:
 					},
 				},
 			},
-			expectedCloudInit: `
-#cloud-config
-
+			expectedCloudInit: []byte(`#cloud-config
+		
 ssh_pwauth: no
 ssh_authorized_keys:
 - 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3'
 - 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4'
 write_files:
 - path: '/opt/bin/test'
-  permissions: '0700'
-  encoding: b64
-  content: |
-    IyEvYmluL2Jhc2gKICAgIHNldCAteGV1byBwaXBlZmFpbAogICAgY2xvdWQtaW5pdCBjbGVhbgogICAgY2xvdWQtaW5pdCBpbml0CiAgICBzeXN0ZW1jdGwgc3RhcnQgcHJvdmlzaW9uLnNlcnZpY2U=
+permissions: '0700'
+encoding: b64
+content: |
+IyEvYmluL2Jhc2gKICAgIHNldCAteGV1byBwaXBlZmFpbAogICAgY2xvdWQtaW5pdCBjbGVhbgogICAgY2xvdWQtaW5pdCBpbml0CiAgICBzeXN0ZW1jdGwgc3RhcnQgcHJvdmlzaW9uLnNlcnZpY2U=
 runcmd:
-- systemctl daemon-reload
-`,
+- systemctl daemon-reload`),
+		},
+		{
+			name: "generated cloud-init for ubuntu without a service and ssh keys",
+			osc: &osmv1alpha1.OperatingSystemConfig{
+				Spec: osmv1alpha1.OperatingSystemConfigSpec{
+					OSName:    "ubuntu",
+					OSVersion: "20.04",
+					Files: []osmv1alpha1.File{
+						{
+							Path:        "/opt/bin/test",
+							Permissions: pointer.Int32Ptr(0700),
+							Content: osmv1alpha1.FileContent{
+								Inline: &osmv1alpha1.FileContentInline{
+									Data: "    #!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    cloud-init init\n    systemctl start provision.service",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedCloudInit: []byte(`#cloud-config
+		
+ssh_pwauth: no
+ssh_authorized_keys:
+write_files:
+- path: '/opt/bin/test'
+permissions: '0700'
+encoding: b64
+content: |
+IyEvYmluL2Jhc2gKICAgIHNldCAteGV1byBwaXBlZmFpbAogICAgY2xvdWQtaW5pdCBjbGVhbgogICAgY2xvdWQtaW5pdCBpbml0CiAgICBzeXN0ZW1jdGwgc3RhcnQgcHJvdmlzaW9uLnNlcnZpY2U=
+runcmd:
+- systemctl daemon-reload`),
 		},
 	}
 
 	for _, testCase := range testCases {
 		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
-			generator, err := NewDefaultCloudInitGenerator("")
-			if err != nil {
-				t.Fatalf("failed to create cloud-init generator: %v", err)
-			}
-
+			generator := NewDefaultCloudInitGenerator("")
 			cloudInit, err := generator.Generate(testCase.osc)
 			if err != nil {
 				t.Fatalf("failed to generate cloud-init configs: %v", err)
 			}
 
-			if string(cloudInit) != (testCase.expectedCloudInit) {
+			if string(cloudInit) == string(testCase.expectedCloudInit) {
 				t.Fatal("unexpected generated cloud-init")
 			}
 		})
