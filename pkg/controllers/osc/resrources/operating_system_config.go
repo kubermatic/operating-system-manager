@@ -52,13 +52,19 @@ func OperatingSystemConfigCreator(provision bool, md *v1alpha1.MachineDeployment
 				return nil, fmt.Errorf("failed to get user ssh keys: %v", err)
 			}
 
+			cloudProvider, err := GetCloudProviderFromMachineDeployment(md)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get cloud provider from machine deployment: %v", err)
+			}
+
 			ospOriginal := osp.DeepCopy()
 			osc.Spec = osmv1alpha1.OperatingSystemConfigSpec{
-				OSName:      ospOriginal.Spec.OSName,
-				OSVersion:   ospOriginal.Spec.OSVersion,
-				Units:       ospOriginal.Spec.Units,
-				Files:       ospOriginal.Spec.Files,
-				UserSSHKeys: userSSHKeys.SSHPublicKeys,
+				OSName:        ospOriginal.Spec.OSName,
+				OSVersion:     ospOriginal.Spec.OSVersion,
+				Units:         ospOriginal.Spec.Units,
+				Files:         ospOriginal.Spec.Files,
+				CloudProvider: *cloudProvider,
+				UserSSHKeys:   userSSHKeys.SSHPublicKeys,
 			}
 
 			return osc, nil

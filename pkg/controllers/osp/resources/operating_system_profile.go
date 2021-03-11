@@ -22,6 +22,7 @@ import (
 
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 
+	oscresources "k8c.io/operating-system-manager/pkg/controllers/osc/resrources"
 	"k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,6 +59,11 @@ func BootstrapOSP(apiServerAddress string, md *clusterv1alpha1.MachineDeployment
 	if err := json.Unmarshal(md.Spec.Template.Spec.ProviderSpec.Value.Raw, osName); err != nil {
 		return nil, fmt.Errorf("failed to get operating system from machine deployment: %v", err)
 	}
+	cloudProvider, err := oscresources.GetCloudProviderFromMachineDeployment(md)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cloud provider from machine deployment: %v", err)
+	}
+
 	return &v1alpha1.OperatingSystemProfile{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "BootstrapOSP",
@@ -85,6 +91,9 @@ func BootstrapOSP(apiServerAddress string, md *clusterv1alpha1.MachineDeployment
 						},
 					},
 				},
+			},
+			SupportedCloudProviders: []v1alpha1.CloudProviderSpec{
+				*cloudProvider,
 			},
 		},
 	}, nil

@@ -47,7 +47,7 @@ type Reconciler struct {
 	log *zap.SugaredLogger
 }
 
-func Add(log *zap.SugaredLogger, mgr manager.Manager, namespace string, workerCount int) error {
+func Add(mgr manager.Manager, log *zap.SugaredLogger, namespace string, workerCount int) error {
 	reconciler := &Reconciler{
 		Client: mgr.GetClient(),
 		log:    log,

@@ -74,3 +74,8 @@ $(CMD): %: $(BUILD_DEST)/%
 
 $(BUILD_DEST)/%: cmd/% 
 	go build -o $@ ./cmd/$*
+
+.PHONY: clean
+clean:
+	rm -rf $(BUILD_DEST)
+	@echo "Cleaned $(BUILD_DEST)"

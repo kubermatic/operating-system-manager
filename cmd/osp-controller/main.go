@@ -43,6 +43,8 @@ func main() {
 	flag.IntVar(&opt.workerCount, "worker-count", 10, "Number of workers which process reconciliation in parallel.")
 	flag.StringVar(&opt.namespace, "namespace", "", "The namespace where the OSP controller will run.")
 
+	flag.Parse()
+
 	if len(opt.namespace) == 0 {
 		klog.Fatal("-namespace is required")
 	}
@@ -63,7 +65,7 @@ func main() {
 
 	log := logger.Sugar()
 
-	if err := osp.Add(log, mgr, opt.namespace, opt.workerCount); err != nil {
+	if err := osp.Add(mgr, log, opt.namespace, opt.workerCount); err != nil {
 		klog.Fatal(err)
 	}
 

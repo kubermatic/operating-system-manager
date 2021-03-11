@@ -20,8 +20,9 @@ import (
 	"context"
 	"fmt"
 
-	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	"go.uber.org/zap"
+
+	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 
 	"k8c.io/operating-system-manager/pkg/controllers/osc/resrources"
 	"k8c.io/operating-system-manager/pkg/controllers/osp/resources"
@@ -135,6 +136,7 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 	if err != nil {
 		return err
 	}
+
 	if err := reconciling.ReconcileOperatingSystemConfigs(ctx, []reconciling.NamedOperatingSystemConfigCreatorGetter{
 		// TODO(mq): add api server address
 		resrources.OperatingSystemConfigCreator(false, md, bootstrapOsp),
@@ -145,7 +147,7 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 	if err := reconciling.ReconcileOperatingSystemConfigs(ctx, []reconciling.NamedOperatingSystemConfigCreatorGetter{
 		resrources.OperatingSystemConfigCreator(true, md, osp),
 	}, r.namespace, r.Client); err != nil {
-		return fmt.Errorf("failed to reconcile cloud-init bootstrap operating system config: %v", err)
+		return fmt.Errorf("failed to reconcile cloud-init provision operating system config: %v", err)
 	}
 
 	return nil
@@ -174,7 +176,7 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.M
 		case fmt.Sprintf("%s-osc-%s", md.Name, resrources.ProvisioningCloudInit):
 			provisionData, err := r.generator.Generate(&oscs[i])
 			if err != nil {
-				return fmt.Errorf("failed to generate provisioing cloud-init data")
+				return fmt.Errorf("failed to generate provisioning cloud-init data")
 			}
 
 			if err := reconciling.ReconcileSecrets(ctx, []reconciling.NamedSecretCreatorGetter{
