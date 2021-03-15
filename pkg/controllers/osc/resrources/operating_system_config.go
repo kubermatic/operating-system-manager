@@ -17,8 +17,10 @@ limitations under the License.
 package resrources
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"text/template"
 
 	"github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 
@@ -33,6 +35,8 @@ const (
 	ProvisioningCloudInit CloudInitSecret = "provisioning"
 
 	MachineDeploymentOSPAnnotation = "k8c.io/operating-system-profile"
+
+	cniVersion = "v0.8.7"
 )
 
 func OperatingSystemConfigCreator(provision bool, md *v1alpha1.MachineDeployment, osp *osmv1alpha1.OperatingSystemProfile) reconciling.NamedOperatingSystemConfigCreatorGetter {
@@ -58,11 +62,21 @@ func OperatingSystemConfigCreator(provision bool, md *v1alpha1.MachineDeployment
 			}
 
 			ospOriginal := osp.DeepCopy()
+
+			data := filesData{
+				KubeletVersion: md.Spec.Template.Spec.Versions.Kubelet,
+				CNIVersion:     cniVersion,
+			}
+			populatedFiles, err := populateFilesList(ospOriginal.Spec.Files, data)
+			if err != nil {
+				return nil, fmt.Errorf("failed to populate OSP file template %v:", err)
+			}
+
 			osc.Spec = osmv1alpha1.OperatingSystemConfigSpec{
 				OSName:        ospOriginal.Spec.OSName,
 				OSVersion:     ospOriginal.Spec.OSVersion,
 				Units:         ospOriginal.Spec.Units,
-				Files:         ospOriginal.Spec.Files,
+				Files:         populatedFiles,
 				CloudProvider: *cloudProvider,
 				UserSSHKeys:   userSSHKeys.SSHPublicKeys,
 			}
@@ -70,4 +84,30 @@ func OperatingSystemConfigCreator(provision bool, md *v1alpha1.MachineDeployment
 			return osc, nil
 		}
 	}
+}
+
+type filesData struct {
+	KubeletVersion string
+	CNIVersion     string
+}
+
+func populateFilesList(files []osmv1alpha1.File, d filesData) ([]osmv1alpha1.File, error) {
+	pfiles := []osmv1alpha1.File{}
+	for _, file := range files {
+		content := file.Content.Inline.Data
+		tmpl, err := template.New(file.Path).Parse(content)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse OSP file [%s] template: %v", file.Path, err)
+		}
+
+		buff := bytes.Buffer{}
+		if err := tmpl.Execute(&buff, &d); err != nil {
+			return nil, err
+		}
+		pfile := file.DeepCopy()
+		pfile.Content.Inline.Data = buff.String()
+		pfiles = append(pfiles, *pfile)
+	}
+
+	return pfiles, nil
 }

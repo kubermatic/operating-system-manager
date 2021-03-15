@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"text/template"
 
+	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
+
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 )
 
@@ -29,7 +31,7 @@ const defaultUnitsPath = "/etc/systemd/system/"
 
 // CloudInitGenerator generates the cloud-init configurations for the corresponding operating system config
 type CloudInitGenerator interface {
-	Generate(osc *osmv1alpha1.OperatingSystemConfig) ([]byte, error)
+	Generate(osc *osmv1alpha1.OperatingSystemConfig, md *clusterv1alpha1.MachineDeployment) ([]byte, error)
 }
 
 // DefaultCloudInitGenerator represents the default generator of the cloud-init configuration
@@ -48,7 +50,8 @@ func NewDefaultCloudInitGenerator(unitsPath string) CloudInitGenerator {
 	}
 }
 
-func (d *DefaultCloudInitGenerator) Generate(osc *osmv1alpha1.OperatingSystemConfig) ([]byte, error) {
+func (d *DefaultCloudInitGenerator) Generate(osc *osmv1alpha1.OperatingSystemConfig, md *clusterv1alpha1.MachineDeployment) ([]byte, error) {
+
 	var files []*fileSpec
 	for _, file := range osc.Spec.Files {
 		fSpec := &fileSpec{
@@ -90,7 +93,6 @@ type fileSpec struct {
 }
 
 var cloudInitTemplate = `#cloud-config
-
 ssh_pwauth: no
 ssh_authorized_keys:
 {{ range $_, $key := .UserSSHKeys -}}

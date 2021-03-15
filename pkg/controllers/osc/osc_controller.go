@@ -163,7 +163,7 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.M
 	for i := range oscs {
 		switch oscs[i].Name {
 		case fmt.Sprintf("%s-osc-%s", md.Name, resrources.BootstrapCloudInit):
-			bootstrapData, err := r.generator.Generate(&oscs[i])
+			bootstrapData, err := r.generator.Generate(&oscs[i], md)
 			if err != nil {
 				return fmt.Errorf("failed to generate bootstrap cloud-init data")
 			}
@@ -174,7 +174,7 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.M
 				return fmt.Errorf("failed to reconcile cloud-init bootstrap secrets: %v", err)
 			}
 		case fmt.Sprintf("%s-osc-%s", md.Name, resrources.ProvisioningCloudInit):
-			provisionData, err := r.generator.Generate(&oscs[i])
+			provisionData, err := r.generator.Generate(&oscs[i], md)
 			if err != nil {
 				return fmt.Errorf("failed to generate provisioning cloud-init data")
 			}

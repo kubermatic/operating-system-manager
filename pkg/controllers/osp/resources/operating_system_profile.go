@@ -47,6 +47,8 @@ After=network-online.target
 Type=oneshot
 RemainAfterExit=true
 ExecStart=/opt/bin/bootstrap`
+
+	BootstrapOSPName = "BootstrapOSP"
 )
 
 // BootstrapOSP returns the default bootstrap script.
@@ -66,7 +68,7 @@ func BootstrapOSP(apiServerAddress string, md *clusterv1alpha1.MachineDeployment
 
 	return &v1alpha1.OperatingSystemProfile{
 		ObjectMeta: v1.ObjectMeta{
-			Name: "BootstrapOSP",
+			Name: BootstrapOSPName,
 		},
 		Spec: v1alpha1.OperatingSystemProfileSpec{
 			OSName: osName.OperatingSystem,
