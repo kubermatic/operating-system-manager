@@ -18,12 +18,16 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"net"
 	"os"
+	"strings"
 
 	"go.uber.org/zap"
 
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/controllers/osc"
+	"k8c.io/operating-system-manager/pkg/controllers/osp"
 	"k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/generator"
 
@@ -37,19 +41,36 @@ type options struct {
 	workerCount int
 	namespace   string
 	clusterName string
+
+	clusterDNSIPs string
+	kubeconfig    string
 }
 
 func main() {
 	klog.InitFlags(nil)
 
 	opt := &options{}
+
+	if flag.Lookup("kubeconfig") == nil {
+		flag.StringVar(&opt.kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
+	}
+
 	flag.IntVar(&opt.workerCount, "worker-count", 10, "Number of workers which process reconciliation in parallel.")
 	flag.StringVar(&opt.clusterName, "cluster-name", "", "The cluster where the OSC will run")
 	flag.StringVar(&opt.namespace, "namespace", "", "The namespace where the OSC controller will run.")
+
+	flag.StringVar(&opt.clusterDNSIPs, "cluster-dns", "10.10.10.10", "Comma-separated list of DNS server IP address.")
+
 	flag.Parse()
 
 	if len(opt.namespace) == 0 {
 		klog.Fatal("-namespace is required")
+	}
+	opt.kubeconfig = flag.Lookup("kubeconfig").Value.(flag.Getter).Get().(string)
+
+	clusterDNSIPs, err := parseClusterDNSIPs(opt.clusterDNSIPs)
+	if err != nil {
+		klog.Fatalf("invalid cluster dns specified: %v", err)
 	}
 
 	mgr, err := manager.New(config.GetConfigOrDie(), manager.Options{})
@@ -71,11 +92,37 @@ func main() {
 
 	log := logger.Sugar()
 
-	if err := osc.Add(mgr, log, opt.namespace, opt.clusterName, opt.workerCount, generator.NewDefaultCloudInitGenerator("")); err != nil {
+	if err := osp.Add(mgr, log, opt.namespace, opt.workerCount); err != nil {
+		klog.Fatal(err)
+	}
+
+	if err := osc.Add(
+		mgr,
+		log,
+		opt.namespace,
+		opt.clusterName,
+		opt.workerCount,
+		clusterDNSIPs,
+		opt.kubeconfig,
+		generator.NewDefaultCloudInitGenerator(""),
+	); err != nil {
 		klog.Fatal(err)
 	}
 
 	if err := mgr.Start(signals.SetupSignalHandler()); err != nil {
 		klog.Fatalf("Failed to start OSC controller: %v", zap.Error(err))
 	}
+}
+
+func parseClusterDNSIPs(s string) ([]net.IP, error) {
+	var ips []net.IP
+	sips := strings.Split(s, ",")
+	for _, sip := range sips {
+		ip := net.ParseIP(strings.TrimSpace(sip))
+		if ip == nil {
+			return nil, fmt.Errorf("unable to parse ip %s", sip)
+		}
+		ips = append(ips, ip)
+	}
+	return ips, nil
 }

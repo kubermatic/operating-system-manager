@@ -52,6 +52,7 @@ func Add(mgr manager.Manager, log *zap.SugaredLogger, namespace string, workerCo
 		Client: mgr.GetClient(),
 		log:    log,
 	}
+	log.Info("Reconciling OSP resource..")
 
 	c, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: reconciler, MaxConcurrentReconciles: workerCount})
 	if err != nil {
@@ -65,7 +66,7 @@ func (r *Reconciler) Reconcile(req ctrlruntime.Request) (reconcile.Result, error
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	log := r.log.With("request", req)
-	log.Debug("Reconciling OSP resource..")
+	log.Info("Reconciling OSP resource..")
 
 	profile := &v1alpha1.OperatingSystemProfile{}
 	if err := r.Get(ctx, req.NamespacedName, profile); err != nil && kerrors.IsNotFound(err) {
