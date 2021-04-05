@@ -25,6 +25,7 @@ import (
 	"text/template"
 
 	"github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
+	"github.com/sirupsen/logrus"
 
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/resources"
@@ -64,6 +65,7 @@ func OperatingSystemConfigCreator(
 		}
 
 		return oscName, func(osc *osmv1alpha1.OperatingSystemConfig) (*osmv1alpha1.OperatingSystemConfig, error) {
+			ospOriginal := osp.DeepCopy()
 			userSSHKeys := struct {
 				SSHPublicKeys []string `json:"sshPublicKeys"`
 			}{}
@@ -75,6 +77,20 @@ func OperatingSystemConfigCreator(
 			if err != nil {
 				return nil, fmt.Errorf("failed to get cloud provider from machine deployment: %v", err)
 			}
+
+			if !provision {
+				osc.Spec = osmv1alpha1.OperatingSystemConfigSpec{
+					OSName:        ospOriginal.Spec.OSName,
+					OSVersion:     ospOriginal.Spec.OSVersion,
+					Units:         ospOriginal.Spec.Units,
+					Files:         ospOriginal.Spec.Files,
+					CloudProvider: *cloudProvider,
+					UserSSHKeys:   userSSHKeys.SSHPublicKeys,
+				}
+
+				return osc, nil
+			}
+
 			CACert, err := resources.GetCACert(kubeconfig)
 			if err != nil {
 				return nil, err
@@ -83,6 +99,9 @@ func OperatingSystemConfigCreator(
 			if err != nil {
 				return nil, err
 			}
+			userdata, err := resources.GetOSMBootstrapUserdata(kubeconfig, md.Name, fmt.Sprintf("%s-osc-bootstrap", md.Name))
+			logrus.Infof("%v", userdata)
+			logrus.Infof("%v", err)
 			kubeconfigStr, err := resources.StringifyKubeconfig(kubeconfig)
 			if err != nil {
 				return nil, err
@@ -114,8 +133,6 @@ func OperatingSystemConfigCreator(
 
 				SafeDownloadBinariesScript: safeDownloadBinariesScript,
 			}
-
-			ospOriginal := osp.DeepCopy()
 
 			populatedFiles, err := populateFilesList(ospOriginal.Spec.Files, data)
 			if err != nil {
@@ -293,7 +310,8 @@ func SafeDownloadBinariesScript(kubeVersion string) (string, error) {
 }
 
 const (
-	kubeletSystemdUnitTpl = `[Unit]
+	kubeletSystemdUnitTpl = `
+[Unit]
 After={{ .ContainerRuntime }}.service
 Requires={{ .ContainerRuntime }}.service
 
@@ -322,7 +340,7 @@ ExecStart=/opt/bin/kubelet $KUBELET_EXTRA_ARGS \
   --cloud-provider=external \
   {{- end }}
   {{- if and (.Hostname) (ne .CloudProvider "aws") }}
-  --hostname-override={{ .Hostname }} \
+  --hostname-override=%H \
   {{- end }}
   --dynamic-config-dir=/etc/kubernetes/dynamic-config-dir \
   --exit-on-lock-contention \
@@ -341,7 +359,8 @@ ExecStart=/opt/bin/kubelet $KUBELET_EXTRA_ARGS \
 [Install]
 WantedBy=multi-user.target`
 
-	safeDownloadBinariesTpl = `{{- /*setup some common directories */ -}}
+	safeDownloadBinariesTpl = `
+{{- /*setup some common directories */ -}}
 opt_bin=/opt/bin
 cni_bin_dir=/opt/cni/bin
 

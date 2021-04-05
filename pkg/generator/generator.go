@@ -18,7 +18,6 @@ package generator
 
 import (
 	"bytes"
-	"encoding/base64"
 	"fmt"
 	"text/template"
 
@@ -56,7 +55,7 @@ func (d *DefaultCloudInitGenerator) Generate(osc *osmv1alpha1.OperatingSystemCon
 	for _, file := range osc.Spec.Files {
 		fSpec := &fileSpec{
 			Path:    file.Path,
-			Content: base64.StdEncoding.EncodeToString([]byte(file.Content.Inline.Data)),
+			Content: file.Content.Inline.Data,
 		}
 		if file.Permissions != nil {
 			permissions := fmt.Sprintf("%04o", *file.Permissions)
@@ -105,9 +104,8 @@ write_files:
 {{- if $file.Permissions }}
   permissions: '{{ $file.Permissions }}'
 {{- end }}
-  encoding: b64
-  content: |
-    {{ $file.Content }}
+  content: |-
+{{ $file.Content | indent 4 }}
 {{ end }}
 runcmd:
 {{ range $_, $cmd := runCMDs .Files -}}

@@ -26,6 +26,7 @@ import (
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 
 	"k8c.io/operating-system-manager/pkg/controllers/osc/resrources"
+	"k8c.io/operating-system-manager/pkg/controllers/osp/resources"
 	"k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/generator"
 	"k8c.io/operating-system-manager/pkg/resources/reconciling"
@@ -139,17 +140,17 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 		return fmt.Errorf("failed to get OperatingSystemProfile: %v", err)
 	}
 
-	// bootstrapOsp, err := resources.BootstrapOSP("", md)
-	// if err != nil {
-	// 	return err
-	// }
+	bootstrapOsp, err := resources.BootstrapOSP("", md)
+	if err != nil {
+		return err
+	}
 
-	// if err := reconciling.ReconcileOperatingSystemConfigs(ctx, []reconciling.NamedOperatingSystemConfigCreatorGetter{
-	// 	// TODO(mq): add api server address
-	// 	resrources.OperatingSystemConfigCreator(false, md, bootstrapOsp),
-	// }, r.namespace, r.Client); err != nil {
-	// 	return fmt.Errorf("failed to reconcile cloud-init bootstrap operating system config: %v", err)
-	// }
+	if err := reconciling.ReconcileOperatingSystemConfigs(ctx, []reconciling.NamedOperatingSystemConfigCreatorGetter{
+		// TODO(mq): add api server address
+		resrources.OperatingSystemConfigCreator(false, md, bootstrapOsp, "", nil),
+	}, r.namespace, r.Client); err != nil {
+		return fmt.Errorf("failed to reconcile cloud-init bootstrap operating system config: %v", err)
+	}
 
 	if err := reconciling.ReconcileOperatingSystemConfigs(ctx, []reconciling.NamedOperatingSystemConfigCreatorGetter{
 		resrources.OperatingSystemConfigCreator(
@@ -176,16 +177,17 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.M
 	for i := range oscs {
 		switch oscs[i].Name {
 		case fmt.Sprintf("%s-osc-%s", md.Name, resrources.BootstrapCloudInit):
-			// bootstrapData, err := r.generator.Generate(&oscs[i], md)
-			// if err != nil {
-			// 	return fmt.Errorf("failed to generate bootstrap cloud-init data")
-			// }
+			bootstrapData, err := r.generator.Generate(&oscs[i], md)
+			if err != nil {
+				return fmt.Errorf("failed to generate bootstrap cloud-init data")
+			}
 
-			// if err := reconciling.ReconcileSecrets(ctx, []reconciling.NamedSecretCreatorGetter{
-			// 	resrources.CloudInitSecretCreator(md.Name, resrources.BootstrapCloudInit, bootstrapData),
-			// }, r.namespace, r.Client); err != nil {
-			// 	return fmt.Errorf("failed to reconcile cloud-init bootstrap secrets: %v", err)
-			// }
+			if err := reconciling.ReconcileSecrets(ctx, []reconciling.NamedSecretCreatorGetter{
+				resrources.CloudInitSecretCreator(md.Name, resrources.BootstrapCloudInit, bootstrapData),
+			}, r.namespace, r.Client); err != nil {
+				return fmt.Errorf("failed to reconcile cloud-init bootstrap secrets: %v", err)
+			}
+			r.log.Infof("successfully generated cloud-init bootstrap secret: %v", fmt.Sprintf("%s-osc-%s", md.Name, resrources.BootstrapCloudInit))
 		case fmt.Sprintf("%s-osc-%s", md.Name, resrources.ProvisioningCloudInit):
 			provisionData, err := r.generator.Generate(&oscs[i], md)
 			if err != nil {
@@ -197,6 +199,7 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.M
 			}, r.namespace, r.Client); err != nil {
 				return fmt.Errorf("failed to reconcile cloud-init provisioning secrets: %v", err)
 			}
+			r.log.Infof("successfully generated cloud-init provisioning secret: %v", fmt.Sprintf("%s-osc-%s", md.Name, resrources.ProvisioningCloudInit))
 		default:
 			r.log.Debugw("skipping osc %s secret reconciliation for machine deployment %s", oscs[i].Name, md.Name)
 		}
