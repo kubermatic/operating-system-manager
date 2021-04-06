@@ -336,7 +336,7 @@ ExecStart=/opt/bin/kubelet $KUBELET_EXTRA_ARGS \
   --config=/etc/kubernetes/kubelet.conf \
   --network-plugin=cni \
   --cert-dir=/etc/kubernetes/pki \
-  {{- if or (.CloudProvider) (.IsExternal) }}
+  {{- if .IsExternal }}
   --cloud-provider=external \
   {{- end }}
   {{- if and (.Hostname) (ne .CloudProvider "aws") }}

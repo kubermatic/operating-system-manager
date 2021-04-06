@@ -45,6 +45,16 @@ func main() {
 				ImportAlias:        "osmv1alpha1",
 				ResourceImportPath: "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1",
 			},
+			{
+				ResourceName:       "ClusterRoleBinding",
+				ImportAlias:        "rbacv1",
+				ResourceImportPath: "k8s.io/api/rbac/v1",
+			},
+			{
+				ResourceName:       "ClusterRole",
+				ImportAlias:        "rbacv1",
+				ResourceImportPath: "k8s.io/api/rbac/v1",
+			},
 		},
 	}
 
@@ -61,8 +71,6 @@ func main() {
 	if err := ioutil.WriteFile("zz_generated_reconcile.go", fmtB, 0644); err != nil {
 		log.Fatal(err)
 	}
-
-	fmt.Println("go go")
 }
 
 func lowercaseFirst(str string) string {
