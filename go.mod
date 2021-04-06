@@ -23,7 +23,4 @@ require (
 
 )
 
-replace (
-	k8s.io/client-go => k8s.io/client-go v0.20.2
-	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.6.5
-)
+replace k8s.io/client-go => k8s.io/client-go v0.20.2

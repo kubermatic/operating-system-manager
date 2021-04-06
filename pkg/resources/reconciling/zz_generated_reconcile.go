@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -23,7 +22,7 @@ type NamedSecretCreatorGetter = func() (name string, create SecretCreator)
 // SecretObjectWrapper adds a wrapper so the SecretCreator matches ObjectCreator.
 // This is needed as Go does not support function interface matching.
 func SecretObjectWrapper(create SecretCreator) ObjectCreator {
-	return func(existing runtime.Object) (runtime.Object, error) {
+	return func(existing ctrlruntimeclient.Object) (ctrlruntimeclient.Object, error) {
 		if existing != nil {
 			return create(existing.(*corev1.Secret))
 		}
@@ -60,7 +59,7 @@ type NamedOperatingSystemConfigCreatorGetter = func() (name string, create Opera
 // OperatingSystemConfigObjectWrapper adds a wrapper so the OperatingSystemConfigCreator matches ObjectCreator.
 // This is needed as Go does not support function interface matching.
 func OperatingSystemConfigObjectWrapper(create OperatingSystemConfigCreator) ObjectCreator {
-	return func(existing runtime.Object) (runtime.Object, error) {
+	return func(existing ctrlruntimeclient.Object) (ctrlruntimeclient.Object, error) {
 		if existing != nil {
 			return create(existing.(*osmv1alpha1.OperatingSystemConfig))
 		}
@@ -97,7 +96,7 @@ type NamedClusterRoleBindingCreatorGetter = func() (name string, create ClusterR
 // ClusterRoleBindingObjectWrapper adds a wrapper so the ClusterRoleBindingCreator matches ObjectCreator.
 // This is needed as Go does not support function interface matching.
 func ClusterRoleBindingObjectWrapper(create ClusterRoleBindingCreator) ObjectCreator {
-	return func(existing runtime.Object) (runtime.Object, error) {
+	return func(existing ctrlruntimeclient.Object) (ctrlruntimeclient.Object, error) {
 		if existing != nil {
 			return create(existing.(*rbacv1.ClusterRoleBinding))
 		}
@@ -134,7 +133,7 @@ type NamedClusterRoleCreatorGetter = func() (name string, create ClusterRoleCrea
 // ClusterRoleObjectWrapper adds a wrapper so the ClusterRoleCreator matches ObjectCreator.
 // This is needed as Go does not support function interface matching.
 func ClusterRoleObjectWrapper(create ClusterRoleCreator) ObjectCreator {
-	return func(existing runtime.Object) (runtime.Object, error) {
+	return func(existing ctrlruntimeclient.Object) (ctrlruntimeclient.Object, error) {
 		if existing != nil {
 			return create(existing.(*rbacv1.ClusterRole))
 		}

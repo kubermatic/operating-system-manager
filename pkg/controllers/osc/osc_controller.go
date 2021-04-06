@@ -88,9 +88,7 @@ func Add(
 	return nil
 }
 
-func (r *Reconciler) Reconcile(req ctrlruntime.Request) (reconcile.Result, error) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+func (r *Reconciler) Reconcile(ctx context.Context, req ctrlruntime.Request) (reconcile.Result, error) {
 	log := r.log.With("request", req)
 	log.Info("Reconciling OSC resource..")
 
