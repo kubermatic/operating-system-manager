@@ -23,6 +23,8 @@ spec:
     listKind: OperatingSystemConfigList
     plural: operatingsystemconfigs
     singular: operatingsystemconfig
+    shortNames:
+    - osc
   scope: Namespaced
   versions:
     - name: v1alpha1

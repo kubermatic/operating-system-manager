@@ -25,8 +25,6 @@ import (
 	"text/template"
 
 	"github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
-	"github.com/sirupsen/logrus"
-
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/resources"
 	"k8c.io/operating-system-manager/pkg/resources/reconciling"
@@ -41,7 +39,6 @@ import (
 type CloudInitSecret string
 
 const (
-	BootstrapCloudInit    CloudInitSecret = "bootstrap"
 	ProvisioningCloudInit CloudInitSecret = "provisioning"
 
 	MachineDeploymentOSPAnnotation = "k8c.io/operating-system-profile"
@@ -50,19 +47,13 @@ const (
 )
 
 func OperatingSystemConfigCreator(
-	provision bool,
 	md *v1alpha1.MachineDeployment,
 	osp *osmv1alpha1.OperatingSystemProfile,
 	kubeconfig string,
 	clusterDNSIPs []net.IP,
 ) reconciling.NamedOperatingSystemConfigCreatorGetter {
 	return func() (string, reconciling.OperatingSystemConfigCreator) {
-		var oscName string
-		if provision {
-			oscName = fmt.Sprintf("%s-osc-%s", md.Name, ProvisioningCloudInit)
-		} else {
-			oscName = fmt.Sprintf("%s-osc-%s", md.Name, BootstrapCloudInit)
-		}
+		var oscName = fmt.Sprintf("%s-osc-%s", md.Name, ProvisioningCloudInit)
 
 		return oscName, func(osc *osmv1alpha1.OperatingSystemConfig) (*osmv1alpha1.OperatingSystemConfig, error) {
 			ospOriginal := osp.DeepCopy()
@@ -78,19 +69,6 @@ func OperatingSystemConfigCreator(
 				return nil, fmt.Errorf("failed to get cloud provider from machine deployment: %v", err)
 			}
 
-			if !provision {
-				osc.Spec = osmv1alpha1.OperatingSystemConfigSpec{
-					OSName:        ospOriginal.Spec.OSName,
-					OSVersion:     ospOriginal.Spec.OSVersion,
-					Units:         ospOriginal.Spec.Units,
-					Files:         ospOriginal.Spec.Files,
-					CloudProvider: *cloudProvider,
-					UserSSHKeys:   userSSHKeys.SSHPublicKeys,
-				}
-
-				return osc, nil
-			}
-
 			CACert, err := resources.GetCACert(kubeconfig)
 			if err != nil {
 				return nil, err
@@ -99,9 +77,6 @@ func OperatingSystemConfigCreator(
 			if err != nil {
 				return nil, err
 			}
-			userdata, err := resources.GetOSMBootstrapUserdata(kubeconfig, md.Name, fmt.Sprintf("%s-osc-bootstrap", md.Name))
-			logrus.Infof("%v", userdata)
-			logrus.Infof("%v", err)
 			kubeconfigStr, err := resources.StringifyKubeconfig(kubeconfig)
 			if err != nil {
 				return nil, err
@@ -136,7 +111,7 @@ func OperatingSystemConfigCreator(
 
 			populatedFiles, err := populateFilesList(ospOriginal.Spec.Files, data)
 			if err != nil {
-				return nil, fmt.Errorf("failed to populate OSP file template %v:", err)
+				return nil, fmt.Errorf("failed to populate OSP file template: %v", err)
 			}
 
 			osc.Spec = osmv1alpha1.OperatingSystemConfigSpec{
@@ -171,7 +146,7 @@ type filesData struct {
 }
 
 func populateFilesList(files []osmv1alpha1.File, d filesData) ([]osmv1alpha1.File, error) {
-	pfiles := []osmv1alpha1.File{}
+	var pfiles []osmv1alpha1.File
 	for _, file := range files {
 		content := file.Content.Inline.Data
 		tmpl, err := template.New(file.Path).Parse(content)

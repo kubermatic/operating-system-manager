@@ -129,39 +129,6 @@ func TestReconciler_Reconcile(t *testing.T) {
 				expectedOSCs: []*osmv1alpha1.OperatingSystemConfig{
 					{
 						ObjectMeta: v1.ObjectMeta{
-							Name:            fmt.Sprintf("ubuntu-20.04-osc-%s", resrources.BootstrapCloudInit),
-							Namespace:       "kube-system",
-							ResourceVersion: "1",
-						},
-						Spec: osmv1alpha1.OperatingSystemConfigSpec{
-							OSName: "Ubuntu",
-							Files: []osmv1alpha1.File{
-								{
-									Path:        fmt.Sprintf("/opt/bin/%s", resrources.BootstrapCloudInit),
-									Permissions: pointer.Int32Ptr(0755),
-									Content: osmv1alpha1.FileContent{
-										Inline: &osmv1alpha1.FileContentInline{
-											Encoding: "b64",
-											Data:     "#!/bin/bash\nset -xeuo pipefail\nwget /ubuntu-20.04-osc-bootstrap.cfg --directory-prefix /etc/cloud/cloud.cfg.d/\ncloud-init clean\ncloud-init --file /etc/cloud/cloud.cfg.d/ubuntu-20.04-osc-bootstrap.cfg init\nsystemctl start provision.service",
-										},
-									},
-								},
-								{
-									Path:        fmt.Sprintf("/etc/systemd/system/%s.service", resrources.BootstrapCloudInit),
-									Permissions: pointer.Int32Ptr(0644),
-									Content: osmv1alpha1.FileContent{
-										Inline: &osmv1alpha1.FileContentInline{
-											Encoding: "b64",
-											Data:     "[Install]\nWantedBy=multi-user.target\n\n[Unit]\nRequires=network-online.target\nAfter=network-online.target\n[Service]\nType=oneshot\nRemainAfterExit=true\nExecStart=/opt/bin/bootstrap",
-										},
-									},
-								},
-							},
-							UserSSHKeys: []string{"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c"},
-						},
-					},
-					{
-						ObjectMeta: v1.ObjectMeta{
 							Name:            fmt.Sprintf("ubuntu-20.04-osc-%s", resrources.ProvisioningCloudInit),
 							Namespace:       "kube-system",
 							ResourceVersion: "1",
@@ -198,16 +165,6 @@ func TestReconciler_Reconcile(t *testing.T) {
 				expectedSecrets: []*corev1.Secret{
 					{
 						ObjectMeta: v1.ObjectMeta{
-							Name:            fmt.Sprintf("ubuntu-20.04-osc-%s", resrources.BootstrapCloudInit),
-							Namespace:       "kube-system",
-							ResourceVersion: "1",
-						},
-						Data: map[string][]byte{
-							"cloud-init": []byte("#cloud-config\n\nssh_pwauth: no\nssh_authorized_keys:\n- 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c'\nwrite_files:\n- path: '/opt/bin/bootstrap'\n  permissions: '0755'\n  encoding: b64\n  content: |\n    IyEvYmluL2Jhc2gKc2V0IC14ZXVvIHBpcGVmYWlsCndnZXQgL3VidW50dS0yMC4wNC1vc2MtYm9vdHN0cmFwLmNmZyAtLWRpcmVjdG9yeS1wcmVmaXggL2V0Yy9jbG91ZC9jbG91ZC5jZmcuZC8KY2xvdWQtaW5pdCBjbGVhbgpjbG91ZC1pbml0IC0tZmlsZSAvZXRjL2Nsb3VkL2Nsb3VkLmNmZy5kL3VidW50dS0yMC4wNC1vc2MtYm9vdHN0cmFwLmNmZyBpbml0CnN5c3RlbWN0bCBzdGFydCBwcm92aXNpb24uc2VydmljZQ==\n\n- path: '/etc/systemd/system/bootstrap.service'\n  permissions: '0644'\n  encoding: b64\n  content: |\n    W0luc3RhbGxdCldhbnRlZEJ5PW11bHRpLXVzZXIudGFyZ2V0CgpbVW5pdF0KUmVxdWlyZXM9bmV0d29yay1vbmxpbmUudGFyZ2V0CkFmdGVyPW5ldHdvcmstb25saW5lLnRhcmdldApbU2VydmljZV0KVHlwZT1vbmVzaG90ClJlbWFpbkFmdGVyRXhpdD10cnVlCkV4ZWNTdGFydD0vb3B0L2Jpbi9ib290c3RyYXA=\n\nruncmd:\n- systemctl restart bootstrap.service\n- systemctl daemon-reload\n"),
-						},
-					},
-					{
-						ObjectMeta: v1.ObjectMeta{
 							Name:            fmt.Sprintf("ubuntu-20.04-osc-%s", resrources.ProvisioningCloudInit),
 							Namespace:       "kube-system",
 							ResourceVersion: "1",
@@ -232,19 +189,6 @@ func TestReconciler_Reconcile(t *testing.T) {
 			osc := &osmv1alpha1.OperatingSystemConfig{}
 			if err := fakeClient.Get(ctx, types.NamespacedName{
 				Namespace: "kube-system",
-				Name:      fmt.Sprintf("ubuntu-20.04-osc-%s", resrources.BootstrapCloudInit)},
-				osc); err != nil {
-				t.Fatalf("failed to get osc: %v", err)
-			}
-
-			if !reflect.DeepEqual(osc.ObjectMeta, testCase.expectedOSCs[0].ObjectMeta) ||
-				!reflect.DeepEqual(osc.Spec, testCase.expectedOSCs[0].Spec) {
-				t.Fatal("operatingSystemConfig values are unexpected")
-			}
-
-			osc = &osmv1alpha1.OperatingSystemConfig{}
-			if err := fakeClient.Get(ctx, types.NamespacedName{
-				Namespace: "kube-system",
 				Name:      fmt.Sprintf("ubuntu-20.04-osc-%s", resrources.ProvisioningCloudInit)},
 				osc); err != nil {
 				t.Fatalf("failed to get osc: %v", err)
@@ -255,19 +199,6 @@ func TestReconciler_Reconcile(t *testing.T) {
 			}
 
 			secret := &corev1.Secret{}
-			if err := fakeClient.Get(ctx, types.NamespacedName{
-				Namespace: "kube-system",
-				Name:      fmt.Sprintf("ubuntu-20.04-osc-%s", resrources.BootstrapCloudInit)},
-				secret); err != nil {
-				t.Fatalf("failed to get osc: %v", err)
-			}
-
-			if !reflect.DeepEqual(secret.ObjectMeta, testCase.expectedSecrets[0].ObjectMeta) ||
-				!reflect.DeepEqual(secret.Data, testCase.expectedSecrets[0].Data) {
-				t.Fatal("operatingSystemConfig values are unexpected")
-			}
-
-			secret = &corev1.Secret{}
 			if err := fakeClient.Get(ctx, types.NamespacedName{
 				Namespace: "kube-system",
 				Name:      fmt.Sprintf("ubuntu-20.04-osc-%s", resrources.ProvisioningCloudInit)},
