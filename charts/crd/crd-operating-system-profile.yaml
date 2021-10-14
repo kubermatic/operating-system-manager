@@ -23,6 +23,8 @@ spec:
     listKind: OperatingSystemProfileList
     plural: operatingsystemprofiles
     singular: operatingsystemprofile
+    shortNames:
+    - osp
   scope: Namespaced
   versions:
     - name: v1alpha1

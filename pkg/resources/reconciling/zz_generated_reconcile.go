@@ -5,12 +5,12 @@ import (
 	"context"
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 )
 
 // SecretCreator defines an interface to create/update Secrets
@@ -22,7 +22,7 @@ type NamedSecretCreatorGetter = func() (name string, create SecretCreator)
 // SecretObjectWrapper adds a wrapper so the SecretCreator matches ObjectCreator.
 // This is needed as Go does not support function interface matching.
 func SecretObjectWrapper(create SecretCreator) ObjectCreator {
-	return func(existing runtime.Object) (runtime.Object, error) {
+	return func(existing ctrlruntimeclient.Object) (ctrlruntimeclient.Object, error) {
 		if existing != nil {
 			return create(existing.(*corev1.Secret))
 		}
@@ -59,7 +59,7 @@ type NamedOperatingSystemConfigCreatorGetter = func() (name string, create Opera
 // OperatingSystemConfigObjectWrapper adds a wrapper so the OperatingSystemConfigCreator matches ObjectCreator.
 // This is needed as Go does not support function interface matching.
 func OperatingSystemConfigObjectWrapper(create OperatingSystemConfigCreator) ObjectCreator {
-	return func(existing runtime.Object) (runtime.Object, error) {
+	return func(existing ctrlruntimeclient.Object) (ctrlruntimeclient.Object, error) {
 		if existing != nil {
 			return create(existing.(*osmv1alpha1.OperatingSystemConfig))
 		}
@@ -81,6 +81,80 @@ func ReconcileOperatingSystemConfigs(ctx context.Context, namedGetters []NamedOp
 
 		if err := EnsureNamedObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, createObject, client, &osmv1alpha1.OperatingSystemConfig{}, false); err != nil {
 			return fmt.Errorf("failed to ensure OperatingSystemConfig %s/%s: %v", namespace, name, err)
+		}
+	}
+
+	return nil
+}
+
+// ClusterRoleBindingCreator defines an interface to create/update ClusterRoleBindings
+type ClusterRoleBindingCreator = func(existing *rbacv1.ClusterRoleBinding) (*rbacv1.ClusterRoleBinding, error)
+
+// NamedClusterRoleBindingCreatorGetter returns the name of the resource and the corresponding creator function
+type NamedClusterRoleBindingCreatorGetter = func() (name string, create ClusterRoleBindingCreator)
+
+// ClusterRoleBindingObjectWrapper adds a wrapper so the ClusterRoleBindingCreator matches ObjectCreator.
+// This is needed as Go does not support function interface matching.
+func ClusterRoleBindingObjectWrapper(create ClusterRoleBindingCreator) ObjectCreator {
+	return func(existing ctrlruntimeclient.Object) (ctrlruntimeclient.Object, error) {
+		if existing != nil {
+			return create(existing.(*rbacv1.ClusterRoleBinding))
+		}
+		return create(&rbacv1.ClusterRoleBinding{})
+	}
+}
+
+// ReconcileClusterRoleBindings will create and update the ClusterRoleBindings coming from the passed ClusterRoleBindingCreator slice
+func ReconcileClusterRoleBindings(ctx context.Context, namedGetters []NamedClusterRoleBindingCreatorGetter, namespace string, client ctrlruntimeclient.Client, objectModifiers ...ObjectModifier) error {
+	for _, get := range namedGetters {
+		name, create := get()
+		createObject := ClusterRoleBindingObjectWrapper(create)
+		createObject = createWithNamespace(createObject, namespace)
+		createObject = createWithName(createObject, name)
+
+		for _, objectModifier := range objectModifiers {
+			createObject = objectModifier(createObject)
+		}
+
+		if err := EnsureNamedObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, createObject, client, &rbacv1.ClusterRoleBinding{}, false); err != nil {
+			return fmt.Errorf("failed to ensure ClusterRoleBinding %s/%s: %v", namespace, name, err)
+		}
+	}
+
+	return nil
+}
+
+// ClusterRoleCreator defines an interface to create/update ClusterRoles
+type ClusterRoleCreator = func(existing *rbacv1.ClusterRole) (*rbacv1.ClusterRole, error)
+
+// NamedClusterRoleCreatorGetter returns the name of the resource and the corresponding creator function
+type NamedClusterRoleCreatorGetter = func() (name string, create ClusterRoleCreator)
+
+// ClusterRoleObjectWrapper adds a wrapper so the ClusterRoleCreator matches ObjectCreator.
+// This is needed as Go does not support function interface matching.
+func ClusterRoleObjectWrapper(create ClusterRoleCreator) ObjectCreator {
+	return func(existing ctrlruntimeclient.Object) (ctrlruntimeclient.Object, error) {
+		if existing != nil {
+			return create(existing.(*rbacv1.ClusterRole))
+		}
+		return create(&rbacv1.ClusterRole{})
+	}
+}
+
+// ReconcileClusterRoles will create and update the ClusterRoles coming from the passed ClusterRoleCreator slice
+func ReconcileClusterRoles(ctx context.Context, namedGetters []NamedClusterRoleCreatorGetter, namespace string, client ctrlruntimeclient.Client, objectModifiers ...ObjectModifier) error {
+	for _, get := range namedGetters {
+		name, create := get()
+		createObject := ClusterRoleObjectWrapper(create)
+		createObject = createWithNamespace(createObject, namespace)
+		createObject = createWithName(createObject, name)
+
+		for _, objectModifier := range objectModifiers {
+			createObject = objectModifier(createObject)
+		}
+
+		if err := EnsureNamedObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, createObject, client, &rbacv1.ClusterRole{}, false); err != nil {
+			return fmt.Errorf("failed to ensure ClusterRole %s/%s: %v", namespace, name, err)
 		}
 	}
 

@@ -41,7 +41,6 @@ linters:
     - misspell
     - nakedret
     - scopelint
-    - staticcheck
     - structcheck
     - stylecheck
     - unconvert
