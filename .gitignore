@@ -2,3 +2,4 @@
 .idea
 .kubeconfig
 /vendor
+_build
