@@ -24,12 +24,14 @@ import (
 	"go.uber.org/zap"
 
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
+	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 
 	"k8c.io/operating-system-manager/pkg/controllers/osc/resrources"
 	"k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/generator"
 	"k8c.io/operating-system-manager/pkg/resources/reconciling"
 
+	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	ctrlruntime "sigs.k8s.io/controller-runtime"
@@ -96,13 +98,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrlruntime.Request) (re
 		if kerrors.IsNotFound(err) {
 			return reconcile.Result{}, nil
 		}
-
 		return reconcile.Result{}, err
 	}
 
+	// Resource is marked for deletion
 	if machineDeployment.DeletionTimestamp != nil {
-		// TODO(mq): delete oscs and secrets when md is deleted.
-		return reconcile.Result{}, nil
+		log.Debug("Cleaning up resources against machine deployment")
+		return r.handleMachineDeploymentCleanup(ctx, machineDeployment)
 	}
 
 	err := r.reconcile(ctx, machineDeployment)
@@ -171,6 +173,54 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.M
 		}
 		r.log.Infof("successfully generated cloud-init provisioning secret: %v", fmt.Sprintf("%s-osc-%s", md.Name, resrources.ProvisioningCloudInit))
 
+	}
+	return nil
+}
+
+// handleMachineDeploymentCleanup handles the cleanup of resources created against a MachineDeployment
+func (r *Reconciler) handleMachineDeploymentCleanup(ctx context.Context, md *clusterv1alpha1.MachineDeployment) (reconcile.Result, error) {
+	// Delete OperatingSystemConfig
+	if err := r.deleteOperatingSystemConfig(ctx, md); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Delete generated secrets
+	if err := r.deleteGeneratedSecrets(ctx, md); err != nil {
+		return reconcile.Result{}, err
+	}
+	return reconcile.Result{}, nil
+}
+
+// deleteOperatingSystemConfig deletes the OperatingSystemConfig created against a MachineDeployment
+func (r *Reconciler) deleteOperatingSystemConfig(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
+	oscName := fmt.Sprintf("%s-osc-%s", md.Name, resrources.ProvisioningCloudInit)
+	osc := &osmv1alpha1.OperatingSystemConfig{}
+	if err := r.Get(ctx, types.NamespacedName{Name: oscName, Namespace: r.namespace}, osc); err != nil {
+		if kerrors.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to retrieve OperatingSystemConfig %s against MachineDeployment %s: %v", oscName, md.Name, err)
+	}
+	
+	if err := r.Delete(ctx, osc); err != nil {
+		return fmt.Errorf("failed to delete OperatingSystemConfig %s: %v against MachineDeployment %s", oscName, md.Name, err)
+	}
+	return nil
+}
+
+// deleteGeneratedSecrets deletes the secrets created against a MachineDeployment
+func (r *Reconciler) deleteGeneratedSecrets(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
+	secretName := fmt.Sprintf("%s-osc-%s", md.Name, resrources.ProvisioningCloudInit)
+	secret := &corev1.Secret{}
+	if err := r.Get(ctx, types.NamespacedName{Name: secretName, Namespace: r.namespace}, secret); err != nil {
+		if kerrors.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to retrieve secret %s against MachineDeployment %s: %v", secret, md.Name, err)
+	}
+	
+	if err := r.Delete(ctx, secret); err != nil {
+		return fmt.Errorf("failed to delete secret %s against MachineDeployment %s: %v", secret, md.Name, err)
 	}
 	return nil
 }
