@@ -25,9 +25,10 @@ import (
 
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 
-	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
+	kuberneteshelper "k8c.io/kubermatic/v2/pkg/kubernetes"
 
 	"k8c.io/operating-system-manager/pkg/controllers/osc/resrources"
+	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/generator"
 	"k8c.io/operating-system-manager/pkg/resources/reconciling"
 
@@ -45,6 +46,8 @@ import (
 
 const (
 	ControllerName = "operating-system-config-controller"
+	// MachineDeploymentCleanupFinalizer indicates that sub-resources created by OSC controller against a MachineDeployment should be deleted
+	MachineDeploymentCleanupFinalizer = "kubermatic.io/cleanup-operating-system-configs"
 )
 
 type Reconciler struct {
@@ -104,7 +107,19 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrlruntime.Request) (re
 	// Resource is marked for deletion
 	if machineDeployment.DeletionTimestamp != nil {
 		log.Debug("Cleaning up resources against machine deployment")
-		return r.handleMachineDeploymentCleanup(ctx, machineDeployment)
+		if kuberneteshelper.HasFinalizer(machineDeployment, MachineDeploymentCleanupFinalizer) {
+			return r.handleMachineDeploymentCleanup(ctx, machineDeployment)
+		}
+		// Finalizer doesn't exist so clean up is already done
+		return reconcile.Result{}, nil
+	}
+
+	// Add finalizer if it doesn't exist
+	if !kuberneteshelper.HasFinalizer(machineDeployment, MachineDeploymentCleanupFinalizer) {
+		kuberneteshelper.AddFinalizer(machineDeployment, MachineDeploymentCleanupFinalizer)
+		if err := r.Client.Update(ctx, machineDeployment); err != nil {
+			return reconcile.Result{}, fmt.Errorf("failed to add finalizer: %w", err)
+		}
 	}
 
 	err := r.reconcile(ctx, machineDeployment)
@@ -187,6 +202,18 @@ func (r *Reconciler) handleMachineDeploymentCleanup(ctx context.Context, md *clu
 	if err := r.deleteGeneratedSecrets(ctx, md); err != nil {
 		return reconcile.Result{}, err
 	}
+
+	// Remove finalizer
+	kuberneteshelper.RemoveFinalizer(md, MachineDeploymentCleanupFinalizer)
+
+	// Update instance
+	err := r.Client.Update(ctx, md)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to remove finalizer: %w", err)
+	}
+
+	r.log.Info("Finalizer removed from MachineDeployment: " + md.ObjectMeta.Name)
+
 	return reconcile.Result{}, nil
 }
 
