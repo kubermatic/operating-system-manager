@@ -186,7 +186,7 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.M
 		}, r.namespace, r.Client); err != nil {
 			return fmt.Errorf("failed to reconcile cloud-init provisioning secrets: %v", err)
 		}
-		r.log.Infof("successfully generated cloud-init provisioning secret: %v", fmt.Sprintf("%s-osc-%s", md.Name, resources.ProvisioningCloudInit))
+		r.log.Infof("successfully generated cloud-init provisioning secret: %v", fmt.Sprintf(resources.MachineDeploymentSubresourceNamePattern, md.Name, resources.ProvisioningCloudInit))
 	}
 	return nil
 }
@@ -219,7 +219,7 @@ func (r *Reconciler) handleMachineDeploymentCleanup(ctx context.Context, md *clu
 
 // deleteOperatingSystemConfig deletes the OperatingSystemConfig created against a MachineDeployment
 func (r *Reconciler) deleteOperatingSystemConfig(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
-	oscName := fmt.Sprintf("%s-osc-%s", md.Name, resources.ProvisioningCloudInit)
+	oscName := fmt.Sprintf(resources.MachineDeploymentSubresourceNamePattern, md.Name, resources.ProvisioningCloudInit)
 	osc := &osmv1alpha1.OperatingSystemConfig{}
 	if err := r.Get(ctx, types.NamespacedName{Name: oscName, Namespace: r.namespace}, osc); err != nil {
 		if kerrors.IsNotFound(err) {
@@ -235,7 +235,7 @@ func (r *Reconciler) deleteOperatingSystemConfig(ctx context.Context, md *cluste
 
 // deleteGeneratedSecrets deletes the secrets created against a MachineDeployment
 func (r *Reconciler) deleteGeneratedSecrets(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
-	secretName := fmt.Sprintf("%s-osc-%s", md.Name, resources.ProvisioningCloudInit)
+	secretName := fmt.Sprintf(resources.MachineDeploymentSubresourceNamePattern, md.Name, resources.ProvisioningCloudInit)
 	secret := &corev1.Secret{}
 	if err := r.Get(ctx, types.NamespacedName{Name: secretName, Namespace: r.namespace}, secret); err != nil {
 		if kerrors.IsNotFound(err) {
