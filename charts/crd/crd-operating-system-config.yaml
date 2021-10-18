@@ -24,7 +24,7 @@ spec:
     plural: operatingsystemconfigs
     singular: operatingsystemconfig
     shortNames:
-    - osc
+      - osc
   scope: Namespaced
   versions:
     - name: v1alpha1

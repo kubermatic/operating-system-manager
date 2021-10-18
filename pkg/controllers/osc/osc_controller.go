@@ -24,10 +24,10 @@ import (
 	"go.uber.org/zap"
 
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
+
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 
 	"k8c.io/operating-system-manager/pkg/controllers/osc/resrources"
-	"k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/generator"
 	"k8c.io/operating-system-manager/pkg/resources/reconciling"
 
@@ -134,7 +134,7 @@ func (r *Reconciler) reconcile(ctx context.Context, md *clusterv1alpha1.MachineD
 
 func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
 	ospName := md.Annotations[resrources.MachineDeploymentOSPAnnotation]
-	osp := &v1alpha1.OperatingSystemProfile{}
+	osp := &osmv1alpha1.OperatingSystemProfile{}
 	if err := r.Get(ctx, types.NamespacedName{Name: ospName, Namespace: r.namespace}, osp); err != nil {
 		return fmt.Errorf("failed to get OperatingSystemProfile: %v", err)
 	}
@@ -154,7 +154,7 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 }
 
 func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
-	oscList := &v1alpha1.OperatingSystemConfigList{}
+	oscList := &osmv1alpha1.OperatingSystemConfigList{}
 	if err := r.List(ctx, oscList, &client.ListOptions{Namespace: r.namespace}); err != nil {
 		return fmt.Errorf("failed to list OperatingSystemConfigs: %v", err)
 	}
@@ -172,7 +172,6 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.M
 			return fmt.Errorf("failed to reconcile cloud-init provisioning secrets: %v", err)
 		}
 		r.log.Infof("successfully generated cloud-init provisioning secret: %v", fmt.Sprintf("%s-osc-%s", md.Name, resrources.ProvisioningCloudInit))
-
 	}
 	return nil
 }
@@ -201,7 +200,6 @@ func (r *Reconciler) deleteOperatingSystemConfig(ctx context.Context, md *cluste
 		}
 		return fmt.Errorf("failed to retrieve OperatingSystemConfig %s against MachineDeployment %s: %v", oscName, md.Name, err)
 	}
-	
 	if err := r.Delete(ctx, osc); err != nil {
 		return fmt.Errorf("failed to delete OperatingSystemConfig %s: %v against MachineDeployment %s", oscName, md.Name, err)
 	}
@@ -218,7 +216,7 @@ func (r *Reconciler) deleteGeneratedSecrets(ctx context.Context, md *clusterv1al
 		}
 		return fmt.Errorf("failed to retrieve secret %s against MachineDeployment %s: %v", secret, md.Name, err)
 	}
-	
+
 	if err := r.Delete(ctx, secret); err != nil {
 		return fmt.Errorf("failed to delete secret %s against MachineDeployment %s: %v", secret, md.Name, err)
 	}
