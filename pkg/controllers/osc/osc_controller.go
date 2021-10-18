@@ -21,12 +21,10 @@ import (
 	"fmt"
 	"net"
 
+	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	"go.uber.org/zap"
 
-	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
-
 	kuberneteshelper "k8c.io/kubermatic/v2/pkg/kubernetes"
-
 	"k8c.io/operating-system-manager/pkg/controllers/osc/resources"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/generator"
@@ -211,8 +209,6 @@ func (r *Reconciler) handleMachineDeploymentCleanup(ctx context.Context, md *clu
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to remove finalizer: %w", err)
 	}
-
-	r.log.Info("Finalizer removed from MachineDeployment: " + md.ObjectMeta.Name)
 
 	return reconcile.Result{}, nil
 }
