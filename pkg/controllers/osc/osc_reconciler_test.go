@@ -26,7 +26,7 @@ import (
 	"github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
 
-	"k8c.io/operating-system-manager/pkg/controllers/osc/resrources"
+	"k8c.io/operating-system-manager/pkg/controllers/osc/resources"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/generator"
 
@@ -111,7 +111,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 						Name:      "ubuntu-20.04",
 						Namespace: "kube-system",
 						Annotations: map[string]string{
-							resrources.MachineDeploymentOSPAnnotation: "ubuntu-20.04-profile",
+							resources.MachineDeploymentOSPAnnotation: "ubuntu-20.04-profile",
 						},
 					},
 					Spec: v1alpha1.MachineDeploymentSpec{
@@ -129,7 +129,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 				expectedOSCs: []*osmv1alpha1.OperatingSystemConfig{
 					{
 						ObjectMeta: v1.ObjectMeta{
-							Name:            fmt.Sprintf("ubuntu-20.04-osc-%s", resrources.ProvisioningCloudInit),
+							Name:            fmt.Sprintf("ubuntu-20.04-osc-%s", resources.ProvisioningCloudInit),
 							Namespace:       "kube-system",
 							ResourceVersion: "1",
 						},
@@ -165,7 +165,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 				expectedSecrets: []*corev1.Secret{
 					{
 						ObjectMeta: v1.ObjectMeta{
-							Name:            fmt.Sprintf("ubuntu-20.04-osc-%s", resrources.ProvisioningCloudInit),
+							Name:            fmt.Sprintf("ubuntu-20.04-osc-%s", resources.ProvisioningCloudInit),
 							Namespace:       "kube-system",
 							ResourceVersion: "1",
 						},
@@ -189,7 +189,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 			osc := &osmv1alpha1.OperatingSystemConfig{}
 			if err := fakeClient.Get(ctx, types.NamespacedName{
 				Namespace: "kube-system",
-				Name:      fmt.Sprintf("ubuntu-20.04-osc-%s", resrources.ProvisioningCloudInit)},
+				Name:      fmt.Sprintf("ubuntu-20.04-osc-%s", resources.ProvisioningCloudInit)},
 				osc); err != nil {
 				t.Fatalf("failed to get osc: %v", err)
 			}
@@ -201,7 +201,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 			secret := &corev1.Secret{}
 			if err := fakeClient.Get(ctx, types.NamespacedName{
 				Namespace: "kube-system",
-				Name:      fmt.Sprintf("ubuntu-20.04-osc-%s", resrources.ProvisioningCloudInit)},
+				Name:      fmt.Sprintf("ubuntu-20.04-osc-%s", resources.ProvisioningCloudInit)},
 				secret); err != nil {
 				t.Fatalf("failed to get osc: %v", err)
 			}

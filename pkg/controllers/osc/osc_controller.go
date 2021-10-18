@@ -27,7 +27,7 @@ import (
 
 	kuberneteshelper "k8c.io/kubermatic/v2/pkg/kubernetes"
 
-	"k8c.io/operating-system-manager/pkg/controllers/osc/resrources"
+	"k8c.io/operating-system-manager/pkg/controllers/osc/resources"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/generator"
 	"k8c.io/operating-system-manager/pkg/resources/reconciling"
@@ -131,7 +131,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrlruntime.Request) (re
 }
 
 func (r *Reconciler) reconcile(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
-	if md.Annotations[resrources.MachineDeploymentOSPAnnotation] == "" {
+	if md.Annotations[resources.MachineDeploymentOSPAnnotation] == "" {
 		r.log.Warnw("Ignoring OSM request: no OperatingSystemProfile found. This could influence the provisioning of the machine")
 		return nil
 	}
@@ -148,14 +148,14 @@ func (r *Reconciler) reconcile(ctx context.Context, md *clusterv1alpha1.MachineD
 }
 
 func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
-	ospName := md.Annotations[resrources.MachineDeploymentOSPAnnotation]
+	ospName := md.Annotations[resources.MachineDeploymentOSPAnnotation]
 	osp := &osmv1alpha1.OperatingSystemProfile{}
 	if err := r.Get(ctx, types.NamespacedName{Name: ospName, Namespace: r.namespace}, osp); err != nil {
 		return fmt.Errorf("failed to get OperatingSystemProfile: %v", err)
 	}
 
 	if err := reconciling.ReconcileOperatingSystemConfigs(ctx, []reconciling.NamedOperatingSystemConfigCreatorGetter{
-		resrources.OperatingSystemConfigCreator(
+		resources.OperatingSystemConfigCreator(
 			md,
 			osp,
 			r.kubeconfig,
@@ -182,11 +182,11 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.M
 		}
 
 		if err := reconciling.ReconcileSecrets(ctx, []reconciling.NamedSecretCreatorGetter{
-			resrources.CloudInitSecretCreator(md.Name, resrources.ProvisioningCloudInit, provisionData),
+			resources.CloudInitSecretCreator(md.Name, resources.ProvisioningCloudInit, provisionData),
 		}, r.namespace, r.Client); err != nil {
 			return fmt.Errorf("failed to reconcile cloud-init provisioning secrets: %v", err)
 		}
-		r.log.Infof("successfully generated cloud-init provisioning secret: %v", fmt.Sprintf("%s-osc-%s", md.Name, resrources.ProvisioningCloudInit))
+		r.log.Infof("successfully generated cloud-init provisioning secret: %v", fmt.Sprintf("%s-osc-%s", md.Name, resources.ProvisioningCloudInit))
 	}
 	return nil
 }
@@ -219,7 +219,7 @@ func (r *Reconciler) handleMachineDeploymentCleanup(ctx context.Context, md *clu
 
 // deleteOperatingSystemConfig deletes the OperatingSystemConfig created against a MachineDeployment
 func (r *Reconciler) deleteOperatingSystemConfig(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
-	oscName := fmt.Sprintf("%s-osc-%s", md.Name, resrources.ProvisioningCloudInit)
+	oscName := fmt.Sprintf("%s-osc-%s", md.Name, resources.ProvisioningCloudInit)
 	osc := &osmv1alpha1.OperatingSystemConfig{}
 	if err := r.Get(ctx, types.NamespacedName{Name: oscName, Namespace: r.namespace}, osc); err != nil {
 		if kerrors.IsNotFound(err) {
@@ -235,7 +235,7 @@ func (r *Reconciler) deleteOperatingSystemConfig(ctx context.Context, md *cluste
 
 // deleteGeneratedSecrets deletes the secrets created against a MachineDeployment
 func (r *Reconciler) deleteGeneratedSecrets(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
-	secretName := fmt.Sprintf("%s-osc-%s", md.Name, resrources.ProvisioningCloudInit)
+	secretName := fmt.Sprintf("%s-osc-%s", md.Name, resources.ProvisioningCloudInit)
 	secret := &corev1.Secret{}
 	if err := r.Get(ctx, types.NamespacedName{Name: secretName, Namespace: r.namespace}, secret); err != nil {
 		if kerrors.IsNotFound(err) {
