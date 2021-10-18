@@ -24,7 +24,7 @@ BUILD_DEST ?= _build
 .PHONY: lint
 lint:
 	@golangci-lint --version
-	golangci-lint run -v ./pkg/...
+	golangci-lint run -v ./pkg/... --timeout 5m
 
 .PHONY: vendor
 vendor: buildenv
