@@ -17,13 +17,18 @@ limitations under the License.
 package admission
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
 	"k8c.io/operating-system-manager/pkg/controllers/osc/resrources"
+	osp2 "k8c.io/operating-system-manager/pkg/controllers/osp"
+	"k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	admissionv1 "k8s.io/api/admission/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func (ad *admissionData) mutateMachineDeployments(ar admissionv1.AdmissionRequest) (*admissionv1.AdmissionResponse, error) {
@@ -32,17 +37,43 @@ func (ad *admissionData) mutateMachineDeployments(ar admissionv1.AdmissionReques
 		return nil, fmt.Errorf("failed to unmarshal: %v", err)
 	}
 
-	machineDeployment := validateMachineDeployment(machineDeploymentOriginal)
+	machineDeployment, err := ad.validateMachineDeployment(machineDeploymentOriginal)
+	if err != nil {
+		return nil, err
+	}
 
 	return createAdmissionResponse(&machineDeploymentOriginal, machineDeployment)
 }
 
-func validateMachineDeployment(machineDeploymentOriginal clusterv1alpha1.MachineDeployment) *clusterv1alpha1.MachineDeployment {
+func (ad *admissionData) validateMachineDeployment(machineDeploymentOriginal clusterv1alpha1.MachineDeployment) (*clusterv1alpha1.MachineDeployment, error) {
 	machineDeployment := machineDeploymentOriginal.DeepCopy()
-	OSP, ok := machineDeploymentOriginal.Annotations[resrources.MachineDeploymentOSPAnnotation]
-	if !ok {
-		return machineDeployment
+	osp := &v1alpha1.OperatingSystemProfile{}
+
+	// check if the machineDeployment is annotated with an existing operatingSystemProfile
+	ospName, ospSet := machineDeployment.Annotations[resrources.MachineDeploymentOSPAnnotation]
+	if ospName != "" {
+		if err := ad.seedClient.Get(context.TODO(), client.ObjectKey{Name: ospName, Namespace: ad.clusterNamespace}, osp); kerrors.IsNotFound(err) {
+			ospSet = false
+		} else if err != nil {
+			return nil, err
+		}
 	}
-	// if OSP does not match any existing OSP, then patch it
-	return machineDeployment
+	if ospSet {
+		return machineDeployment, nil
+	}
+
+	// if the MachineDeployment needs to be patched, then retrieve the default OperatingSystemProfile
+	// and patch the machineDeployment with the annotation specifying it
+	ospList := &v1alpha1.OperatingSystemProfileList{}
+	if err := ad.seedClient.List(context.TODO(), ospList); err != nil {
+		return nil, err
+	}
+	for _, o := range ospList.Items {
+		if provider, _ := o.Annotations[osp2.DefaultOSPAnnotation]; ad.provider == provider {
+			machineDeployment.Annotations[resrources.MachineDeploymentOSPAnnotation] = o.Name
+			return machineDeployment, nil
+		}
+	}
+
+	return nil, fmt.Errorf("cannot get default Operating System Profile for machineDeployment %s/%s", machineDeployment.Namespace, machineDeployment.Name)
 }

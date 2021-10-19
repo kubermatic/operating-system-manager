@@ -1,7 +1,6 @@
 package admission
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -20,17 +19,21 @@ import (
 )
 
 type admissionData struct {
-	ctx        context.Context
-	client     ctrlruntimeclient.Client
-	seedClient ctrlruntimeclient.Client
+	client           ctrlruntimeclient.Client
+	seedClient       ctrlruntimeclient.Client
+	provider         string
+	clusterNamespace string
 }
 
 var jsonPatch = admissionv1.PatchTypeJSONPatch
 
-func New(listenAddress string, client ctrlruntimeclient.Client) (*http.Server, error) {
+func New(listenAddress, provider, clusterNamespace string, client, seedClient ctrlruntimeclient.Client) (*http.Server, error) {
 	mux := http.NewServeMux()
 	ad := &admissionData{
-		client: client,
+		client:           client,
+		seedClient:       seedClient,
+		provider:         provider,
+		clusterNamespace: clusterNamespace,
 	}
 
 	mux.HandleFunc("/machinedeployments", handleFuncFactory(ad.mutateMachineDeployments))
@@ -106,6 +109,7 @@ func handleFuncFactory(mutate mutator) func(http.ResponseWriter, *http.Request) 
 		// run the mutation logic
 		response, err := mutate(*review.Request)
 		if err != nil {
+			klog.Errorf("error while validating machineDeployment: %v", err)
 			response = &admissionv1.AdmissionResponse{}
 			response.Result = &metav1.Status{Message: err.Error()}
 		}

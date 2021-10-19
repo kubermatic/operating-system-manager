@@ -16,7 +16,8 @@ apiVersion: operatingsystemmanager.k8c.io/v1alpha1
 kind: OperatingSystemProfile
 metadata:
   name: test-osp
-  namespace: kube-system
+  annotations:
+    k8c.io/provider-default: "aws"
 spec:
   osName: "ubuntu"
   osVersion: "20.04"
