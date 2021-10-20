@@ -78,7 +78,7 @@ var (
 		},
 	}
 	// Path for a dummy kubeconfig; not using a real kubeconfig for this use case
-	kubeconfigPath    = os.Getenv("PWD") + "/../../../testdata/kube-config.yaml"
+	kubeconfigPath    = os.Getenv("PWD") + "/testdata/kube-config.yaml"
 	cloudProviderSpec = runtime.RawExtension{Raw: []byte(`{"cloudProvider":"test-value", "cloudProviderSpec":"test-value"}`)}
 )
 
