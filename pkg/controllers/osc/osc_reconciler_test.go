@@ -23,6 +23,7 @@ import (
 	"os"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
@@ -219,7 +220,8 @@ func TestReconciler_Reconcile(t *testing.T) {
 }
 
 func TestMachineDeploymentDeletion(t *testing.T) {
-	machineDeployment := generateMachineDeployment("ubuntu-20.04-lts", "kube-system")
+	machineDeploymentName := "ubuntu-20.04-lts"
+	machineDeployment := generateMachineDeployment(machineDeploymentName, "kube-system")
 
 	fakeClient := fakectrlruntimeclient.
 		NewClientBuilder().
@@ -275,9 +277,19 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 				t.Fatalf("failed to get secret: %v", err)
 			}
 
-			// Delete MachineDeployment
-			if err := fakeClient.Delete(ctx, testCase.md); err != nil {
-				t.Fatalf("failed to delete machine deployment: %v", err)
+			// Retrieve MachineDeployment
+			machineDeployment := &v1alpha1.MachineDeployment{}
+			if err := fakeClient.Get(ctx, types.NamespacedName{
+				Namespace: "kube-system",
+				Name:      machineDeploymentName},
+				machineDeployment); err != nil {
+				t.Fatalf("failed to get machine deployment: %v", err)
+			}
+
+			// Add deletionTimestamp to Machinedeployment to queue it up for deletion
+			machineDeployment.ObjectMeta.DeletionTimestamp = &v1.Time{Time: time.Now()}
+			if err := fakeClient.Update(ctx, machineDeployment); err != nil {
+				t.Fatalf("failed to update machine deployment with deletionTimestamp: %v", err)
 			}
 
 			// Reconcile to trigger delete workflow
