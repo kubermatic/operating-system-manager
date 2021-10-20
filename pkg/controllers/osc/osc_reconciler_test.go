@@ -33,17 +33,55 @@ import (
 	testUtil "k8c.io/operating-system-manager/pkg/test/util"
 
 	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/utils/pointer"
 	fakectrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
+
+var osmProfile = &osmv1alpha1.OperatingSystemProfile{
+	ObjectMeta: v1.ObjectMeta{
+		Name:      "ubuntu-20.04-profile",
+		Namespace: "kube-system",
+	},
+	Spec: osmv1alpha1.OperatingSystemProfileSpec{
+		OSName:    "Ubuntu",
+		OSVersion: "20.04",
+		Files: []osmv1alpha1.File{
+			{
+				Path:        "/opt/bin/setup",
+				Permissions: pointer.Int32Ptr(0755),
+				Content: osmv1alpha1.FileContent{
+					Inline: &osmv1alpha1.FileContentInline{
+						Encoding: "b64",
+						Data:     "#!/bin/bash\nset -xeuo pipefail\ncloud-init clean\nsystemctl start provision.service",
+					},
+				},
+			},
+			{
+				Path:        "/etc/systemd/system/setup.service",
+				Permissions: pointer.Int32Ptr(0644),
+				Content: osmv1alpha1.FileContent{
+					Inline: &osmv1alpha1.FileContentInline{
+						Encoding: "b64",
+						Data:     "[Install]\nWantedBy=multi-user.target\n\n[Unit]\nRequires=network-online.target\nAfter=network-online.target\n[Service]\nType=oneshot\nRemainAfterExit=true\nExecStart=/opt/bin/setup",
+					},
+				},
+			},
+		},
+	},
+}
 
 func init() {
 	if err := osmv1alpha1.SchemeBuilder.AddToScheme(scheme.Scheme); err != nil {
 		panic(fmt.Sprintf("failed to register osmv1alpha1 with scheme: %v", err))
+	}
+	if err := v1alpha1.SchemeBuilder.AddToScheme(scheme.Scheme); err != nil {
+		panic(fmt.Sprintf("failed to register v1alpha1 with scheme: %v", err))
 	}
 }
 
@@ -68,40 +106,11 @@ func TestReconciler_Reconcile(t *testing.T) {
 		t.Fatalf("failed to marshal cloud provider spec")
 	}
 	var (
-		fakeClient = fakectrlruntimeclient.NewFakeClient(
-			&osmv1alpha1.OperatingSystemProfile{
-				ObjectMeta: v1.ObjectMeta{
-					Name:      "ubuntu-20.04-profile",
-					Namespace: "kube-system",
-				},
-				Spec: osmv1alpha1.OperatingSystemProfileSpec{
-					OSName:    "Ubuntu",
-					OSVersion: "20.04",
-					Files: []osmv1alpha1.File{
-						{
-							Path:        "/opt/bin/setup",
-							Permissions: pointer.Int32Ptr(0755),
-							Content: osmv1alpha1.FileContent{
-								Inline: &osmv1alpha1.FileContentInline{
-									Encoding: "b64",
-									Data:     "#!/bin/bash\nset -xeuo pipefail\ncloud-init clean\nsystemctl start provision.service",
-								},
-							},
-						},
-						{
-							Path:        "/etc/systemd/system/setup.service",
-							Permissions: pointer.Int32Ptr(0644),
-							Content: osmv1alpha1.FileContent{
-								Inline: &osmv1alpha1.FileContentInline{
-									Encoding: "b64",
-									Data:     "[Install]\nWantedBy=multi-user.target\n\n[Unit]\nRequires=network-online.target\nAfter=network-online.target\n[Service]\nType=oneshot\nRemainAfterExit=true\nExecStart=/opt/bin/setup",
-								},
-							},
-						},
-					},
-				},
-			},
-		)
+		fakeClient = fakectrlruntimeclient.
+				NewClientBuilder().
+				WithScheme(scheme.Scheme).
+				WithObjects(osmProfile).
+				Build()
 
 		testCases = []struct {
 			name            string
@@ -224,12 +233,132 @@ func TestReconciler_Reconcile(t *testing.T) {
 				Namespace: "kube-system",
 				Name:      fmt.Sprintf("ubuntu-20.04-osc-%s", resources.ProvisioningCloudInit)},
 				secret); err != nil {
-				t.Fatalf("failed to get osc: %v", err)
+				t.Fatalf("failed to get secret: %v", err)
 			}
 
 			if !reflect.DeepEqual(secret.ObjectMeta, testCase.expectedSecrets[0].ObjectMeta) ||
 				!reflect.DeepEqual(secret.Data, testCase.expectedSecrets[0].Data) {
 				t.Fatal("secret values are unexpected")
+			}
+		})
+	}
+}
+
+func TestMachineDeploymentDeletion(t *testing.T) {
+	// Path for a dummy kubeconfig; not using a real kubeconfig for this use case
+	kubeconfigPath := os.Getenv("PWD") + "/../../../testdata/kube-config.yaml"
+
+	cloudProviderSpec := runtime.RawExtension{Raw: []byte(`{"cloudProvider":"test-value", "cloudProviderSpec":"test-value"}`)}
+	pconfig := providerconfigtypes.Config{
+		SSHPublicKeys:   []string{"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c"},
+		OperatingSystem: "Ubuntu",
+		CloudProviderSpec: cloudProviderSpec,
+	}
+	mdConfig, err := json.Marshal(pconfig)
+	if err != nil {
+		t.Fatalf("failed to marshal machine deployment config")
+	}
+
+	machineDeployment := &v1alpha1.MachineDeployment{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "ubuntu-20.04-lts",
+			Namespace: "kube-system",
+			Annotations: map[string]string{
+				resources.MachineDeploymentOSPAnnotation: "ubuntu-20.04-profile",
+			},
+		},
+		Spec: v1alpha1.MachineDeploymentSpec{
+			Template: v1alpha1.MachineTemplateSpec{
+				Spec: v1alpha1.MachineSpec{
+					ProviderSpec: v1alpha1.ProviderSpec{
+						Value: &runtime.RawExtension{
+							Raw: mdConfig,
+						},
+					},
+				},
+			},
+		},
+	}
+	
+	fakeClient := fakectrlruntimeclient.
+				NewClientBuilder().
+				WithScheme(scheme.Scheme).
+				WithObjects(osmProfile, machineDeployment).
+				Build()
+
+	testCases := []struct {
+			name            string
+			reconciler      Reconciler
+			md              *v1alpha1.MachineDeployment
+		}{
+			{
+				name: "test the deletion of machine deployment",
+				reconciler: Reconciler{
+					Client:         fakeClient,
+					namespace:      "kube-system",
+					generator:      generator.NewDefaultCloudInitGenerator(""),
+					log:   testUtil.DefaultLogger,
+					clusterAddress: "http://127.0.0.1/configs",
+					kubeconfig: kubeconfigPath,
+				},
+				md: machineDeployment,
+			},
+		}
+	
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			ctx := context.Background()
+
+			// First time reconcile to trigger create workflow
+			_, err := testCase.reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: testCase.md.Name, Namespace: testCase.md.Namespace}})
+			if err != nil {
+				t.Fatalf("failed to reconcile: %v", err)
+			}
+
+			// Ensure that OperatingSystemConfig was created
+			osc := &osmv1alpha1.OperatingSystemConfig{}
+			if err := fakeClient.Get(ctx, types.NamespacedName{
+				Namespace: "kube-system",
+				Name:      fmt.Sprintf("ubuntu-20.04-lts-osc-%s", resources.ProvisioningCloudInit)},
+				osc); err != nil {
+				t.Fatalf("failed to get osc: %v", err)
+			}
+			
+			// Ensure that corresponding secret was created
+			secret := &corev1.Secret{}
+			if err := fakeClient.Get(ctx, types.NamespacedName{
+				Namespace: "kube-system",
+				Name:      fmt.Sprintf("ubuntu-20.04-lts-osc-%s", resources.ProvisioningCloudInit)},
+				secret); err != nil {
+				t.Fatalf("failed to get secret: %v", err)
+			}
+
+			// Delete MachineDeployment
+			if err := fakeClient.Delete(ctx, testCase.md); err != nil {
+				t.Fatalf("failed to delete machine deployment: %v", err)
+			}
+
+			// Reconcile to trigger delete workflow
+			_, err = testCase.reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: testCase.md.Name, Namespace: testCase.md.Namespace}})
+			if err != nil {
+				t.Fatalf("failed to reconcile: %v", err)
+			}
+
+			// Ensure that OperatingSystemConfig was deleted
+			if err := fakeClient.Get(ctx, types.NamespacedName{
+				Namespace: "kube-system",
+				Name:      fmt.Sprintf("ubuntu-20.04-lts-osc-%s", resources.ProvisioningCloudInit)},
+				osc); err == nil || !kerrors.IsNotFound(err) {
+				t.Fatalf("failed to delete osc: %v", err)
+			}
+			
+			// Ensure that corresponding secret was deleted
+			if err := fakeClient.Get(ctx, types.NamespacedName{
+				Namespace: "kube-system",
+				Name:      fmt.Sprintf("ubuntu-20.04-lts-osc-%s", resources.ProvisioningCloudInit)},
+				secret); err == nil || !kerrors.IsNotFound(err) {
+				t.Fatalf("failed to delete secret: %v", err)
 			}
 		})
 	}
