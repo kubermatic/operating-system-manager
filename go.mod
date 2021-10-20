@@ -6,7 +6,7 @@ require (
 	github.com/Masterminds/sprig/v3 v3.2.2
 	github.com/go-test/deep v1.0.7
 	github.com/kubermatic/machine-controller v1.26.0
-	github.com/sirupsen/logrus v1.7.0 // indirect
+	github.com/onsi/ginkgo v1.14.2
 	go.uber.org/zap v1.16.0
 	golang.org/x/time v0.0.0-20201208040808-7e3f01d25324 // indirect
 	k8c.io/kubermatic/v2 v2.16.2

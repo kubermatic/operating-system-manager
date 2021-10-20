@@ -24,7 +24,7 @@ spec:
     plural: operatingsystemprofiles
     singular: operatingsystemprofile
     shortNames:
-    - osp
+      - osp
   scope: Namespaced
   versions:
     - name: v1alpha1

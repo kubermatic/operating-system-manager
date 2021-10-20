@@ -48,7 +48,6 @@ func NewDefaultCloudInitGenerator(unitsPath string) CloudInitGenerator {
 }
 
 func (d *DefaultCloudInitGenerator) Generate(osc *osmv1alpha1.OperatingSystemConfig) ([]byte, error) {
-
 	var files []*fileSpec
 	for _, file := range osc.Spec.Files {
 		fSpec := &fileSpec{

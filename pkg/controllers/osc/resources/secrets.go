@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package resrources
+package resources
 
 import (
 	"fmt"
@@ -27,7 +27,7 @@ import (
 // CloudInitSecretCreator returns a function to create a secret that contains the cloud-init configurations.
 func CloudInitSecretCreator(mdName string, oscType CloudInitSecret, data []byte) reconciling.NamedSecretCreatorGetter {
 	return func() (string, reconciling.SecretCreator) {
-		secretName := fmt.Sprintf("%s-osc-%s", mdName, oscType)
+		secretName := fmt.Sprintf(MachineDeploymentSubresourceNamePattern, mdName, oscType)
 		return secretName, func(sec *corev1.Secret) (*corev1.Secret, error) {
 			if sec.Data == nil {
 				sec.Data = map[string][]byte{}

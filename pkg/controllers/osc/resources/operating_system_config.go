@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package resrources
+package resources
 
 import (
 	"bytes"
@@ -25,6 +25,7 @@ import (
 	"text/template"
 
 	"github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
+
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/resources"
 	"k8c.io/operating-system-manager/pkg/resources/reconciling"
@@ -41,6 +42,8 @@ type CloudInitSecret string
 const (
 	ProvisioningCloudInit CloudInitSecret = "provisioning"
 
+	MachineDeploymentSubresourceNamePattern = "%s-osc-%s"
+
 	MachineDeploymentOSPAnnotation = "k8c.io/operating-system-profile"
 
 	cniVersion = "v0.8.7"
@@ -53,7 +56,7 @@ func OperatingSystemConfigCreator(
 	clusterDNSIPs []net.IP,
 ) reconciling.NamedOperatingSystemConfigCreatorGetter {
 	return func() (string, reconciling.OperatingSystemConfigCreator) {
-		var oscName = fmt.Sprintf("%s-osc-%s", md.Name, ProvisioningCloudInit)
+		var oscName = fmt.Sprintf(MachineDeploymentSubresourceNamePattern, md.Name, ProvisioningCloudInit)
 
 		return oscName, func(osc *osmv1alpha1.OperatingSystemConfig) (*osmv1alpha1.OperatingSystemConfig, error) {
 			ospOriginal := osp.DeepCopy()

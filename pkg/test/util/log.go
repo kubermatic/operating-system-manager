@@ -1,5 +1,3 @@
-// +build tools
-
 /*
 Copyright 2021 The Kubermatic Kubernetes Platform contributors.
 
@@ -16,12 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package tools
+package utils
 
 import (
-	_ "k8s.io/code-generator"
-	_ "k8s.io/code-generator/cmd/conversion-gen"
-	_ "k8s.io/code-generator/cmd/deepcopy-gen"
-	_ "k8s.io/code-generator/cmd/defaulter-gen"
-	_ "sigs.k8s.io/controller-tools/cmd/controller-gen"
+	"github.com/onsi/ginkgo"
+	"go.uber.org/zap"
+
+	ctrlruntimelogzap "sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
+
+// DefaultLogger to be used in e2e tests.
+var DefaultLogger = CreateLogger(false)
+
+// CreateLogger creates a new Logger.
+func CreateLogger(debug bool) *zap.SugaredLogger {
+	return ctrlruntimelogzap.NewRaw(ctrlruntimelogzap.UseDevMode(debug), ctrlruntimelogzap.WriteTo(ginkgo.GinkgoWriter)).Sugar()
+}
