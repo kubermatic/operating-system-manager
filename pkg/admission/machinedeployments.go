@@ -22,8 +22,8 @@ import (
 	"fmt"
 
 	"k8c.io/operating-system-manager/pkg/controllers/osc/resrources"
-	osp2 "k8c.io/operating-system-manager/pkg/controllers/osp"
-	"k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
+	ospcontroller "k8c.io/operating-system-manager/pkg/controllers/osp"
+	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -47,29 +47,41 @@ func (ad *admissionData) mutateMachineDeployments(ar admissionv1.AdmissionReques
 
 func (ad *admissionData) validateMachineDeployment(machineDeploymentOriginal clusterv1alpha1.MachineDeployment) (*clusterv1alpha1.MachineDeployment, error) {
 	machineDeployment := machineDeploymentOriginal.DeepCopy()
-	osp := &v1alpha1.OperatingSystemProfile{}
+	osp := &osmv1alpha1.OperatingSystemProfile{}
 
 	// check if the machineDeployment is annotated with an existing operatingSystemProfile
-	ospName, ospSet := machineDeployment.Annotations[resrources.MachineDeploymentOSPAnnotation]
+	var ospSet bool
+	ospName := machineDeployment.Annotations[resrources.MachineDeploymentOSPAnnotation]
 	if ospName != "" {
-		if err := ad.seedClient.Get(context.TODO(), client.ObjectKey{Name: ospName, Namespace: ad.clusterNamespace}, osp); kerrors.IsNotFound(err) {
-			ospSet = false
-		} else if err != nil {
+		err := ad.seedClient.Get(context.TODO(), client.ObjectKey{Name: ospName, Namespace: ad.clusterNamespace}, osp)
+		if err != nil && !kerrors.IsNotFound(err) {
 			return nil, err
 		}
+
+		if err == nil {
+			for _, provider := range osp.Spec.SupportedCloudProviders {
+				if provider.Name == ad.provider {
+					ospSet = true
+				}
+			}
+		}
 	}
+
 	if ospSet {
 		return machineDeployment, nil
 	}
 
 	// if the MachineDeployment needs to be patched, then retrieve the default OperatingSystemProfile
 	// and patch the machineDeployment with the annotation specifying it
-	ospList := &v1alpha1.OperatingSystemProfileList{}
+	ospList := &osmv1alpha1.OperatingSystemProfileList{}
 	if err := ad.seedClient.List(context.TODO(), ospList); err != nil {
 		return nil, err
 	}
 	for _, o := range ospList.Items {
-		if provider, _ := o.Annotations[osp2.DefaultOSPAnnotation]; ad.provider == provider {
+		if provider := o.Annotations[ospcontroller.DefaultOSPAnnotation]; ad.provider == provider {
+			if machineDeployment.Annotations == nil {
+				machineDeployment.Annotations = make(map[string]string)
+			}
 			machineDeployment.Annotations[resrources.MachineDeploymentOSPAnnotation] = o.Name
 			return machineDeployment, nil
 		}
