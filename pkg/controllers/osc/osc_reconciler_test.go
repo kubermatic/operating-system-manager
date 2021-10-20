@@ -48,15 +48,24 @@ func init() {
 }
 
 func TestReconciler_Reconcile(t *testing.T) {
+	// Path for a dummy kubeconfig; not using a real kubeconfig for this use case
 	kubeconfigPath := os.Getenv("PWD") + "/../../../testdata/kube-config.yaml"
+
+	cloudProviderSpec := runtime.RawExtension{Raw: []byte(`{"cloudProvider":"test-value", "cloudProviderSpec":"test-value"}`)}
 	pconfig := providerconfigtypes.Config{
 		SSHPublicKeys:   []string{"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c"},
 		OperatingSystem: "Ubuntu",
-		CloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"test-key":"test-value"}`)},
+		CloudProviderSpec: cloudProviderSpec,
 	}
 	mdConfig, err := json.Marshal(pconfig)
 	if err != nil {
 		t.Fatalf("failed to marshal machine deployment config")
+	}
+
+	// Encode cloud provider spec in JSON
+	cloudProviderSpecJSON, err := json.Marshal(cloudProviderSpec)
+	if err != nil {
+		t.Fatalf("failed to marshal cloud provider spec")
 	}
 	var (
 		fakeClient = fakectrlruntimeclient.NewFakeClient(
@@ -142,6 +151,11 @@ func TestReconciler_Reconcile(t *testing.T) {
 						Spec: osmv1alpha1.OperatingSystemConfigSpec{
 							OSName:    "Ubuntu",
 							OSVersion: "20.04",
+							CloudProvider: osmv1alpha1.CloudProviderSpec{
+								Spec: runtime.RawExtension{
+									Raw: cloudProviderSpecJSON,
+								},
+							},
 							Files: []osmv1alpha1.File{
 								{
 									Path:        "/opt/bin/setup",
@@ -176,7 +190,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 							ResourceVersion: "1",
 						},
 						Data: map[string][]byte{
-							"cloud-init": []byte("#cloud-config\n\nssh_pwauth: no\nssh_authorized_keys:\n- 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c'\nwrite_files:\n- path: '/opt/bin/setup'\n  permissions: '0755'\n  encoding: b64\n  content: |\n    IyEvYmluL2Jhc2gKc2V0IC14ZXVvIHBpcGVmYWlsCmNsb3VkLWluaXQgY2xlYW4Kc3lzdGVtY3RsIHN0YXJ0IHByb3Zpc2lvbi5zZXJ2aWNl\n\n- path: '/etc/systemd/system/setup.service'\n  permissions: '0644'\n  encoding: b64\n  content: |\n    W0luc3RhbGxdCldhbnRlZEJ5PW11bHRpLXVzZXIudGFyZ2V0CgpbVW5pdF0KUmVxdWlyZXM9bmV0d29yay1vbmxpbmUudGFyZ2V0CkFmdGVyPW5ldHdvcmstb25saW5lLnRhcmdldApbU2VydmljZV0KVHlwZT1vbmVzaG90ClJlbWFpbkFmdGVyRXhpdD10cnVlCkV4ZWNTdGFydD0vb3B0L2Jpbi9zZXR1cA==\n\nruncmd:\n- systemctl restart setup.service\n- systemctl daemon-reload\n"),
+							"cloud-init": []byte("#cloud-config\nssh_pwauth: no\nssh_authorized_keys:\n- 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c'\nwrite_files:\n- path: '/opt/bin/setup'\n  permissions: '0755'\n  content: |-\n    #!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    systemctl start provision.service\n\n- path: '/etc/systemd/system/setup.service'\n  permissions: '0644'\n  content: |-\n    [Install]\n    WantedBy=multi-user.target\n    \n    [Unit]\n    Requires=network-online.target\n    After=network-online.target\n    [Service]\n    Type=oneshot\n    RemainAfterExit=true\n    ExecStart=/opt/bin/setup\n\nruncmd:\n- systemctl restart setup.service\n- systemctl daemon-reload\n"),
 						},
 					},
 				},
@@ -199,6 +213,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 				osc); err != nil {
 				t.Fatalf("failed to get osc: %v", err)
 			}
+			
 			if !reflect.DeepEqual(osc.ObjectMeta, testCase.expectedOSCs[0].ObjectMeta) ||
 				!reflect.DeepEqual(osc.Spec, testCase.expectedOSCs[0].Spec) {
 				t.Fatal("operatingSystemConfig values are unexpected")
@@ -214,7 +229,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 
 			if !reflect.DeepEqual(secret.ObjectMeta, testCase.expectedSecrets[0].ObjectMeta) ||
 				!reflect.DeepEqual(secret.Data, testCase.expectedSecrets[0].Data) {
-				t.Fatal("operatingSystemConfig values are unexpected")
+				t.Fatal("secret values are unexpected")
 			}
 		})
 	}
