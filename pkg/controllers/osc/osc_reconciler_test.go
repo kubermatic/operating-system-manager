@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"reflect"
 	"testing"
 
@@ -29,6 +30,7 @@ import (
 	"k8c.io/operating-system-manager/pkg/controllers/osc/resources"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/generator"
+	testUtil "k8c.io/operating-system-manager/pkg/test/util"
 
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,9 +48,11 @@ func init() {
 }
 
 func TestReconciler_Reconcile(t *testing.T) {
+	kubeconfigPath := os.Getenv("PWD") + "/../../../testdata/kube-config.yaml"
 	pconfig := providerconfigtypes.Config{
 		SSHPublicKeys:   []string{"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c"},
 		OperatingSystem: "Ubuntu",
+		CloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"test-key":"test-value"}`)},
 	}
 	mdConfig, err := json.Marshal(pconfig)
 	if err != nil {
@@ -104,7 +108,9 @@ func TestReconciler_Reconcile(t *testing.T) {
 					Client:         fakeClient,
 					namespace:      "kube-system",
 					generator:      generator.NewDefaultCloudInitGenerator(""),
+					log:   testUtil.DefaultLogger,
 					clusterAddress: "http://127.0.0.1/configs",
+					kubeconfig: kubeconfigPath,
 				},
 				md: &v1alpha1.MachineDeployment{
 					ObjectMeta: v1.ObjectMeta{
@@ -193,8 +199,8 @@ func TestReconciler_Reconcile(t *testing.T) {
 				osc); err != nil {
 				t.Fatalf("failed to get osc: %v", err)
 			}
-			if !reflect.DeepEqual(osc.ObjectMeta, testCase.expectedOSCs[1].ObjectMeta) ||
-				!reflect.DeepEqual(osc.Spec, testCase.expectedOSCs[1].Spec) {
+			if !reflect.DeepEqual(osc.ObjectMeta, testCase.expectedOSCs[0].ObjectMeta) ||
+				!reflect.DeepEqual(osc.Spec, testCase.expectedOSCs[0].Spec) {
 				t.Fatal("operatingSystemConfig values are unexpected")
 			}
 
@@ -206,8 +212,8 @@ func TestReconciler_Reconcile(t *testing.T) {
 				t.Fatalf("failed to get osc: %v", err)
 			}
 
-			if !reflect.DeepEqual(secret.ObjectMeta, testCase.expectedSecrets[1].ObjectMeta) ||
-				!reflect.DeepEqual(secret.Data, testCase.expectedSecrets[1].Data) {
+			if !reflect.DeepEqual(secret.ObjectMeta, testCase.expectedSecrets[0].ObjectMeta) ||
+				!reflect.DeepEqual(secret.Data, testCase.expectedSecrets[0].Data) {
 				t.Fatal("operatingSystemConfig values are unexpected")
 			}
 		})
