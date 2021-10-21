@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Machine Controller Authors.
+Copyright 2021 The Kubermatic Kubernetes Platform contributors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"testing"
 
-	"k8c.io/operating-system-manager/pkg/controllers/osc/resrources"
+	"k8c.io/operating-system-manager/pkg/controllers/osc/resources"
 	ospcontroller "k8c.io/operating-system-manager/pkg/controllers/osp"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 
@@ -41,7 +41,6 @@ var (
 )
 
 func TestMachineDeploymentMutation(t *testing.T) {
-	osmv1alpha1.AddToScheme(seedScheme)
 	tests := []struct {
 		name                      string
 		admissionData             admissionData
@@ -60,7 +59,6 @@ func TestMachineDeploymentMutation(t *testing.T) {
 			},
 			admissionData: admissionData{
 				client:           fakectrlruntimeclient.NewClientBuilder().Build(),
-				seedClient:       fakectrlruntimeclient.NewClientBuilder().WithScheme(seedScheme).Build(),
 				provider:         "aws",
 				clusterNamespace: "kube-system",
 			},
@@ -89,7 +87,7 @@ func TestMachineDeploymentMutation(t *testing.T) {
 					Name:      mdTestName,
 					Namespace: mdTestNamespace,
 					Annotations: map[string]string{
-						resrources.MachineDeploymentOSPAnnotation: "default_osp_test",
+						resources.MachineDeploymentOSPAnnotation: "default_osp_test",
 					},
 				},
 			},
@@ -101,13 +99,12 @@ func TestMachineDeploymentMutation(t *testing.T) {
 					Name:      mdTestName,
 					Namespace: mdTestNamespace,
 					Annotations: map[string]string{
-						resrources.MachineDeploymentOSPAnnotation: "osp_test",
+						resources.MachineDeploymentOSPAnnotation: "osp_test",
 					},
 				},
 			},
 			admissionData: admissionData{
 				client:           fakectrlruntimeclient.NewClientBuilder().Build(),
-				seedClient:       fakectrlruntimeclient.NewClientBuilder().WithScheme(seedScheme).Build(),
 				provider:         "aws",
 				clusterNamespace: "kube-system",
 			},
@@ -150,7 +147,7 @@ func TestMachineDeploymentMutation(t *testing.T) {
 					Name:      mdTestName,
 					Namespace: mdTestNamespace,
 					Annotations: map[string]string{
-						resrources.MachineDeploymentOSPAnnotation: "osp_test",
+						resources.MachineDeploymentOSPAnnotation: "osp_test",
 					},
 				},
 			},
@@ -162,13 +159,12 @@ func TestMachineDeploymentMutation(t *testing.T) {
 					Name:      mdTestName,
 					Namespace: mdTestNamespace,
 					Annotations: map[string]string{
-						resrources.MachineDeploymentOSPAnnotation: "osp_test",
+						resources.MachineDeploymentOSPAnnotation: "osp_test",
 					},
 				},
 			},
 			admissionData: admissionData{
 				client:           fakectrlruntimeclient.NewClientBuilder().Build(),
-				seedClient:       fakectrlruntimeclient.NewClientBuilder().WithScheme(seedScheme).Build(),
 				provider:         "aws",
 				clusterNamespace: "kube-system",
 			},
@@ -197,7 +193,7 @@ func TestMachineDeploymentMutation(t *testing.T) {
 					Name:      mdTestName,
 					Namespace: mdTestNamespace,
 					Annotations: map[string]string{
-						resrources.MachineDeploymentOSPAnnotation: "default_osp_test",
+						resources.MachineDeploymentOSPAnnotation: "default_osp_test",
 					},
 				},
 			},
@@ -212,7 +208,6 @@ func TestMachineDeploymentMutation(t *testing.T) {
 			},
 			admissionData: admissionData{
 				client:           fakectrlruntimeclient.NewClientBuilder().Build(),
-				seedClient:       fakectrlruntimeclient.NewClientBuilder().WithScheme(seedScheme).Build(),
 				provider:         "aws",
 				clusterNamespace: "kube-system",
 			},
@@ -220,24 +215,26 @@ func TestMachineDeploymentMutation(t *testing.T) {
 		},
 	}
 
-	for _, test := range tests {
-		test.admissionData.seedClient = fakectrlruntimeclient.NewClientBuilder().WithScheme(seedScheme).WithLists(&test.operatingSystemProfiles).Build()
+	_ = osmv1alpha1.AddToScheme(seedScheme)
 
-		t.Run(test.name, func(t *testing.T) {
-			mutatedMachineDeployment, err := test.admissionData.validateMachineDeployment(test.machineDeployment)
-			if test.err != nil && err == nil {
-				t.Errorf("expected err %v not triggered", test.err)
+	for _, tc := range tests {
+		tc.admissionData.seedClient = fakectrlruntimeclient.NewClientBuilder().WithScheme(seedScheme).WithLists(&tc.operatingSystemProfiles).Build()
+		tc := tc // scopelint fix
+		t.Run(tc.name, func(t *testing.T) {
+			mutatedMachineDeployment, err := tc.admissionData.validateMachineDeployment(tc.machineDeployment)
+			if tc.err != nil && err == nil {
+				t.Errorf("expected err %v not triggered", tc.err)
 				return
 			}
-			if err != nil && test.err == nil {
+			if err != nil && tc.err == nil {
 				t.Errorf("unexpected err %v", err)
 				return
 			}
-			if err != nil && test.err != nil && err.Error() != test.err.Error() {
-				t.Errorf("received error %v different from the expected one %v", err, test.err)
+			if err != nil && tc.err != nil && err.Error() != tc.err.Error() {
+				t.Errorf("received error %v different from the expected one %v", err, tc.err)
 				return
 			}
-			if diff := deep.Equal(mutatedMachineDeployment, test.expectedMachineDeployment); diff != nil {
+			if diff := deep.Equal(mutatedMachineDeployment, tc.expectedMachineDeployment); diff != nil {
 				if diff != nil {
 					t.Errorf("received machineDeployment different from the expected one, diff: %v", diff)
 				}

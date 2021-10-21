@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Machine Controller Authors.
+Copyright 2021 The Kubermatic Kubernetes Platform contributors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"k8c.io/operating-system-manager/pkg/controllers/osc/resrources"
+	"k8c.io/operating-system-manager/pkg/controllers/osc/resources"
 	ospcontroller "k8c.io/operating-system-manager/pkg/controllers/osp"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 
@@ -51,7 +51,7 @@ func (ad *admissionData) validateMachineDeployment(machineDeploymentOriginal clu
 
 	// check if the machineDeployment is annotated with an existing operatingSystemProfile
 	var ospSet bool
-	ospName := machineDeployment.Annotations[resrources.MachineDeploymentOSPAnnotation]
+	ospName := machineDeployment.Annotations[resources.MachineDeploymentOSPAnnotation]
 	if ospName != "" {
 		err := ad.seedClient.Get(context.TODO(), client.ObjectKey{Name: ospName, Namespace: ad.clusterNamespace}, osp)
 		if err != nil && !kerrors.IsNotFound(err) {
@@ -82,7 +82,7 @@ func (ad *admissionData) validateMachineDeployment(machineDeploymentOriginal clu
 			if machineDeployment.Annotations == nil {
 				machineDeployment.Annotations = make(map[string]string)
 			}
-			machineDeployment.Annotations[resrources.MachineDeploymentOSPAnnotation] = o.Name
+			machineDeployment.Annotations[resources.MachineDeploymentOSPAnnotation] = o.Name
 			return machineDeployment, nil
 		}
 	}
