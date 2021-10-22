@@ -54,6 +54,7 @@ func OperatingSystemConfigCreator(
 	osp *osmv1alpha1.OperatingSystemProfile,
 	kubeconfig string,
 	clusterDNSIPs []net.IP,
+	containerRuntime string,
 ) reconciling.NamedOperatingSystemConfigCreatorGetter {
 	return func() (string, reconciling.OperatingSystemConfigCreator) {
 		var oscName = fmt.Sprintf(MachineDeploymentSubresourceNamePattern, md.Name, ProvisioningCloudInit)
@@ -85,8 +86,8 @@ func OperatingSystemConfigCreator(
 				return nil, err
 			}
 
-			kubeletSystemdUnit, err := KubeletSystemdUnit("docker", md.Spec.Template.Spec.Versions.Kubelet, cloudProvider.Name, "node-1", clusterDNSIPs, false,
-				"", nil, KubeletFlags())
+			kubeletSystemdUnit, err := KubeletSystemdUnit(containerRuntime, md.Spec.Template.Spec.Versions.Kubelet, cloudProvider.Name, "node-1", clusterDNSIPs, false,
+				"", nil, KubeletFlags(containerRuntime))
 			if err != nil {
 				return nil, err
 			}
@@ -104,10 +105,10 @@ func OperatingSystemConfigCreator(
 				ClusterDNSIPs:        clusterDNSIPs,
 				KubernetesCACert:     CACert,
 				Kubeconfig:           kubeconfigStr,
-				ContainerRuntime:     "docker",
+				ContainerRuntime:     containerRuntime,
 				CloudProviderName:    cloudProvider.Name,
 				Hostname:             "Node-1", // FIX this shit
-				ExtraKubeletFlags:    KubeletFlags(),
+				ExtraKubeletFlags:    KubeletFlags(containerRuntime),
 
 				SafeDownloadBinariesScript: safeDownloadBinariesScript,
 			}
@@ -250,10 +251,18 @@ func KubeletSystemdUnit(containerRuntime, kubeletVersion, cloudProvider, hostnam
 	return buf.String(), nil
 }
 
-func KubeletFlags() []string {
-	return []string{
-		"--container-runtime=docker",
-		"--container-runtime-endpoint=unix:///var/run/dockershim.sock",
+func KubeletFlags(containerRuntime string) []string {
+	switch containerRuntime {
+	case "docker":
+		return []string{
+			"--container-runtime=docker",
+			"--container-runtime-endpoint=unix:///var/run/dockershim.sock",
+		}
+	default:
+		return []string{
+			"--container-runtime=containerd",
+			"--container-runtime-endpoint=unix:///run/containerd/containerd.sock",
+		}
 	}
 }
 

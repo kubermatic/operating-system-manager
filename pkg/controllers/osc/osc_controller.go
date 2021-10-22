@@ -25,6 +25,7 @@ import (
 	"go.uber.org/zap"
 
 	kuberneteshelper "k8c.io/kubermatic/v2/pkg/kubernetes"
+	"k8c.io/operating-system-manager/pkg/containerruntime"
 	"k8c.io/operating-system-manager/pkg/controllers/osc/resources"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/generator"
@@ -50,10 +51,11 @@ const (
 
 type Reconciler struct {
 	client.Client
-	log            *zap.SugaredLogger
-	namespace      string
-	clusterAddress string
-	generator      generator.CloudInitGenerator
+	log              *zap.SugaredLogger
+	namespace        string
+	clusterAddress   string
+	containerRuntime string
+	generator        generator.CloudInitGenerator
 
 	clusterDNSIPs []net.IP
 	kubeconfig    string
@@ -67,15 +69,17 @@ func Add(
 	workerCount int,
 	clusterDNSIPs []net.IP,
 	kubeconfig string,
-	generator generator.CloudInitGenerator) error {
+	generator generator.CloudInitGenerator,
+	containerRuntime string) error {
 	reconciler := &Reconciler{
-		Client:         mgr.GetClient(),
-		log:            log,
-		namespace:      namespace,
-		clusterAddress: clusterName,
-		generator:      generator,
-		kubeconfig:     kubeconfig,
-		clusterDNSIPs:  clusterDNSIPs,
+		Client:           mgr.GetClient(),
+		log:              log,
+		namespace:        namespace,
+		clusterAddress:   clusterName,
+		generator:        generator,
+		kubeconfig:       kubeconfig,
+		clusterDNSIPs:    clusterDNSIPs,
+		containerRuntime: containerRuntime,
 	}
 	log.Info("Reconciling OSC resource..")
 	c, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: reconciler, MaxConcurrentReconciles: workerCount})
@@ -152,12 +156,15 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 		return fmt.Errorf("failed to get OperatingSystemProfile: %v", err)
 	}
 
+	r.patchOSP(osp)
+
 	if err := reconciling.ReconcileOperatingSystemConfigs(ctx, []reconciling.NamedOperatingSystemConfigCreatorGetter{
 		resources.OperatingSystemConfigCreator(
 			md,
 			osp,
 			r.kubeconfig,
 			r.clusterDNSIPs,
+			r.containerRuntime,
 		),
 	}, r.namespace, r.Client); err != nil {
 		return fmt.Errorf("failed to reconcile cloud-init provision operating system config: %v", err)
@@ -244,4 +251,8 @@ func (r *Reconciler) deleteGeneratedSecrets(ctx context.Context, md *clusterv1al
 		return fmt.Errorf("failed to delete secret %s against MachineDeployment %s: %v", secret, md.Name, err)
 	}
 	return nil
+}
+
+func (r *Reconciler) patchOSP(osp *osmv1alpha1.OperatingSystemProfile) {
+	containerruntime.SetupContainerRuntime(r.containerRuntime, osp)
 }
