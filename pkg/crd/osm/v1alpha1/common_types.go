@@ -64,15 +64,10 @@ type File struct {
 type ContainerRuntimeSpec struct {
 	// Container runtime name
 	Name string `json:"name"`
-	// Config file name
-	ConfigFileName string `json:"configFileName"`
 	// Config file
 	ConfigFile string `json:"configFile"`
-	// Configuration script for the given container runtime
-	ScriptFileName string `json:"scriptFileName"`
-	ScriptFile     string `json:"scriptFile"`
-	// Extra flags to be passed to the Kubelet
-	KubeletExtraFlags []string `json:"KubeletExtraFlags"`
+	// Setup script for the given container runtime
+	ScriptFile string `json:"scriptFile"`
 }
 
 // FileContent can either reference a secret or contain inline configuration.

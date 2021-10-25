@@ -24,8 +24,9 @@ import (
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	"go.uber.org/zap"
 
+	"k8c.io/operating-system-manager/pkg/resources/osptemplating"
+
 	kuberneteshelper "k8c.io/kubermatic/v2/pkg/kubernetes"
-	"k8c.io/operating-system-manager/pkg/containerruntime"
 	"k8c.io/operating-system-manager/pkg/controllers/osc/resources"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/generator"
@@ -254,5 +255,5 @@ func (r *Reconciler) deleteGeneratedSecrets(ctx context.Context, md *clusterv1al
 }
 
 func (r *Reconciler) patchOSP(osp *osmv1alpha1.OperatingSystemProfile) {
-	containerruntime.SetupContainerRuntime(r.containerRuntime, osp)
+	osptemplating.SetupContainerRuntime(r.containerRuntime, osp)
 }

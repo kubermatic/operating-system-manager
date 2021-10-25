@@ -1,0 +1,135 @@
+# Copyright 2021 The Kubermatic Kubernetes Platform contributors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: operatingsystemmanager.k8c.io/v1alpha1
+kind: OperatingSystemProfile
+metadata:
+  name: osp-ubuntu-aws
+  namespace: kube-system
+spec:
+  osName: "ubuntu"
+  osVersion: "20.04"
+  supportedCloudProviders:
+    - name: "aws"
+      spec:
+        region: "eu-central-1"
+  supportedContainerRuntimes:
+    - name: containerd
+      script : |-
+        apt-get update
+        apt-get install -y apt-transport-https ca-certificates curl software-properties-common lsb-release
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+        add-apt-repository "deb https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+
+        cat <<EOF | tee /etc/crictl.yaml
+        runtime-endpoint: unix:///run/containerd/containerd.sock
+        EOF
+
+        mkdir -p /etc/systemd/system/containerd.service.d
+        cat <<EOF | tee /etc/systemd/system/containerd.service.d/environment.conf
+        [Service]
+        Restart=always
+        EnvironmentFile=-/etc/environment
+        EOF
+
+        apt-get install -y --allow-downgrades containerd.io={{ .ContainerdVersion }}*
+        apt-mark hold containerd.io
+
+        systemctl daemon-reload
+        systemctl enable --now containerd
+      configFile: |-
+        version = 2
+
+        [metrics]
+        address = "127.0.0.1:1338"
+
+        [plugins]
+        [plugins."io.containerd.grpc.v1.cri"]
+        [plugins."io.containerd.grpc.v1.cri".containerd]
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+        runtime_type = "io.containerd.runc.v2"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+        SystemdCgroup = true
+        [plugins."io.containerd.grpc.v1.cri".registry]
+        [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
+        [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
+        endpoint = ["https://registry-1.docker.io"]
+  units:
+    - name: test-unit-1
+      enable: true
+  files:
+  - path: "/opt/bin/setup"
+    permissions: 0755
+    content:
+      inline:
+        encoding: b64
+        data: |
+          #!/bin/bash
+          set -xeuo pipefail
+          if systemctl is-active ufw; then systemctl stop ufw; fi
+          systemctl mask ufw
+
+          {{- /* As we added some modules and don't want to reboot, restart the service */}}
+          systemctl restart systemd-modules-load.service
+          sysctl --system
+
+          {{- /* Make sure we always disable swap - Otherwise the kubelet won't start'. */}}
+          sed -i.orig '/.*swap.*/d' /etc/fstab
+          swapoff -a
+
+          apt-get update
+
+          DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y \
+            curl \
+            ca-certificates \
+            ceph-common \
+            cifs-utils \
+            conntrack \
+            e2fsprogs \
+            ebtables \
+            ethtool \
+            glusterfs-client \
+            iptables \
+            jq \
+            kmod \
+            openssh-client \
+            nfs-common \
+            socat \
+            util-linux \
+            {{- if eq .CloudProviderName "vsphere" }}
+            open-vm-tools \
+            {{- end }}
+            ipvsadm
+
+          # Update grub to include kernel command options to enable swap accounting.
+          # Exclude alibaba cloud until this is fixed https://github.com/kubermatic/machine-controller/issues/682
+          {{ if eq .CloudProviderName "alibaba" }}
+          if grep -v -q swapaccount=1 /proc/cmdline
+          then
+            echo "Reboot system if not alibaba cloud"
+            update-grub
+            touch /var/run/reboot-required
+          fi
+          {{ end }}
+          
+          << CONTAINER_RUNTIME >>
+
+          {{ .SafeDownloadBinariesScript }}
+          # set kubelet nodeip environment variable
+          /opt/bin/setup_net_env.sh
+
+          systemctl enable --now kubelet
+          systemctl enable --now --no-block kubelet-healthcheck.service
+      
