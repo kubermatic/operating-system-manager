@@ -24,8 +24,6 @@ import (
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	"go.uber.org/zap"
 
-	"k8c.io/operating-system-manager/pkg/resources/osptemplating"
-
 	kuberneteshelper "k8c.io/kubermatic/v2/pkg/kubernetes"
 	"k8c.io/operating-system-manager/pkg/controllers/osc/resources"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
@@ -157,8 +155,6 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 		return fmt.Errorf("failed to get OperatingSystemProfile: %v", err)
 	}
 
-	r.patchOSP(osp)
-
 	if err := reconciling.ReconcileOperatingSystemConfigs(ctx, []reconciling.NamedOperatingSystemConfigCreatorGetter{
 		resources.OperatingSystemConfigCreator(
 			md,
@@ -252,8 +248,4 @@ func (r *Reconciler) deleteGeneratedSecrets(ctx context.Context, md *clusterv1al
 		return fmt.Errorf("failed to delete secret %s against MachineDeployment %s: %v", secret, md.Name, err)
 	}
 	return nil
-}
-
-func (r *Reconciler) patchOSP(osp *osmv1alpha1.OperatingSystemProfile) {
-	osptemplating.SetupContainerRuntime(r.containerRuntime, osp)
 }

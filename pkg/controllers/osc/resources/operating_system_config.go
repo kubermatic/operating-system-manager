@@ -113,7 +113,8 @@ func OperatingSystemConfigCreator(
 				SafeDownloadBinariesScript: safeDownloadBinariesScript,
 			}
 
-			populatedFiles, err := populateFilesList(ospOriginal.Spec.Files, data)
+			additionalTemplates := selectAdditionalTemplates(osp, containerRuntime)
+			populatedFiles, err := populateFilesList(ospOriginal.Spec.Files, additionalTemplates, data)
 			if err != nil {
 				return nil, fmt.Errorf("failed to populate OSP file template: %v", err)
 			}
@@ -149,13 +150,19 @@ type filesData struct {
 	SafeDownloadBinariesScript string
 }
 
-func populateFilesList(files []osmv1alpha1.File, d filesData) ([]osmv1alpha1.File, error) {
+func populateFilesList(files []osmv1alpha1.File, additionalTemplates []string, d filesData) ([]osmv1alpha1.File, error) {
 	var pfiles []osmv1alpha1.File
 	for _, file := range files {
 		content := file.Content.Inline.Data
 		tmpl, err := template.New(file.Path).Parse(content)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse OSP file [%s] template: %v", file.Path, err)
+		}
+
+		for _, at := range additionalTemplates {
+			if tmpl, err = tmpl.Parse(at); err != nil {
+				return nil, err
+			}
 		}
 
 		buff := bytes.Buffer{}
@@ -168,6 +175,20 @@ func populateFilesList(files []osmv1alpha1.File, d filesData) ([]osmv1alpha1.Fil
 	}
 
 	return pfiles, nil
+}
+
+func selectAdditionalTemplates(osp *osmv1alpha1.OperatingSystemProfile, containerRuntime string) []string {
+	templates := make([]string, 0)
+
+	// select container runtime scripts
+	for _, cr := range osp.Spec.SupportedContainerRuntimes {
+		if cr.Name == containerRuntime {
+			templates = append(templates, cr.ScriptFile, cr.ConfigFile)
+			break
+		}
+	}
+
+	return templates
 }
 
 // kubeletConfiguration returns marshaled kubelet.config.k8s.io/v1beta1 KubeletConfiguration

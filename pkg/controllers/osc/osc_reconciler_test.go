@@ -53,6 +53,13 @@ var (
 		Spec: osmv1alpha1.OperatingSystemProfileSpec{
 			OSName:    "Ubuntu",
 			OSVersion: "20.04",
+			SupportedContainerRuntimes: []osmv1alpha1.ContainerRuntimeSpec{
+				{
+					Name:       "containerd",
+					ScriptFile: `{{- define "containerRuntimeScript" }}runtime-endpoint: unix:///run/containerd/containerd.sock{{- end }}`,
+					ConfigFile: `{{- define "containerRuntimeConfig" }}[plugins."io.containerd.grpc.v1.cri".containerd]{{- end }}`,
+				},
+			},
 			Files: []osmv1alpha1.File{
 				{
 					Path:        "/opt/bin/setup",
@@ -60,7 +67,7 @@ var (
 					Content: osmv1alpha1.FileContent{
 						Inline: &osmv1alpha1.FileContentInline{
 							Encoding: "b64",
-							Data:     "#!/bin/bash\nset -xeuo pipefail\ncloud-init clean\nsystemctl start provision.service",
+							Data:     "#!/bin/bash\nset -xeuo pipefail\ncloud-init clean\n{{ template \"containerRuntimeScript\" }}\nsystemctl start provision.service",
 						},
 					},
 				},
@@ -71,6 +78,16 @@ var (
 						Inline: &osmv1alpha1.FileContentInline{
 							Encoding: "b64",
 							Data:     "[Install]\nWantedBy=multi-user.target\n\n[Unit]\nRequires=network-online.target\nAfter=network-online.target\n[Service]\nType=oneshot\nRemainAfterExit=true\nExecStart=/opt/bin/setup",
+						},
+					},
+				},
+				{
+					Path:        "/etc/containerd/config.toml",
+					Permissions: pointer.Int32Ptr(0755),
+					Content: osmv1alpha1.FileContent{
+						Inline: &osmv1alpha1.FileContentInline{
+							Encoding: "b64",
+							Data:     "{{ template \"containerRuntimeConfig\" }}",
 						},
 					},
 				},
@@ -117,12 +134,13 @@ func TestReconciler_Reconcile(t *testing.T) {
 			{
 				name: "test the creation of operating system config",
 				reconciler: Reconciler{
-					Client:         fakeClient,
-					namespace:      "kube-system",
-					generator:      generator.NewDefaultCloudInitGenerator(""),
-					log:            testUtil.DefaultLogger,
-					clusterAddress: "http://127.0.0.1/configs",
-					kubeconfig:     kubeconfigPath,
+					Client:           fakeClient,
+					namespace:        "kube-system",
+					generator:        generator.NewDefaultCloudInitGenerator(""),
+					log:              testUtil.DefaultLogger,
+					clusterAddress:   "http://127.0.0.1/configs",
+					kubeconfig:       kubeconfigPath,
+					containerRuntime: "containerd",
 				},
 				md: machineDeployment,
 				expectedOSCs: []*osmv1alpha1.OperatingSystemConfig{
@@ -147,7 +165,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 									Content: osmv1alpha1.FileContent{
 										Inline: &osmv1alpha1.FileContentInline{
 											Encoding: "b64",
-											Data:     "#!/bin/bash\nset -xeuo pipefail\ncloud-init clean\nsystemctl start provision.service",
+											Data:     "#!/bin/bash\nset -xeuo pipefail\ncloud-init clean\nruntime-endpoint: unix:///run/containerd/containerd.sock\nsystemctl start provision.service",
 										},
 									},
 								},
@@ -158,6 +176,16 @@ func TestReconciler_Reconcile(t *testing.T) {
 										Inline: &osmv1alpha1.FileContentInline{
 											Encoding: "b64",
 											Data:     "[Install]\nWantedBy=multi-user.target\n\n[Unit]\nRequires=network-online.target\nAfter=network-online.target\n[Service]\nType=oneshot\nRemainAfterExit=true\nExecStart=/opt/bin/setup",
+										},
+									},
+								},
+								{
+									Path:        "/etc/containerd/config.toml",
+									Permissions: pointer.Int32Ptr(0755),
+									Content: osmv1alpha1.FileContent{
+										Inline: &osmv1alpha1.FileContentInline{
+											Encoding: "b64",
+											Data:     "[plugins.\"io.containerd.grpc.v1.cri\".containerd]",
 										},
 									},
 								},
@@ -174,7 +202,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 							ResourceVersion: "1",
 						},
 						Data: map[string][]byte{
-							"cloud-init": []byte("#cloud-config\nssh_pwauth: no\nssh_authorized_keys:\n- 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c'\nwrite_files:\n- path: '/opt/bin/setup'\n  permissions: '0755'\n  content: |-\n    #!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    systemctl start provision.service\n\n- path: '/etc/systemd/system/setup.service'\n  permissions: '0644'\n  content: |-\n    [Install]\n    WantedBy=multi-user.target\n    \n    [Unit]\n    Requires=network-online.target\n    After=network-online.target\n    [Service]\n    Type=oneshot\n    RemainAfterExit=true\n    ExecStart=/opt/bin/setup\n\nruncmd:\n- systemctl restart setup.service\n- systemctl daemon-reload\n"),
+							"cloud-init": []byte("#cloud-config\nssh_pwauth: no\nssh_authorized_keys:\n- 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c'\nwrite_files:\n- path: '/opt/bin/setup'\n  permissions: '0755'\n  content: |-\n    #!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    runtime-endpoint: unix:///run/containerd/containerd.sock\n    systemctl start provision.service\n\n- path: '/etc/systemd/system/setup.service'\n  permissions: '0644'\n  content: |-\n    [Install]\n    WantedBy=multi-user.target\n    \n    [Unit]\n    Requires=network-online.target\n    After=network-online.target\n    [Service]\n    Type=oneshot\n    RemainAfterExit=true\n    ExecStart=/opt/bin/setup\n\n- path: '/etc/containerd/config.toml'\n  permissions: '0755'\n  content: |-\n    [plugins.\"io.containerd.grpc.v1.cri\".containerd]\n\nruncmd:\n- systemctl restart setup.service\n- systemctl daemon-reload\n"),
 						},
 					},
 				},
@@ -211,6 +239,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 				t.Fatalf("failed to get secret: %v", err)
 			}
 
+			fmt.Printf("%s\n---\n%s", secret.Data["cloud-init"], testCase.expectedSecrets[0].Data["cloud-init"])
 			if !reflect.DeepEqual(secret.ObjectMeta, testCase.expectedSecrets[0].ObjectMeta) ||
 				!reflect.DeepEqual(secret.Data, testCase.expectedSecrets[0].Data) {
 				t.Fatal("secret values are unexpected")
@@ -237,12 +266,13 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 		{
 			name: "test the deletion of machine deployment",
 			reconciler: Reconciler{
-				Client:         fakeClient,
-				namespace:      "kube-system",
-				generator:      generator.NewDefaultCloudInitGenerator(""),
-				log:            testUtil.DefaultLogger,
-				clusterAddress: "http://127.0.0.1/configs",
-				kubeconfig:     kubeconfigPath,
+				Client:           fakeClient,
+				namespace:        "kube-system",
+				generator:        generator.NewDefaultCloudInitGenerator(""),
+				log:              testUtil.DefaultLogger,
+				clusterAddress:   "http://127.0.0.1/configs",
+				kubeconfig:       kubeconfigPath,
+				containerRuntime: "containerd",
 			},
 			md: machineDeployment,
 		},

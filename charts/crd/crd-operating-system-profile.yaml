@@ -52,6 +52,7 @@ spec:
                 - osName
                 - osVersion
                 - supportedCloudProviders
+                - supportedContainerRuntimes
               properties:
                 files:
                   description: Files is a list of files that should exist in the instance
@@ -110,6 +111,25 @@ spec:
                         description: Spec represents the os/image reference in the supported cloud provider
                         type: object
                         x-kubernetes-preserve-unknown-fields: true
+                supportedContainerRuntimes:
+                  description: SupportedContainerRuntimes represent the container runtimes supported by the given OS
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - configFile
+                      - name
+                      - scriptFile
+                    properties:
+                      configFile:
+                        description: Config file
+                        type: string
+                      name:
+                        description: Container runtime name
+                        type: string
+                      scriptFile:
+                        description: Setup script for the given container runtime
+                        type: string
                 units:
                   description: Units a list of the systemd unit files which will run on the instance
                   type: array

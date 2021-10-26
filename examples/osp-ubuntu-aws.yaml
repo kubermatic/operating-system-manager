@@ -124,7 +124,7 @@ spec:
           fi
           {{ end }}
           
-          << CONTAINER_RUNTIME >>
+          {{ template "containerRuntimeScript" }}
 
           {{ .SafeDownloadBinariesScript }}
           # set kubelet nodeip environment variable
@@ -132,4 +132,11 @@ spec:
 
           systemctl enable --now kubelet
           systemctl enable --now --no-block kubelet-healthcheck.service
+  - path: "/etc/containerd/config.toml"
+    permissions: 0644
+    content:
+      inline:
+        encoding: b64
+        data: |
+          {{ template "containerRuntimeConfig" }}
       
