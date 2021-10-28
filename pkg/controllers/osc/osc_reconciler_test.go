@@ -20,7 +20,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
+	"io/ioutil"
+	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
@@ -39,67 +40,24 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/klog"
 	"k8s.io/utils/pointer"
 	fakectrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/yaml"
 )
 
 var (
-	osmProfile = &osmv1alpha1.OperatingSystemProfile{
-		ObjectMeta: v1.ObjectMeta{
-			Name:      "ubuntu-20.04-profile",
-			Namespace: "kube-system",
-		},
-		Spec: osmv1alpha1.OperatingSystemProfileSpec{
-			OSName:    "Ubuntu",
-			OSVersion: "20.04",
-			SupportedContainerRuntimes: []osmv1alpha1.ContainerRuntimeSpec{
-				{
-					Name:       "containerd",
-					ScriptFile: `{{- define "containerRuntimeScript" }}runtime-endpoint: unix:///run/containerd/containerd.sock{{- end }}`,
-					ConfigFile: `{{- define "containerRuntimeConfig" }}[plugins."io.containerd.grpc.v1.cri".containerd]{{- end }}`,
-				},
-			},
-			Files: []osmv1alpha1.File{
-				{
-					Path:        "/opt/bin/setup",
-					Permissions: pointer.Int32Ptr(0755),
-					Content: osmv1alpha1.FileContent{
-						Inline: &osmv1alpha1.FileContentInline{
-							Encoding: "b64",
-							Data:     "#!/bin/bash\nset -xeuo pipefail\ncloud-init clean\n{{ template \"containerRuntimeScript\" }}\nsystemctl start provision.service",
-						},
-					},
-				},
-				{
-					Path:        "/etc/systemd/system/setup.service",
-					Permissions: pointer.Int32Ptr(0644),
-					Content: osmv1alpha1.FileContent{
-						Inline: &osmv1alpha1.FileContentInline{
-							Encoding: "b64",
-							Data:     "[Install]\nWantedBy=multi-user.target\n\n[Unit]\nRequires=network-online.target\nAfter=network-online.target\n[Service]\nType=oneshot\nRemainAfterExit=true\nExecStart=/opt/bin/setup",
-						},
-					},
-				},
-				{
-					Path:        "/etc/containerd/config.toml",
-					Permissions: pointer.Int32Ptr(0755),
-					Content: osmv1alpha1.FileContent{
-						Inline: &osmv1alpha1.FileContentInline{
-							Encoding: "b64",
-							Data:     "{{ template \"containerRuntimeConfig\" }}",
-						},
-					},
-				},
-			},
-		},
-	}
 	// Path for a dummy kubeconfig; not using a real kubeconfig for this use case
-	kubeconfigPath    = os.Getenv("PWD") + "/testdata/kube-config.yaml"
-	cloudProviderSpec = runtime.RawExtension{Raw: []byte(`{"cloudProvider":"test-value", "cloudProviderSpec":"test-value"}`)}
+	kubeconfigPath string
 )
 
 func init() {
+	var err error
+	kubeconfigPath, err = filepath.Abs(filepath.Join("testdata", "kube-config.yaml"))
+	if err != nil {
+		panic(fmt.Sprintf("failed to get absolute path to testdata kubeconfig: %v", err))
+	}
 	if err := osmv1alpha1.SchemeBuilder.AddToScheme(scheme.Scheme); err != nil {
 		panic(fmt.Sprintf("failed to register osmv1alpha1 with scheme: %v", err))
 	}
@@ -108,149 +66,167 @@ func init() {
 	}
 }
 
+type testConfig struct {
+	namespace        string
+	clusterAddress   string
+	containerRuntime string
+}
+
 func TestReconciler_Reconcile(t *testing.T) {
-	machineDeployment := generateMachineDeployment("ubuntu-20.04", "kube-system")
-
-	// Encode cloud provider spec in JSON
-	cloudProviderSpecJSON, err := json.Marshal(cloudProviderSpec)
-	if err != nil {
-		t.Fatalf("failed to marshal cloud provider spec")
-	}
-	var (
-		fakeClient = fakectrlruntimeclient.
-				NewClientBuilder().
-				WithScheme(scheme.Scheme).
-				WithObjects(osmProfile).
-				Build()
-
-		testCases = []struct {
-			name            string
-			reconciler      Reconciler
-			md              *v1alpha1.MachineDeployment
-			osp             *osmv1alpha1.OperatingSystemProfile
-			expectedOSCs    []*osmv1alpha1.OperatingSystemConfig
-			expectedSecrets []*corev1.Secret
-		}{
-			{
-				name: "test the creation of operating system config",
-				reconciler: Reconciler{
-					Client:           fakeClient,
-					namespace:        "kube-system",
-					generator:        generator.NewDefaultCloudInitGenerator(""),
-					log:              testUtil.DefaultLogger,
-					clusterAddress:   "http://127.0.0.1/configs",
-					kubeconfig:       kubeconfigPath,
-					containerRuntime: "containerd",
-				},
-				md: machineDeployment,
-				expectedOSCs: []*osmv1alpha1.OperatingSystemConfig{
-					{
-						ObjectMeta: v1.ObjectMeta{
-							Name:            fmt.Sprintf("ubuntu-20.04-osc-%s", resources.ProvisioningCloudInit),
-							Namespace:       "kube-system",
-							ResourceVersion: "1",
-						},
-						Spec: osmv1alpha1.OperatingSystemConfigSpec{
-							OSName:    "Ubuntu",
-							OSVersion: "20.04",
-							CloudProvider: osmv1alpha1.CloudProviderSpec{
-								Spec: runtime.RawExtension{
-									Raw: cloudProviderSpecJSON,
-								},
-							},
-							Files: []osmv1alpha1.File{
-								{
-									Path:        "/opt/bin/setup",
-									Permissions: pointer.Int32Ptr(0755),
-									Content: osmv1alpha1.FileContent{
-										Inline: &osmv1alpha1.FileContentInline{
-											Encoding: "b64",
-											Data:     "#!/bin/bash\nset -xeuo pipefail\ncloud-init clean\nruntime-endpoint: unix:///run/containerd/containerd.sock\nsystemctl start provision.service",
-										},
-									},
-								},
-								{
-									Path:        "/etc/systemd/system/setup.service",
-									Permissions: pointer.Int32Ptr(0644),
-									Content: osmv1alpha1.FileContent{
-										Inline: &osmv1alpha1.FileContentInline{
-											Encoding: "b64",
-											Data:     "[Install]\nWantedBy=multi-user.target\n\n[Unit]\nRequires=network-online.target\nAfter=network-online.target\n[Service]\nType=oneshot\nRemainAfterExit=true\nExecStart=/opt/bin/setup",
-										},
-									},
-								},
-								{
-									Path:        "/etc/containerd/config.toml",
-									Permissions: pointer.Int32Ptr(0755),
-									Content: osmv1alpha1.FileContent{
-										Inline: &osmv1alpha1.FileContentInline{
-											Encoding: "b64",
-											Data:     "[plugins.\"io.containerd.grpc.v1.cri\".containerd]",
-										},
-									},
-								},
-							},
-							UserSSHKeys: []string{"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c"},
-						},
-					},
-				},
-				expectedSecrets: []*corev1.Secret{
-					{
-						ObjectMeta: v1.ObjectMeta{
-							Name:            fmt.Sprintf("ubuntu-20.04-osc-%s", resources.ProvisioningCloudInit),
-							Namespace:       "kube-system",
-							ResourceVersion: "1",
-						},
-						Data: map[string][]byte{
-							"cloud-init": []byte("#cloud-config\nssh_pwauth: no\nssh_authorized_keys:\n- 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c'\nwrite_files:\n- path: '/opt/bin/setup'\n  permissions: '0755'\n  content: |-\n    #!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    runtime-endpoint: unix:///run/containerd/containerd.sock\n    systemctl start provision.service\n\n- path: '/etc/systemd/system/setup.service'\n  permissions: '0644'\n  content: |-\n    [Install]\n    WantedBy=multi-user.target\n    \n    [Unit]\n    Requires=network-online.target\n    After=network-online.target\n    [Service]\n    Type=oneshot\n    RemainAfterExit=true\n    ExecStart=/opt/bin/setup\n\n- path: '/etc/containerd/config.toml'\n  permissions: '0755'\n  content: |-\n    [plugins.\"io.containerd.grpc.v1.cri\".containerd]\n\nruncmd:\n- systemctl restart setup.service\n- systemctl daemon-reload\n"),
-						},
-					},
-				},
+	var testCases = []struct {
+		name              string
+		ospFile           string
+		ospName           string
+		oscFile           string
+		oscName           string
+		mdName            string
+		secretFile        string
+		config            testConfig
+		cloudProviderSpec runtime.RawExtension
+	}{
+		{
+			name:       "test the creation of operating system config",
+			ospFile:    "osp-ubuntu-20.04.yaml",
+			ospName:    "osp-ubuntu-aws",
+			oscFile:    "osc-ubuntu-20.04-aws-containerd.yaml",
+			oscName:    "ubuntu-20.04-aws-osc-provisioning",
+			mdName:     "ubuntu-20.04-aws",
+			secretFile: "secret-ubuntu-20.04-aws-containerd.yaml",
+			config: testConfig{
+				namespace:        "kube-system",
+				clusterAddress:   "http://127.0.0.1/configs",
+				containerRuntime: "containerd",
 			},
-		}
-	)
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"cloudProvider":"aws", "cloudProviderSpec":"test-provider-spec"}`)},
+		},
+	}
 
 	for _, testCase := range testCases {
 		testCase := testCase
+
+		osp := &osmv1alpha1.OperatingSystemProfile{}
+		if err := loadFile(osp, testCase.ospFile); err != nil {
+			t.Fatalf("failed loading osp %s from testdata: %v", testCase.name, err)
+		}
+
+		fakeClient := fakectrlruntimeclient.
+			NewClientBuilder().
+			WithScheme(scheme.Scheme).
+			WithObjects(osp).
+			Build()
+
+		reconciler := Reconciler{
+			Client:           fakeClient,
+			log:              testUtil.DefaultLogger,
+			generator:        generator.NewDefaultCloudInitGenerator(""),
+			namespace:        testCase.config.namespace,
+			clusterAddress:   testCase.config.clusterAddress,
+			kubeconfig:       kubeconfigPath,
+			containerRuntime: testCase.config.containerRuntime,
+		}
+
 		t.Run(testCase.name, func(t *testing.T) {
 			ctx := context.Background()
-			if err := testCase.reconciler.reconcile(ctx, testCase.md); err != nil {
+			md := generateMachineDeployment(testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.cloudProviderSpec)
+			if err := reconciler.reconcile(ctx, md); err != nil {
 				t.Fatalf("failed to reconcile: %v", err)
+			}
+
+			testOSC := &osmv1alpha1.OperatingSystemConfig{}
+			if err := loadFile(testOSC, testCase.oscFile); err != nil {
+				t.Fatalf("failed loading osp %s from testdata: %v", testCase.name, err)
 			}
 
 			osc := &osmv1alpha1.OperatingSystemConfig{}
 			if err := fakeClient.Get(ctx, types.NamespacedName{
-				Namespace: "kube-system",
-				Name:      fmt.Sprintf("ubuntu-20.04-osc-%s", resources.ProvisioningCloudInit)},
+				Namespace: testCase.config.namespace,
+				Name:      testCase.oscName},
 				osc); err != nil {
 				t.Fatalf("failed to get osc: %v", err)
 			}
 
-			if !reflect.DeepEqual(osc.ObjectMeta, testCase.expectedOSCs[0].ObjectMeta) ||
-				!reflect.DeepEqual(osc.Spec, testCase.expectedOSCs[0].Spec) {
+			if !reflect.DeepEqual(osc.ObjectMeta, testOSC.ObjectMeta) ||
+				!reflect.DeepEqual(osc.Spec, testOSC.Spec) {
 				t.Fatal("operatingSystemConfig values are unexpected")
 			}
 
 			secret := &corev1.Secret{}
 			if err := fakeClient.Get(ctx, types.NamespacedName{
 				Namespace: "kube-system",
-				Name:      fmt.Sprintf("ubuntu-20.04-osc-%s", resources.ProvisioningCloudInit)},
+				Name:      testCase.oscName},
 				secret); err != nil {
 				t.Fatalf("failed to get secret: %v", err)
 			}
 
-			fmt.Printf("%s\n---\n%s", secret.Data["cloud-init"], testCase.expectedSecrets[0].Data["cloud-init"])
-			if !reflect.DeepEqual(secret.ObjectMeta, testCase.expectedSecrets[0].ObjectMeta) ||
-				!reflect.DeepEqual(secret.Data, testCase.expectedSecrets[0].Data) {
+			aa, _ := yaml.Marshal(secret)
+			klog.Info(string(aa))
+
+			testSecret := &corev1.Secret{}
+			if err := loadFile(testSecret, testCase.secretFile); err != nil {
+				t.Fatalf("failed loading secret %s from testdata: %v", testCase.secretFile, err)
+			}
+
+			if !reflect.DeepEqual(secret.ObjectMeta, testSecret.ObjectMeta) ||
+				!reflect.DeepEqual(secret.Data, testSecret.Data) {
 				t.Fatal("secret values are unexpected")
 			}
 		})
 	}
 }
 
+func loadFile(obj runtime.Object, name string) error {
+	path, err := filepath.Abs(filepath.Join("testdata", name))
+	if err != nil {
+		return fmt.Errorf("failed to get absolute path to testdata %s: %v", name, err)
+	}
+	objBytes, err := ioutil.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("failed to read testdata file: %v", err)
+	}
+
+	err = yaml.Unmarshal(objBytes, obj)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+var osmProfile = &osmv1alpha1.OperatingSystemProfile{
+	ObjectMeta: v1.ObjectMeta{
+		Name:      "ubuntu-20.04-profile",
+		Namespace: "kube-system",
+	},
+	Spec: osmv1alpha1.OperatingSystemProfileSpec{
+		OSName:    "Ubuntu",
+		OSVersion: "20.04",
+		Files: []osmv1alpha1.File{
+			{
+				Path:        "/opt/bin/setup",
+				Permissions: pointer.Int32Ptr(0755),
+				Content: osmv1alpha1.FileContent{
+					Inline: &osmv1alpha1.FileContentInline{
+						Encoding: "b64",
+						Data:     "#!/bin/bash\nset -xeuo pipefail\ncloud-init clean\nsystemctl start provision.service",
+					},
+				},
+			},
+			{
+				Path:        "/etc/systemd/system/setup.service",
+				Permissions: pointer.Int32Ptr(0644),
+				Content: osmv1alpha1.FileContent{
+					Inline: &osmv1alpha1.FileContentInline{
+						Encoding: "b64",
+						Data:     "[Install]\nWantedBy=multi-user.target\n\n[Unit]\nRequires=network-online.target\nAfter=network-online.target\n[Service]\nType=oneshot\nRemainAfterExit=true\nExecStart=/opt/bin/setup",
+					},
+				},
+			},
+		},
+	},
+}
+
 func TestMachineDeploymentDeletion(t *testing.T) {
 	machineDeploymentName := "ubuntu-20.04-lts"
-	machineDeployment := generateMachineDeployment(machineDeploymentName, "kube-system")
+	machineDeployment := generateMachineDeployment(machineDeploymentName, "kube-system", "", runtime.RawExtension{})
 
 	fakeClient := fakectrlruntimeclient.
 		NewClientBuilder().
@@ -347,7 +323,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 	}
 }
 
-func generateMachineDeployment(name, namespace string) *v1alpha1.MachineDeployment {
+func generateMachineDeployment(name, namespace, osp string, cloudProviderSpec runtime.RawExtension) *v1alpha1.MachineDeployment {
 	pconfig := providerconfigtypes.Config{
 		SSHPublicKeys:     []string{"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c"},
 		OperatingSystem:   "Ubuntu",
@@ -363,7 +339,7 @@ func generateMachineDeployment(name, namespace string) *v1alpha1.MachineDeployme
 			Name:      name,
 			Namespace: namespace,
 			Annotations: map[string]string{
-				resources.MachineDeploymentOSPAnnotation: "ubuntu-20.04-profile",
+				resources.MachineDeploymentOSPAnnotation: osp,
 			},
 		},
 		Spec: v1alpha1.MachineDeploymentSpec{

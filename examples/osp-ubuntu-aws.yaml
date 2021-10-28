@@ -132,6 +132,7 @@ spec:
 
           systemctl enable --now kubelet
           systemctl enable --now --no-block kubelet-healthcheck.service
+          
   - path: "/etc/containerd/config.toml"
     permissions: 0644
     content:
@@ -139,4 +140,93 @@ spec:
         encoding: b64
         data: |
           {{ template "containerRuntimeConfig" }}
+
+  - path: "/etc/systemd/system/kubelet.service"
+    content:
+      inline:
+        encoding: b64
+        data: |
+          [Unit]
+          After={{ .ContainerRuntime }}.service
+          Requires={{ .ContainerRuntime }}.service
+
+          Description=kubelet: The Kubernetes Node Agent
+          Documentation=https://kubernetes.io/docs/home/
+
+          [Service]
+          Restart=always
+          StartLimitInterval=0
+          RestartSec=10
+          CPUAccounting=true
+          MemoryAccounting=true
+
+          Environment="PATH=/opt/bin:/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin/"
+          EnvironmentFile=-/etc/environment
+
+          ExecStartPre=/bin/bash /opt/load-kernel-modules.sh
+          ExecStartPre=/bin/bash /opt/bin/setup_net_env.sh
+          ExecStart=/opt/bin/kubelet $KUBELET_EXTRA_ARGS \
+            --bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf \
+            --kubeconfig=/var/lib/kubelet/kubeconfig \
+            --config=/etc/kubernetes/kubelet.conf \
+            --network-plugin=cni \
+            --cert-dir=/etc/kubernetes/pki \
+            {{- if .IsExternal }}
+            --cloud-provider=external \
+            {{- end }}
+            {{- if and (.Hostname) (ne .CloudProvider "aws") }}
+            --hostname-override=%H \
+            {{- end }}
+            --dynamic-config-dir=/etc/kubernetes/dynamic-config-dir \
+            --exit-on-lock-contention \
+            --lock-file=/tmp/kubelet.lock \
+            {{- if .PauseImage }}
+            --pod-infra-container-image={{ .PauseImage }} \
+            {{- end }}
+            {{- if .InitialTaints }}
+            --register-with-taints={{- .InitialTaints }} \
+            {{- end }}
+            {{- range .ExtraKubeletFlags }}
+            {{ . }} \
+            {{- end }}
+            --node-ip ${KUBELET_NODE_IP}
+
+          [Install]
+          WantedBy=multi-user.target
+
+  - path: "/etc/kubernetes/kubelet.conf"
+    content:
+      inline:
+        encoding: b64
+        data: |-
+          apiVersion: kubelet.config.k8s.io/v1beta1
+          kind: KubeletConfiguration
+          authentication:
+            anonymous:
+              enabled: false
+            webhook:
+              enabled: true
+            x509:
+              clientCAFile: /etc/kubernetes/pki/ca.crt
+          authorization:
+            mode: Webhook
+          cgroupDriver: systemd
+          clusterDNS: {{ .ClusterDNS }}
+          clusterDomain: cluster.local
+          featureGates:
+            RotateKubeletServerCertificate: true
+          protectKernelDefaults: true
+          readOnlyPort: 0
+          rotateCertificates: true
+          serverTLSBootstrap: true
+          staticPodPath: /etc/kubernetes/manifests  
+          kubeReserved:
+            cpu: 200m
+            ephemeral-storage: 1Gi
+            memory: 200Mi
+          systemReserved:
+            cpu: 200m
+            ephemeral-storage: 1Gi
+            memory: 200Mi          
+          volumePluginDir: /var/lib/kubelet/volumeplugins
       

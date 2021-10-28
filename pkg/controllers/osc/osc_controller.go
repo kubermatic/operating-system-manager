@@ -19,7 +19,6 @@ package osc
 import (
 	"context"
 	"fmt"
-	"net"
 
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	"go.uber.org/zap"
@@ -50,13 +49,16 @@ const (
 
 type Reconciler struct {
 	client.Client
-	log              *zap.SugaredLogger
-	namespace        string
-	clusterAddress   string
-	containerRuntime string
-	generator        generator.CloudInitGenerator
+	log                   *zap.SugaredLogger
+	namespace             string
+	clusterAddress        string
+	containerRuntime      string
+	externalCloudProvider bool
+	pauseImage            string
+	initialTaints         string
+	generator             generator.CloudInitGenerator
 
-	clusterDNSIPs []net.IP
+	clusterDNSIPs string
 	kubeconfig    string
 }
 
@@ -66,19 +68,25 @@ func Add(
 	namespace string,
 	clusterName string,
 	workerCount int,
-	clusterDNSIPs []net.IP,
+	clusterDNSIPs string,
 	kubeconfig string,
 	generator generator.CloudInitGenerator,
-	containerRuntime string) error {
+	containerRuntime string,
+	externalCloudProvider bool,
+	pauseImage string,
+	initialTaints string) error {
 	reconciler := &Reconciler{
-		Client:           mgr.GetClient(),
-		log:              log,
-		namespace:        namespace,
-		clusterAddress:   clusterName,
-		generator:        generator,
-		kubeconfig:       kubeconfig,
-		clusterDNSIPs:    clusterDNSIPs,
-		containerRuntime: containerRuntime,
+		Client:                mgr.GetClient(),
+		log:                   log,
+		namespace:             namespace,
+		clusterAddress:        clusterName,
+		generator:             generator,
+		kubeconfig:            kubeconfig,
+		clusterDNSIPs:         clusterDNSIPs,
+		containerRuntime:      containerRuntime,
+		pauseImage:            pauseImage,
+		initialTaints:         initialTaints,
+		externalCloudProvider: externalCloudProvider,
 	}
 	log.Info("Reconciling OSC resource..")
 	c, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: reconciler, MaxConcurrentReconciles: workerCount})
@@ -162,6 +170,9 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 			r.kubeconfig,
 			r.clusterDNSIPs,
 			r.containerRuntime,
+			r.externalCloudProvider,
+			r.pauseImage,
+			r.initialTaints,
 		),
 	}, r.namespace, r.Client); err != nil {
 		return fmt.Errorf("failed to reconcile cloud-init provision operating system config: %v", err)

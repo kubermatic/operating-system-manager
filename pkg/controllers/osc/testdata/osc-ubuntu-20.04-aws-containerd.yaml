@@ -1,0 +1,219 @@
+apiVersion: operatingsystemmanager.k8c.io/v1alpha1
+kind: OperatingSystemConfig
+metadata:
+  creationTimestamp: null
+  name: ubuntu-20.04-aws-osc-provisioning
+  namespace: kube-system
+  resourceVersion: "1"
+spec:
+  cloudProvider:
+    name: ""
+    spec:
+      cloudProvider: aws
+      cloudProviderSpec: test-provider-spec
+  files:
+  - content:
+      inline:
+        data: |
+          #!/bin/bash
+          set -xeuo pipefail
+          if systemctl is-active ufw; then systemctl stop ufw; fi
+          systemctl mask ufw
+          systemctl restart systemd-modules-load.service
+          sysctl --system
+          sed -i.orig '/.*swap.*/d' /etc/fstab
+          swapoff -a
+
+          apt-get update
+
+          DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y \
+            curl \
+            ca-certificates \
+            ceph-common \
+            cifs-utils \
+            conntrack \
+            e2fsprogs \
+            ebtables \
+            ethtool \
+            glusterfs-client \
+            iptables \
+            jq \
+            kmod \
+            openssh-client \
+            nfs-common \
+            socat \
+            util-linux \
+            ipvsadm
+
+          # Update grub to include kernel command options to enable swap accounting.
+          # Exclude alibaba cloud until this is fixed https://github.com/kubermatic/machine-controller/issues/682
+
+
+
+          apt-get update
+          apt-get install -y apt-transport-https ca-certificates curl software-properties-common lsb-release
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+          add-apt-repository "deb https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+
+          cat <<EOF | tee /etc/crictl.yaml
+          runtime-endpoint: unix:///run/containerd/containerd.sock
+          EOF
+
+          mkdir -p /etc/systemd/system/containerd.service.d
+          cat <<EOF | tee /etc/systemd/system/containerd.service.d/environment.conf
+          [Service]
+          Restart=always
+          EnvironmentFile=-/etc/environment
+          EOF
+
+          apt-get install -y --allow-downgrades containerd.io=<no value>*
+          apt-mark hold containerd.io
+
+          systemctl daemon-reload
+          systemctl enable --now containerd
+
+          opt_bin=/opt/bin
+          cni_bin_dir=/opt/cni/bin
+          mkdir -p /etc/cni/net.d /etc/kubernetes/dynamic-config-dir /etc/kubernetes/manifests "$opt_bin" "$cni_bin_dir"
+          arch=${HOST_ARCH-}
+          if [ -z "$arch" ]
+          then
+          case $(uname -m) in
+          x86_64)
+              arch="amd64"
+              ;;
+          aarch64)
+              arch="arm64"
+              ;;
+          *)
+              echo "unsupported CPU architecture, exiting"
+              exit 1
+              ;;
+          esac
+          fi
+          CNI_VERSION="${CNI_VERSION:-v0.8.7}"
+          cni_base_url="https://github.com/containernetworking/plugins/releases/download/$CNI_VERSION"
+          cni_filename="cni-plugins-linux-$arch-$CNI_VERSION.tgz"
+          curl -Lfo "$cni_bin_dir/$cni_filename" "$cni_base_url/$cni_filename"
+          cni_sum=$(curl -Lf "$cni_base_url/$cni_filename.sha256")
+          cd "$cni_bin_dir"
+          sha256sum -c <<<"$cni_sum"
+          tar xvf "$cni_filename"
+          rm -f "$cni_filename"
+          cd -
+          KUBE_VERSION="${KUBE_VERSION:-v}"
+          kube_dir="$opt_bin/kubernetes-$KUBE_VERSION"
+          kube_base_url="https://storage.googleapis.com/kubernetes-release/release/$KUBE_VERSION/bin/linux/$arch"
+          kube_sum_file="$kube_dir/sha256"
+          mkdir -p "$kube_dir"
+          : >"$kube_sum_file"
+
+          for bin in kubelet kubeadm kubectl; do
+              curl -Lfo "$kube_dir/$bin" "$kube_base_url/$bin"
+              chmod +x "$kube_dir/$bin"
+              sum=$(curl -Lf "$kube_base_url/$bin.sha256")
+              echo "$sum  $kube_dir/$bin" >>"$kube_sum_file"
+          done
+          sha256sum -c "$kube_sum_file"
+
+          for bin in kubelet kubeadm kubectl; do
+              ln -sf "$kube_dir/$bin" "$opt_bin"/$bin
+          done
+
+          if [[ ! -x /opt/bin/health-monitor.sh ]]; then
+              curl -Lfo /opt/bin/health-monitor.sh https://raw.githubusercontent.com/kubermatic/machine-controller/7967a0af2b75f29ad2ab227eeaa26ea7b0f2fbde/pkg/userdata/scripts/health-monitor.sh
+              chmod +x /opt/bin/health-monitor.sh
+          fi
+
+          # set kubelet nodeip environment variable
+          /opt/bin/setup_net_env.sh
+
+          systemctl enable --now kubelet
+          systemctl enable --now --no-block kubelet-healthcheck.service
+        encoding: b64
+    path: /opt/bin/setup
+    permissions: 493
+  - content:
+      inline:
+        data: |2
+
+          version = 2
+
+          [metrics]
+          address = "127.0.0.1:1338"
+
+          [plugins]
+          [plugins."io.containerd.grpc.v1.cri"]
+          [plugins."io.containerd.grpc.v1.cri".containerd]
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+          runtime_type = "io.containerd.runc.v2"
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+          SystemdCgroup = true
+          [plugins."io.containerd.grpc.v1.cri".registry]
+          [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
+          [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
+          endpoint = ["https://registry-1.docker.io"]
+        encoding: b64
+    path: /etc/containerd/config.toml
+    permissions: 420
+  - content:
+      inline:
+        data: |
+          [Unit]
+          After=containerd.service
+          Requires=containerd.service
+
+          Description=kubelet: The Kubernetes Node Agent
+          Documentation=https://kubernetes.io/docs/home/
+
+          [Service]
+          Restart=always
+          StartLimitInterval=0
+          RestartSec=10
+          CPUAccounting=true
+          MemoryAccounting=true
+
+          Environment="PATH=/opt/bin:/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin/"
+          EnvironmentFile=-/etc/environment
+
+          ExecStartPre=/bin/bash /opt/load-kernel-modules.sh
+          ExecStartPre=/bin/bash /opt/bin/setup_net_env.sh
+          ExecStart=/opt/bin/kubelet $KUBELET_EXTRA_ARGS \
+            --bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf \
+            --kubeconfig=/var/lib/kubelet/kubeconfig \
+            --config=/etc/kubernetes/kubelet.conf \
+            --network-plugin=cni \
+            --cert-dir=/etc/kubernetes/pki \
+            --hostname-override=%H \
+            --dynamic-config-dir=/etc/kubernetes/dynamic-config-dir \
+            --exit-on-lock-contention \
+            --lock-file=/tmp/kubelet.lock \
+            --container-runtime=containerd \
+            --container-runtime-endpoint=unix:///run/containerd/containerd.sock \
+            --node-ip ${KUBELET_NODE_IP}
+
+          [Install]
+          WantedBy=multi-user.target
+        encoding: b64
+    path: /etc/systemd/system/kubelet.service
+  - content:
+      inline:
+        data: "apiVersion: kubelet.config.k8s.io/v1beta1\nkind: KubeletConfiguration\nauthentication:\n
+          \ anonymous:\n    enabled: false\n  webhook:\n    enabled: true\n  x509:\n
+          \   clientCAFile: /etc/kubernetes/pki/ca.crt\nauthorization:\n  mode: Webhook\ncgroupDriver:
+          systemd\nclusterDNS: \nclusterDomain: cluster.local\nfeatureGates:\n  RotateKubeletServerCertificate:
+          true\nprotectKernelDefaults: true\nreadOnlyPort: 0\nrotateCertificates:
+          true\nserverTLSBootstrap: true\nstaticPodPath: /etc/kubernetes/manifests
+          \ \nkubeReserved:\n  cpu: 200m\n  ephemeral-storage: 1Gi\n  memory: 200Mi\nsystemReserved:\n
+          \ cpu: 200m\n  ephemeral-storage: 1Gi\n  memory: 200Mi          \nvolumePluginDir:
+          /var/lib/kubelet/volumeplugins"
+        encoding: b64
+    path: /etc/kubernetes/kubelet.conf
+  osName: ubuntu
+  osVersion: "20.04"
+  units:
+  - enable: true
+    name: test-unit-1
+  userSSHKeys:
+  - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c

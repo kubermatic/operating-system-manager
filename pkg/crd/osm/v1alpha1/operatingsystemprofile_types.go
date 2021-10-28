@@ -48,7 +48,7 @@ type OperatingSystemProfileSpec struct {
 	OSVersion string `json:"osVersion"`
 	// SupportedCloudProviders represent the cloud providers that support the given operating system version
 	SupportedCloudProviders []CloudProviderSpec `json:"supportedCloudProviders"`
-	// SupportedContainerRuntimes represent the container runtimes supported by the given OS
+	// SupportedContainerRuntimes represents the container runtimes supported by the given OS
 	SupportedContainerRuntimes []ContainerRuntimeSpec `json:"supportedContainerRuntimes"`
 	// Units a list of the systemd unit files which will run on the instance
 	Units []Unit `json:"units,omitempty"`

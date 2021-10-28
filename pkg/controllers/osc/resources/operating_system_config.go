@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"net"
 	"strings"
 	"text/template"
 
@@ -29,12 +28,6 @@ import (
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/resources"
 	"k8c.io/operating-system-manager/pkg/resources/reconciling"
-
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kubeletv1b1 "k8s.io/kubelet/config/v1beta1"
-	"k8s.io/utils/pointer"
-	kyaml "sigs.k8s.io/yaml"
 )
 
 type CloudInitSecret string
@@ -53,8 +46,11 @@ func OperatingSystemConfigCreator(
 	md *v1alpha1.MachineDeployment,
 	osp *osmv1alpha1.OperatingSystemProfile,
 	kubeconfig string,
-	clusterDNSIPs []net.IP,
+	clusterDNSIPs string,
 	containerRuntime string,
+	externalCloudProvider bool,
+	pauseImage string,
+	initialTaints string,
 ) reconciling.NamedOperatingSystemConfigCreatorGetter {
 	return func() (string, reconciling.OperatingSystemConfigCreator) {
 		var oscName = fmt.Sprintf(MachineDeploymentSubresourceNamePattern, md.Name, ProvisioningCloudInit)
@@ -77,17 +73,8 @@ func OperatingSystemConfigCreator(
 			if err != nil {
 				return nil, err
 			}
-			kubeletConfig, err := kubeletConfiguration("cluster.local", clusterDNSIPs, map[string]bool{"RotateKubeletServerCertificate": true})
-			if err != nil {
-				return nil, err
-			}
-			kubeconfigStr, err := resources.StringifyKubeconfig(kubeconfig)
-			if err != nil {
-				return nil, err
-			}
 
-			kubeletSystemdUnit, err := KubeletSystemdUnit(containerRuntime, md.Spec.Template.Spec.Versions.Kubelet, cloudProvider.Name, "node-1", clusterDNSIPs, false,
-				"", nil, KubeletFlags(containerRuntime))
+			kubeconfigStr, err := resources.StringifyKubeconfig(kubeconfig)
 			if err != nil {
 				return nil, err
 			}
@@ -98,19 +85,19 @@ func OperatingSystemConfigCreator(
 			}
 
 			data := filesData{
-				KubeletVersion:       md.Spec.Template.Spec.Versions.Kubelet,
-				KubeletConfiguration: kubeletConfig,
-				KubeletSystemdUnit:   kubeletSystemdUnit,
-				CNIVersion:           cniVersion,
-				ClusterDNSIPs:        clusterDNSIPs,
-				KubernetesCACert:     CACert,
-				Kubeconfig:           kubeconfigStr,
-				ContainerRuntime:     containerRuntime,
-				CloudProviderName:    cloudProvider.Name,
-				Hostname:             "Node-1", // FIX this shit
-				ExtraKubeletFlags:    KubeletFlags(containerRuntime),
-
+				KubeletVersion:             md.Spec.Template.Spec.Versions.Kubelet,
+				CNIVersion:                 cniVersion,
+				ClusterDNSIPs:              clusterDNSIPs,
+				KubernetesCACert:           CACert,
+				Kubeconfig:                 kubeconfigStr,
+				ContainerRuntime:           containerRuntime,
+				CloudProviderName:          cloudProvider.Name,
+				Hostname:                   "Node-1", // FIX this shit
+				ExtraKubeletFlags:          KubeletFlags(containerRuntime),
 				SafeDownloadBinariesScript: safeDownloadBinariesScript,
+				ExternalCloudProvider:      externalCloudProvider,
+				PauseImage:                 pauseImage,
+				InitialTaints:              initialTaints,
 			}
 
 			additionalTemplates := selectAdditionalTemplates(osp, containerRuntime)
@@ -134,18 +121,21 @@ func OperatingSystemConfigCreator(
 }
 
 type filesData struct {
-	KubeletVersion       string
-	KubeletConfiguration string
-	KubeletSystemdUnit   string
-	CNIVersion           string
-	ClusterDNSIPs        []net.IP
-	KubernetesCACert     string
-	ServerAddress        string
-	Kubeconfig           string
-	ContainerRuntime     string
-	CloudProviderName    string
-	Hostname             string
-	ExtraKubeletFlags    []string
+	KubeletVersion        string
+	KubeletConfiguration  string
+	KubeletSystemdUnit    string
+	CNIVersion            string
+	ClusterDNSIPs         string
+	KubernetesCACert      string
+	ServerAddress         string
+	Kubeconfig            string
+	ContainerRuntime      string
+	CloudProviderName     string
+	Hostname              string
+	ExtraKubeletFlags     []string
+	ExternalCloudProvider bool
+	PauseImage            string
+	InitialTaints         string
 
 	SafeDownloadBinariesScript string
 }
@@ -189,87 +179,6 @@ func selectAdditionalTemplates(osp *osmv1alpha1.OperatingSystemProfile, containe
 	}
 
 	return templates
-}
-
-// kubeletConfiguration returns marshaled kubelet.config.k8s.io/v1beta1 KubeletConfiguration
-func kubeletConfiguration(clusterDomain string, clusterDNS []net.IP, featureGates map[string]bool) (string, error) {
-	clusterDNSstr := make([]string, 0, len(clusterDNS))
-	for _, ip := range clusterDNS {
-		clusterDNSstr = append(clusterDNSstr, ip.String())
-	}
-
-	cfg := kubeletv1b1.KubeletConfiguration{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "KubeletConfiguration",
-			APIVersion: kubeletv1b1.SchemeGroupVersion.String(),
-		},
-		Authentication: kubeletv1b1.KubeletAuthentication{
-			X509: kubeletv1b1.KubeletX509Authentication{
-				ClientCAFile: "/etc/kubernetes/pki/ca.crt",
-			},
-			Webhook: kubeletv1b1.KubeletWebhookAuthentication{
-				Enabled: pointer.BoolPtr(true),
-			},
-			Anonymous: kubeletv1b1.KubeletAnonymousAuthentication{
-				Enabled: pointer.BoolPtr(false),
-			},
-		},
-		Authorization: kubeletv1b1.KubeletAuthorization{
-			Mode: kubeletv1b1.KubeletAuthorizationModeWebhook,
-		},
-		CgroupDriver:          "systemd",
-		ClusterDNS:            clusterDNSstr,
-		ClusterDomain:         clusterDomain,
-		FeatureGates:          featureGates,
-		ProtectKernelDefaults: true,
-		ReadOnlyPort:          0,
-		RotateCertificates:    true,
-		ServerTLSBootstrap:    true,
-		StaticPodPath:         "/etc/kubernetes/manifests",
-		KubeReserved:          map[string]string{"cpu": "200m", "memory": "200Mi", "ephemeral-storage": "1Gi"},
-		SystemReserved:        map[string]string{"cpu": "200m", "memory": "200Mi", "ephemeral-storage": "1Gi"},
-		VolumePluginDir:       "/var/lib/kubelet/volumeplugins",
-	}
-
-	buf, err := kyaml.Marshal(cfg)
-	return string(buf), err
-}
-
-// KubeletSystemdUnit returns the systemd unit for the kubelet
-func KubeletSystemdUnit(containerRuntime, kubeletVersion, cloudProvider, hostname string, dnsIPs []net.IP, external bool, pauseImage string, initialTaints []corev1.Taint, extraKubeletFlags []string) (string, error) {
-	tmpl, err := template.New("kubelet-systemd-unit").Parse(kubeletSystemdUnitTpl)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse kubelet-systemd-unit template: %v", err)
-	}
-
-	data := struct {
-		ContainerRuntime  string
-		KubeletVersion    string
-		CloudProvider     string
-		Hostname          string
-		ClusterDNSIPs     []net.IP
-		IsExternal        bool
-		PauseImage        string
-		InitialTaints     []corev1.Taint
-		ExtraKubeletFlags []string
-	}{
-		ContainerRuntime:  containerRuntime,
-		KubeletVersion:    kubeletVersion,
-		CloudProvider:     cloudProvider,
-		Hostname:          hostname,
-		ClusterDNSIPs:     dnsIPs,
-		IsExternal:        external,
-		PauseImage:        pauseImage,
-		InitialTaints:     initialTaints,
-		ExtraKubeletFlags: extraKubeletFlags,
-	}
-
-	var buf strings.Builder
-	if err = tmpl.Execute(&buf, data); err != nil {
-		return "", fmt.Errorf("failed to execute kubelet-systemd-unit template: %w", err)
-	}
-
-	return buf.String(), nil
 }
 
 func KubeletFlags(containerRuntime string) []string {
@@ -318,55 +227,6 @@ func SafeDownloadBinariesScript(kubeVersion string) (string, error) {
 }
 
 const (
-	kubeletSystemdUnitTpl = `
-[Unit]
-After={{ .ContainerRuntime }}.service
-Requires={{ .ContainerRuntime }}.service
-
-Description=kubelet: The Kubernetes Node Agent
-Documentation=https://kubernetes.io/docs/home/
-
-[Service]
-Restart=always
-StartLimitInterval=0
-RestartSec=10
-CPUAccounting=true
-MemoryAccounting=true
-
-Environment="PATH=/opt/bin:/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin/"
-EnvironmentFile=-/etc/environment
-
-ExecStartPre=/bin/bash /opt/load-kernel-modules.sh
-ExecStartPre=/bin/bash /opt/bin/setup_net_env.sh
-ExecStart=/opt/bin/kubelet $KUBELET_EXTRA_ARGS \
-  --bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf \
-  --kubeconfig=/var/lib/kubelet/kubeconfig \
-  --config=/etc/kubernetes/kubelet.conf \
-  --network-plugin=cni \
-  --cert-dir=/etc/kubernetes/pki \
-  {{- if .IsExternal }}
-  --cloud-provider=external \
-  {{- end }}
-  {{- if and (.Hostname) (ne .CloudProvider "aws") }}
-  --hostname-override=%H \
-  {{- end }}
-  --dynamic-config-dir=/etc/kubernetes/dynamic-config-dir \
-  --exit-on-lock-contention \
-  --lock-file=/tmp/kubelet.lock \
-  {{- if .PauseImage }}
-  --pod-infra-container-image={{ .PauseImage }} \
-  {{- end }}
-  {{- if .InitialTaints }}
-  --register-with-taints={{- .InitialTaints }} \
-  {{- end }}
-  {{- range .ExtraKubeletFlags }}
-  {{ . }} \
-  {{- end }}
-  --node-ip ${KUBELET_NODE_IP}
-
-[Install]
-WantedBy=multi-user.target`
-
 	safeDownloadBinariesTpl = `
 {{- /*setup some common directories */ -}}
 opt_bin=/opt/bin
