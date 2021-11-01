@@ -74,7 +74,7 @@ To run OSM locally:
 
 ## Troubleshooting
 
-If you encounter issues [file an issue][1] or talk to us on the [#kubermatic channel][2] on the [Kubermatic Slack][3].
+If you encounter issues [file an issue][1] or talk to us on the [#kubermatic channel][6] on the [Kubermatic Slack][7].
 
 ## Contributing
 
