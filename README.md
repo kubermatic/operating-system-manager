@@ -4,7 +4,7 @@ Operating System Manager is responsible for creating and managing the required c
 
 ## Project Status
 
-This project is experimental and currently a work-in-progress. **This is not supposed to used in production environments**.
+This project is experimental and currently a work-in-progress. **This is not supposed to be used in production environments**.
 
 ## Overview
 
@@ -14,10 +14,10 @@ This project is experimental and currently a work-in-progress. **This is not sup
 
 Currently this workflow has the following limitations/issues:
 
-- Machine Controller expects **ALL** the supported OS plugins to exist and be ready. User might only be interested in a subset of the available OS.
-- The `cloud-configs` are generated against pre-defined templates like [this](https://github.com/kubermatic/machine-controller/blob/master/pkg/userdata/ubuntu/provider.go#L133). This is not idea because code changes are required to update those templates.
-- Each cloud provider have set their own size limit for `user-data`, machine won't be created in case of non-compliance. For example, at the time of writing this, AWS has set a hard limit of 16KB for `user-data` w.r.t. [this](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-add-user-data.html)
-- Managing configs for multiple cloud providers, OS flavors and OS versions adds a lot of complexity and redundancy in machine-controller.
+- Machine Controller expects **ALL** the supported OS plugins to exist and be ready. User might only be interested in a subset of the available operating systems.
+- The `cloud-configs` are generated against pre-defined templates like [this](https://github.com/kubermatic/machine-controller/blob/master/pkg/userdata/ubuntu/provider.go#L133). This is not ideal because code changes are required to update those templates.
+- Each cloud provider sets some limit for `user-data` size, machine won't be created in case of non-compliance. For example, at the time of writing this, AWS has set a [hard limit of 16KB](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-add-user-data.html) for `user-data` size.
+- Managing configs for multiple cloud providers, OS flavors and OS versions, adds a lot of complexity and redundancy in machine-controller.
 
 ### Solution
 
@@ -60,7 +60,7 @@ More work is being done to make it even easier to use OSM in air-gapped environm
 
 [TBD]
 
-_The code and sample YAML files in the master branch of the XXX repository are under active development and are not guaranteed to be stable. Use them at your own risk!_
+_The code and sample YAML files in the master branch of the operating-system-manager repository are under active development and are not guaranteed to be stable. Use them at your own risk!_
 
 ## Development
 
@@ -68,7 +68,7 @@ To run OSM locally:
 
 - Either use a [kind](https://kind.sigs.k8s.io/docs/user/quick-start/) cluster or actual cluster and make sure that the correct context is loaded
 - Run `kubectl apply -f charts/crd` to install CRDs
-- Create relevant OperatingSystemProfile resources. Check [sample](./examples) for reference
+- Create relevant OperatingSystemProfile resources. Check [sample](./examples) for reference.
 - Run `make build` to generate binary
 - Run `./_build/osm-controller` to start the controller
 
