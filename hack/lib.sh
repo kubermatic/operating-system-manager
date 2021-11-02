@@ -124,6 +124,14 @@ start_docker_daemon() {
   echodate "Docker became ready"
 }
 
+docker_logs() {
+  if [[ $? -ne 0 ]]; then
+    echodate "Printing Docker logs"
+    cat /tmp/docker.log
+    echodate "Done printing Docker logs"
+  fi
+}
+
 write_junit() {
   # Doesn't make any sense if we don't know a testname
   if [ -z "${TEST_NAME:-}" ]; then return; fi
