@@ -1,4 +1,4 @@
-# Copyright 2021 The Kubermatic Kubernetes Platform contributors.
+# Copyright 2021 The Operating System Manager contributors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -114,3 +114,20 @@ presubmits:
               cpu: 4
             limits:
               memory: 2Gi
+
+  - name: pull-operating-system-manager-e2e
+    always_run: true
+    decorate: true
+    error_on_eviction: true
+    clone_uri: "ssh://git@github.com/kubermatic/operating-system-manager.git"
+    labels:
+      preset-goproxy: "true"
+    spec:
+      containers:
+        - image: golang:1.15.7
+          command:
+            - "./hack/ci-e2e-tests.sh"
+          resources:
+            requests:
+              memory: 1Gi
+              cpu: 500m
