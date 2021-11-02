@@ -7,13 +7,38 @@ spec:
   osName: "ubuntu"
   osVersion: "20.04"
   supportedCloudProviders:
-    - name: "aws"
-      spec:
-        region: "eu-central-1"
+  - name: "aws"
+    spec:
+      region: "eu-central-1"
   supportedContainerRuntimes:
-    - name: containerd
-      scriptFile : |-
-        {{- define "containerRuntimeScript" }}
+  - name: containerd
+    files:
+      - path: "/etc/containerd/config.toml"
+        permissions: 0644
+        content:
+          inline:
+            encoding: b64
+            data: |
+              version = 2
+
+              [metrics]
+              address = "127.0.0.1:1338"
+
+              [plugins]
+              [plugins."io.containerd.grpc.v1.cri"]
+              [plugins."io.containerd.grpc.v1.cri".containerd]
+              [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
+              [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+              runtime_type = "io.containerd.runc.v2"
+              [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+              SystemdCgroup = true
+              [plugins."io.containerd.grpc.v1.cri".registry]
+              [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
+              [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
+              endpoint = ["https://registry-1.docker.io"]
+
+    templates:
+      containerRuntimeInstallation : |-
         apt-get update
         apt-get install -y apt-transport-https ca-certificates curl software-properties-common lsb-release
         curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
@@ -35,27 +60,98 @@ spec:
 
         systemctl daemon-reload
         systemctl enable --now containerd
-        {{- end }}
-      configFile: |-
-        {{- define "containerRuntimeConfig" }}
-        version = 2
+        
+    extraKubeletFlags:
+    - "--container-runtime=containerd"
+    - "--container-runtime-endpoint=unix:///run/containerd/containerd.sock"
+  - name: docker
+    templates:
+      containerRuntimeInstallation : "" 
+      containerRuntimeConfiguration: ""
+    extraKubeletFlags: 
+    - "--container-runtime=docker"
+    - "--container-runtime-endpoint=unix:///var/run/dockershim.sock"
+  templates:
+    safeDownloadBinariesScript: |-
+      {{- /*setup some common directories */ -}}
+      opt_bin=/opt/bin
+      cni_bin_dir=/opt/cni/bin
 
-        [metrics]
-        address = "127.0.0.1:1338"
+      {{- /* create all the necessary dirs */}}
+      mkdir -p /etc/cni/net.d /etc/kubernetes/dynamic-config-dir /etc/kubernetes/manifests "$opt_bin" "$cni_bin_dir"
 
-        [plugins]
-        [plugins."io.containerd.grpc.v1.cri"]
-        [plugins."io.containerd.grpc.v1.cri".containerd]
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-        runtime_type = "io.containerd.runc.v2"
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
-        SystemdCgroup = true
-        [plugins."io.containerd.grpc.v1.cri".registry]
-        [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
-        [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
-        endpoint = ["https://registry-1.docker.io"]
-        {{- end }}
+      {{- /* HOST_ARCH can be defined outside of machine-controller (in kubeone for example) */}}
+      arch=${HOST_ARCH-}
+      if [ -z "$arch" ]
+      then
+      case $(uname -m) in
+      x86_64)
+          arch="amd64"
+          ;;
+      aarch64)
+          arch="arm64"
+          ;;
+      *)
+          echo "unsupported CPU architecture, exiting"
+          exit 1
+          ;;
+      esac
+      fi
+
+      {{- /* # CNI variables */}}
+      CNI_VERSION="${CNI_VERSION:-{{ .CNIVersion }}}"
+      cni_base_url="https://github.com/containernetworking/plugins/releases/download/$CNI_VERSION"
+      cni_filename="cni-plugins-linux-$arch-$CNI_VERSION.tgz"
+
+      {{- /* download CNI */}}
+      curl -Lfo "$cni_bin_dir/$cni_filename" "$cni_base_url/$cni_filename"
+
+      {{- /* download CNI checksum */}}
+      cni_sum=$(curl -Lf "$cni_base_url/$cni_filename.sha256")
+      cd "$cni_bin_dir"
+
+      {{- /* verify CNI checksum */}}
+      sha256sum -c <<<"$cni_sum"
+
+      {{- /* unpack CNI */}}
+      tar xvf "$cni_filename"
+      rm -f "$cni_filename"
+      cd -
+
+      {{- /* kubelet */}}
+      KUBE_VERSION="${KUBE_VERSION:-{{ .KubeVersion }}}"
+      kube_dir="$opt_bin/kubernetes-$KUBE_VERSION"
+      kube_base_url="https://storage.googleapis.com/kubernetes-release/release/$KUBE_VERSION/bin/linux/$arch"
+      kube_sum_file="$kube_dir/sha256"
+
+      {{- /* create versioned kube dir */}}
+      mkdir -p "$kube_dir"
+      : >"$kube_sum_file"
+
+      for bin in kubelet kubeadm kubectl; do
+          {{- /* download kube binary */}}
+          curl -Lfo "$kube_dir/$bin" "$kube_base_url/$bin"
+          chmod +x "$kube_dir/$binKubeletVersion"
+
+          {{- /* download kube binary checksum */}}
+          sum=$(curl -Lf "$kube_base_url/$bin.sha256")
+
+          {{- /* save kube binary checksum */}}
+          echo "$sum  $kube_dir/$bin" >>"$kube_sum_file"
+      done
+
+      {{- /* check kube binaries checksum */}}
+      sha256sum -c "$kube_sum_file"
+
+      for bin in kubelet kubeadm kubectl; do
+          {{- /* link kube binaries from verioned dir to $opt_bin */}}
+          ln -sf "$kube_dir/$bin" "$opt_bin"/$bin
+      done
+
+      if [[ ! -x /opt/bin/health-monitor.sh ]]; then
+          curl -Lfo /opt/bin/health-monitor.sh https://raw.githubusercontent.com/kubermatic/machine-controller/7967a0af2b75f29ad2ab227eeaa26ea7b0f2fbde/pkg/userdata/scripts/health-monitor.sh
+          chmod +x /opt/bin/health-monitor.sh
+      fi
   units:
     - name: test-unit-1
       enable: true
@@ -114,22 +210,15 @@ spec:
           fi
           {{ end }}
           
-          {{ template "containerRuntimeScript" }}
+          {{- template "containerRuntimeInstallation" }}
 
-          {{ .SafeDownloadBinariesScript }}
+          {{- template "safeDownloadBinariesScript" }}
+
           # set kubelet nodeip environment variable
           /opt/bin/setup_net_env.sh
 
           systemctl enable --now kubelet
           systemctl enable --now --no-block kubelet-healthcheck.service
-          
-  - path: "/etc/containerd/config.toml"
-    permissions: 0644
-    content:
-      inline:
-        encoding: b64
-        data: |
-          {{ template "containerRuntimeConfig" }}
 
   - path: "/etc/systemd/system/kubelet.service"
     content:
@@ -188,7 +277,7 @@ spec:
     content:
       inline:
         encoding: b64
-        data: |-
+        data: |
           apiVersion: kubelet.config.k8s.io/v1beta1
           kind: KubeletConfiguration
           authentication:
@@ -209,7 +298,7 @@ spec:
           readOnlyPort: 0
           rotateCertificates: true
           serverTLSBootstrap: true
-          staticPodPath: /etc/kubernetes/manifests  
+          staticPodPath: /etc/kubernetes/manifests
           kubeReserved:
             cpu: 200m
             ephemeral-storage: 1Gi
@@ -217,6 +306,6 @@ spec:
           systemReserved:
             cpu: 200m
             ephemeral-storage: 1Gi
-            memory: 200Mi          
+            memory: 200Mi
           volumePluginDir: /var/lib/kubelet/volumeplugins
       

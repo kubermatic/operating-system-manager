@@ -61,13 +61,13 @@ type File struct {
 	Content FileContent `json:"content"`
 }
 
+// ContainerRuntimeSpec aggregates information about a specific container runtime
 type ContainerRuntimeSpec struct {
 	// Container runtime name
-	Name string `json:"name"`
-	// Config file
-	ConfigFile string `json:"configFile"`
-	// Setup script for the given container runtime
-	ScriptFile string `json:"scriptFile"`
+	Name              string            `json:"name"`
+	Files             []File            `json:"files"`
+	Templates         map[string]string `json:"templates"`
+	ExtraKubeletFlags []string          `json:"extraKubeletFlags"`
 }
 
 // FileContent can either reference a secret or contain inline configuration.

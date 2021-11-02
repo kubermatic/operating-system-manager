@@ -57,9 +57,10 @@ type Reconciler struct {
 	pauseImage            string
 	initialTaints         string
 	generator             generator.CloudInitGenerator
-
-	clusterDNSIPs string
-	kubeconfig    string
+	clusterDNSIPs         string
+	kubeconfig            string
+	cniVersion            string
+	containerdVersion     string
 }
 
 func Add(
@@ -74,7 +75,9 @@ func Add(
 	containerRuntime string,
 	externalCloudProvider bool,
 	pauseImage string,
-	initialTaints string) error {
+	initialTaints string,
+	cniVersion string,
+	containerdVersion string) error {
 	reconciler := &Reconciler{
 		Client:                mgr.GetClient(),
 		log:                   log,
@@ -87,6 +90,8 @@ func Add(
 		pauseImage:            pauseImage,
 		initialTaints:         initialTaints,
 		externalCloudProvider: externalCloudProvider,
+		cniVersion:            cniVersion,
+		containerdVersion:     containerdVersion,
 	}
 	log.Info("Reconciling OSC resource..")
 	c, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: reconciler, MaxConcurrentReconciles: workerCount})
@@ -173,6 +178,8 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 			r.externalCloudProvider,
 			r.pauseImage,
 			r.initialTaints,
+			r.cniVersion,
+			r.containerdVersion,
 		),
 	}, r.namespace, r.Client); err != nil {
 		return fmt.Errorf("failed to reconcile cloud-init provision operating system config: %v", err)

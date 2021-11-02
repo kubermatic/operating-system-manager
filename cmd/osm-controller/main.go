@@ -45,6 +45,8 @@ type options struct {
 	externalCloudProvider bool
 	pauseImage            string
 	initialTaints         string
+	cniVersion            string
+	containerdVersion     string
 
 	clusterDNSIPs string
 	kubeconfig    string
@@ -67,12 +69,18 @@ func main() {
 	flag.StringVar(&opt.clusterDNSIPs, "cluster-dns", "10.10.10.10", "Comma-separated list of DNS server IP address.")
 	flag.StringVar(&opt.pauseImage, "pause'image", "", "pause image to use in Kubelet.")
 	flag.StringVar(&opt.initialTaints, "initial-taints", "", "taints to use when creating the node.")
+	flag.StringVar(&opt.cniVersion, "cni-version", "", "CNI version to use in the cluster.")
+	flag.StringVar(&opt.containerdVersion, "containerd-version", "", "Containerd version to use in the cluster.")
 
 	flag.Parse()
 
 	if len(opt.namespace) == 0 {
 		klog.Fatal("-namespace is required")
 	}
+	if len(opt.cniVersion) == 0 {
+		klog.Fatal("-cni-version is required")
+	}
+
 	opt.kubeconfig = flag.Lookup("kubeconfig").Value.(flag.Getter).Get().(string)
 
 	if err := validateClusterDNSIPs(opt.clusterDNSIPs); err != nil {
@@ -115,6 +123,8 @@ func main() {
 		opt.externalCloudProvider,
 		opt.pauseImage,
 		opt.initialTaints,
+		opt.cniVersion,
+		opt.containerdVersion,
 	); err != nil {
 		klog.Fatal(err)
 	}

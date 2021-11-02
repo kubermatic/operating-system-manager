@@ -19,10 +19,10 @@ package osc
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
-	"reflect"
 	"testing"
 	"time"
 
@@ -40,8 +40,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/klog"
-	"k8s.io/utils/pointer"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakectrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/yaml"
@@ -50,6 +49,8 @@ import (
 var (
 	// Path for a dummy kubeconfig; not using a real kubeconfig for this use case
 	kubeconfigPath string
+
+	update = flag.Bool("update", false, "update testdata files")
 )
 
 func init() {
@@ -67,9 +68,13 @@ func init() {
 }
 
 type testConfig struct {
-	namespace        string
-	clusterAddress   string
-	containerRuntime string
+	namespace         string
+	clusterAddress    string
+	containerRuntime  string
+	containerdVersion string
+	cniVersion        string
+	kubeVersion       string
+	clusterDNSIPs     string
 }
 
 func TestReconciler_Reconcile(t *testing.T) {
@@ -82,6 +87,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 		mdName            string
 		secretFile        string
 		config            testConfig
+		cloudProvider     string
 		cloudProviderSpec runtime.RawExtension
 	}{
 		{
@@ -93,10 +99,15 @@ func TestReconciler_Reconcile(t *testing.T) {
 			mdName:     "ubuntu-20.04-aws",
 			secretFile: "secret-ubuntu-20.04-aws-containerd.yaml",
 			config: testConfig{
-				namespace:        "kube-system",
-				clusterAddress:   "http://127.0.0.1/configs",
-				containerRuntime: "containerd",
+				namespace:         "kube-system",
+				clusterAddress:    "http://127.0.0.1/configs",
+				containerRuntime:  "containerd",
+				cniVersion:        "v0.8.7",
+				containerdVersion: "1.4",
+				kubeVersion:       "1.22.1",
+				clusterDNSIPs:     "10.0.0.0",
 			},
+			cloudProvider:     "aws",
 			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"cloudProvider":"aws", "cloudProviderSpec":"test-provider-spec"}`)},
 		},
 	}
@@ -115,19 +126,12 @@ func TestReconciler_Reconcile(t *testing.T) {
 			WithObjects(osp).
 			Build()
 
-		reconciler := Reconciler{
-			Client:           fakeClient,
-			log:              testUtil.DefaultLogger,
-			generator:        generator.NewDefaultCloudInitGenerator(""),
-			namespace:        testCase.config.namespace,
-			clusterAddress:   testCase.config.clusterAddress,
-			kubeconfig:       kubeconfigPath,
-			containerRuntime: testCase.config.containerRuntime,
-		}
+		reconciler := buildReconciler(fakeClient, testCase.config)
 
 		t.Run(testCase.name, func(t *testing.T) {
 			ctx := context.Background()
-			md := generateMachineDeployment(testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.cloudProviderSpec)
+			md := generateMachineDeployment(testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.cloudProvider, testCase.cloudProviderSpec)
+
 			if err := reconciler.reconcile(ctx, md); err != nil {
 				t.Fatalf("failed to reconcile: %v", err)
 			}
@@ -145,10 +149,11 @@ func TestReconciler_Reconcile(t *testing.T) {
 				t.Fatalf("failed to get osc: %v", err)
 			}
 
-			if !reflect.DeepEqual(osc.ObjectMeta, testOSC.ObjectMeta) ||
-				!reflect.DeepEqual(osc.Spec, testOSC.Spec) {
-				t.Fatal("operatingSystemConfig values are unexpected")
+			buff, err := yaml.Marshal(osc)
+			if err != nil {
+				t.Fatalf(err.Error())
 			}
+			testUtil.CompareOutput(t, testCase.oscFile, string(buff), *update)
 
 			secret := &corev1.Secret{}
 			if err := fakeClient.Get(ctx, types.NamespacedName{
@@ -158,118 +163,81 @@ func TestReconciler_Reconcile(t *testing.T) {
 				t.Fatalf("failed to get secret: %v", err)
 			}
 
-			aa, _ := yaml.Marshal(secret)
-			klog.Info(string(aa))
-
 			testSecret := &corev1.Secret{}
 			if err := loadFile(testSecret, testCase.secretFile); err != nil {
 				t.Fatalf("failed loading secret %s from testdata: %v", testCase.secretFile, err)
 			}
 
-			if !reflect.DeepEqual(secret.ObjectMeta, testSecret.ObjectMeta) ||
-				!reflect.DeepEqual(secret.Data, testSecret.Data) {
-				t.Fatal("secret values are unexpected")
+			buff, err = yaml.Marshal(secret)
+			if err != nil {
+				t.Fatalf(err.Error())
 			}
+			testUtil.CompareOutput(t, testCase.secretFile, string(buff), *update)
 		})
 	}
 }
 
-func loadFile(obj runtime.Object, name string) error {
-	path, err := filepath.Abs(filepath.Join("testdata", name))
-	if err != nil {
-		return fmt.Errorf("failed to get absolute path to testdata %s: %v", name, err)
-	}
-	objBytes, err := ioutil.ReadFile(path)
-	if err != nil {
-		return fmt.Errorf("failed to read testdata file: %v", err)
-	}
-
-	err = yaml.Unmarshal(objBytes, obj)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-var osmProfile = &osmv1alpha1.OperatingSystemProfile{
-	ObjectMeta: v1.ObjectMeta{
-		Name:      "ubuntu-20.04-profile",
-		Namespace: "kube-system",
-	},
-	Spec: osmv1alpha1.OperatingSystemProfileSpec{
-		OSName:    "Ubuntu",
-		OSVersion: "20.04",
-		Files: []osmv1alpha1.File{
-			{
-				Path:        "/opt/bin/setup",
-				Permissions: pointer.Int32Ptr(0755),
-				Content: osmv1alpha1.FileContent{
-					Inline: &osmv1alpha1.FileContentInline{
-						Encoding: "b64",
-						Data:     "#!/bin/bash\nset -xeuo pipefail\ncloud-init clean\nsystemctl start provision.service",
-					},
-				},
-			},
-			{
-				Path:        "/etc/systemd/system/setup.service",
-				Permissions: pointer.Int32Ptr(0644),
-				Content: osmv1alpha1.FileContent{
-					Inline: &osmv1alpha1.FileContentInline{
-						Encoding: "b64",
-						Data:     "[Install]\nWantedBy=multi-user.target\n\n[Unit]\nRequires=network-online.target\nAfter=network-online.target\n[Service]\nType=oneshot\nRemainAfterExit=true\nExecStart=/opt/bin/setup",
-					},
-				},
-			},
-		},
-	},
-}
-
 func TestMachineDeploymentDeletion(t *testing.T) {
-	machineDeploymentName := "ubuntu-20.04-lts"
-	machineDeployment := generateMachineDeployment(machineDeploymentName, "kube-system", "", runtime.RawExtension{})
-
-	fakeClient := fakectrlruntimeclient.
-		NewClientBuilder().
-		WithScheme(scheme.Scheme).
-		WithObjects(osmProfile, machineDeployment).
-		Build()
-
-	testCases := []struct {
-		name       string
-		reconciler Reconciler
-		md         *v1alpha1.MachineDeployment
+	var testCases = []struct {
+		name              string
+		ospFile           string
+		ospName           string
+		oscFile           string
+		oscName           string
+		mdName            string
+		secretFile        string
+		config            testConfig
+		cloudProvider     string
+		cloudProviderSpec runtime.RawExtension
 	}{
 		{
-			name: "test the deletion of machine deployment",
-			reconciler: Reconciler{
-				Client:           fakeClient,
+			name:       "test the deletion of machineDeployment",
+			ospFile:    "osp-ubuntu-20.04.yaml",
+			ospName:    "osp-ubuntu-aws",
+			oscFile:    "osc-ubuntu-20.04-aws-containerd.yaml",
+			oscName:    "ubuntu-20.04-aws-osc-provisioning",
+			mdName:     "ubuntu-20.04-aws",
+			secretFile: "secret-ubuntu-20.04-aws-containerd.yaml",
+			config: testConfig{
 				namespace:        "kube-system",
-				generator:        generator.NewDefaultCloudInitGenerator(""),
-				log:              testUtil.DefaultLogger,
 				clusterAddress:   "http://127.0.0.1/configs",
-				kubeconfig:       kubeconfigPath,
 				containerRuntime: "containerd",
 			},
-			md: machineDeployment,
+			cloudProvider:     "aws",
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"cloudProvider":"aws", "cloudProviderSpec":"test-provider-spec"}`)},
 		},
 	}
 
 	for _, testCase := range testCases {
 		testCase := testCase
+
+		osp := &osmv1alpha1.OperatingSystemProfile{}
+		if err := loadFile(osp, testCase.ospFile); err != nil {
+			t.Fatalf("failed loading osp %s from testdata: %v", testCase.name, err)
+		}
+
+		md := generateMachineDeployment(testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.cloudProvider, testCase.cloudProviderSpec)
+
+		fakeClient := fakectrlruntimeclient.
+			NewClientBuilder().
+			WithScheme(scheme.Scheme).
+			WithObjects(osp, md).
+			Build()
+
+		reconciler := buildReconciler(fakeClient, testCase.config)
+
 		t.Run(testCase.name, func(t *testing.T) {
 			ctx := context.Background()
 
-			// First time reconcile to trigger create workflow
-			_, err := testCase.reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: testCase.md.Name, Namespace: testCase.md.Namespace}})
-			if err != nil {
+			if err := reconciler.reconcile(ctx, md); err != nil {
 				t.Fatalf("failed to reconcile: %v", err)
 			}
 
 			// Ensure that OperatingSystemConfig was created
 			osc := &osmv1alpha1.OperatingSystemConfig{}
 			if err := fakeClient.Get(ctx, types.NamespacedName{
-				Namespace: "kube-system",
-				Name:      fmt.Sprintf("ubuntu-20.04-lts-osc-%s", resources.ProvisioningCloudInit)},
+				Namespace: testCase.config.namespace,
+				Name:      testCase.oscName},
 				osc); err != nil {
 				t.Fatalf("failed to get osc: %v", err)
 			}
@@ -277,8 +245,8 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 			// Ensure that corresponding secret was created
 			secret := &corev1.Secret{}
 			if err := fakeClient.Get(ctx, types.NamespacedName{
-				Namespace: "kube-system",
-				Name:      fmt.Sprintf("ubuntu-20.04-lts-osc-%s", resources.ProvisioningCloudInit)},
+				Namespace: testCase.config.namespace,
+				Name:      testCase.oscName},
 				secret); err != nil {
 				t.Fatalf("failed to get secret: %v", err)
 			}
@@ -286,20 +254,21 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 			// Retrieve MachineDeployment
 			machineDeployment := &v1alpha1.MachineDeployment{}
 			if err := fakeClient.Get(ctx, types.NamespacedName{
-				Namespace: "kube-system",
-				Name:      machineDeploymentName},
+				Namespace: testCase.config.namespace,
+				Name:      testCase.mdName},
 				machineDeployment); err != nil {
 				t.Fatalf("failed to get machine deployment: %v", err)
 			}
 
 			// Add deletionTimestamp to Machinedeployment to queue it up for deletion
 			machineDeployment.ObjectMeta.DeletionTimestamp = &v1.Time{Time: time.Now()}
-			if err := fakeClient.Update(ctx, machineDeployment); err != nil {
+			err := fakeClient.Update(ctx, machineDeployment)
+			if err != nil {
 				t.Fatalf("failed to update machine deployment with deletionTimestamp: %v", err)
 			}
 
 			// Reconcile to trigger delete workflow
-			_, err = testCase.reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: testCase.md.Name, Namespace: testCase.md.Namespace}})
+			_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: md.Name, Namespace: md.Namespace}})
 			if err != nil {
 				t.Fatalf("failed to reconcile: %v", err)
 			}
@@ -323,11 +292,12 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 	}
 }
 
-func generateMachineDeployment(name, namespace, osp string, cloudProviderSpec runtime.RawExtension) *v1alpha1.MachineDeployment {
+func generateMachineDeployment(name, namespace, osp string, cloudprovider string, cloudProviderSpec runtime.RawExtension) *v1alpha1.MachineDeployment {
 	pconfig := providerconfigtypes.Config{
 		SSHPublicKeys:     []string{"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c"},
 		OperatingSystem:   "Ubuntu",
 		CloudProviderSpec: cloudProviderSpec,
+		CloudProvider:     providerconfigtypes.CloudProvider(cloudprovider),
 	}
 	mdConfig, err := json.Marshal(pconfig)
 	if err != nil {
@@ -345,6 +315,9 @@ func generateMachineDeployment(name, namespace, osp string, cloudProviderSpec ru
 		Spec: v1alpha1.MachineDeploymentSpec{
 			Template: v1alpha1.MachineTemplateSpec{
 				Spec: v1alpha1.MachineSpec{
+					Versions: v1alpha1.MachineVersionInfo{
+						Kubelet: "1.22.1",
+					},
 					ProviderSpec: v1alpha1.ProviderSpec{
 						Value: &runtime.RawExtension{
 							Raw: mdConfig,
@@ -355,4 +328,36 @@ func generateMachineDeployment(name, namespace, osp string, cloudProviderSpec ru
 		},
 	}
 	return md
+}
+
+func loadFile(obj runtime.Object, name string) error {
+	path, err := filepath.Abs(filepath.Join("testdata", name))
+	if err != nil {
+		return fmt.Errorf("failed to get absolute path to testdata %s: %v", name, err)
+	}
+	objBytes, err := ioutil.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("failed to read testdata file: %v", err)
+	}
+
+	err = yaml.Unmarshal(objBytes, obj)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func buildReconciler(fakeClient client.Client, config testConfig) Reconciler {
+	return Reconciler{
+		Client:            fakeClient,
+		log:               testUtil.DefaultLogger,
+		generator:         generator.NewDefaultCloudInitGenerator(""),
+		namespace:         config.namespace,
+		clusterAddress:    config.clusterAddress,
+		kubeconfig:        kubeconfigPath,
+		containerRuntime:  config.containerRuntime,
+		containerdVersion: config.containerdVersion,
+		cniVersion:        config.cniVersion,
+		clusterDNSIPs:     config.clusterDNSIPs,
+	}
 }
