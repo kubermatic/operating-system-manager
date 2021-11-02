@@ -105,6 +105,25 @@ retry() {
   return $rc
 }
 
+start_docker_daemon() {
+  if docker stats --no-stream > /dev/null 2>&1; then
+    echodate "Not starting Docker again, it's already running."
+    return
+  fi
+
+  # Start Docker daemon
+  echodate "Starting Docker"
+  # Set the MTU to 1400 to avoid issues with our CI environment.
+  dockerd --mtu 1400 > /tmp/docker.log 2>&1 &
+  echodate "Started Docker successfully"
+  appendTrap docker_logs EXIT
+
+  # Wait for Docker to start
+  echodate "Waiting for Docker"
+  retry 5 docker stats --no-stream
+  echodate "Docker became ready"
+}
+
 write_junit() {
   # Doesn't make any sense if we don't know a testname
   if [ -z "${TEST_NAME:-}" ]; then return; fi
