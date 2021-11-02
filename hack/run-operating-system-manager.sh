@@ -14,9 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -euo pipefail
+set -e
 
-cd $(dirname $0)/..
+NAMESPACE="${NAMESPACE:-kube-system}"
 
-boilerplate \
-  -boilerplates hack/boilerplate/
+make -C $(dirname $0)/.. build
+$(dirname $0)/../_build/osm-controller \
+  -namespace=$NAMESPACE
