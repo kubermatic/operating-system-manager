@@ -122,11 +122,17 @@ presubmits:
     clone_uri: "ssh://git@github.com/kubermatic/operating-system-manager.git"
     labels:
       preset-goproxy: "true"
+      preset-docker-pull: "true"
+      preset-docker-push: "true"
+      preset-kind-volume-mounts: "true"
     spec:
       containers:
         - image: quay.io/kubermatic/build:go-1.17-node-14-kind-0.11-1
           command:
             - "./hack/ci-e2e-tests.sh"
+          # docker-in-docker needs privileged mode
+          securityContext:
+            privileged: true
           resources:
             requests:
               memory: 1Gi
