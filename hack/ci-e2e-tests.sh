@@ -28,8 +28,13 @@ KIND_CLUSTER_NAME="${KIND_CLUSTER_NAME:-kubermatic}"
 KIND_NODE_VERSION="${KIND_NODE_VERSION:-v1.22.2}"
 KIND_PORT="${KIND_PORT-31000}"
 
-type kind > /dev/null || fatal \
-  "Kind is required to run this script, please refer to: https://kind.sigs.k8s.io/docs/user/quick-start/#installation"
+# Install dependencies
+echo "Installing dependencies..."
+apt update && apt install -y jq rsync unzip genisoimage
+curl --retry 5 --location --remote-name \
+  https://storage.googleapis.com/kubernetes-release/release/v1.22.2/bin/linux/amd64/kubectl &&
+  chmod +x kubectl &&
+  mv kubectl /usr/local/bin
 
 function clean_up {
   echodate "Deleting cluster ${KIND_CLUSTER_NAME}"

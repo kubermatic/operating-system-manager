@@ -124,7 +124,7 @@ presubmits:
       preset-goproxy: "true"
     spec:
       containers:
-        - image: golang:1.15.7
+        - image: quay.io/kubermatic/build:go-1.17-node-14-kind-0.11-1
           command:
             - "./hack/ci-e2e-tests.sh"
           resources:
