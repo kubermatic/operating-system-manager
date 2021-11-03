@@ -112,24 +112,69 @@ spec:
                         type: object
                         x-kubernetes-preserve-unknown-fields: true
                 supportedContainerRuntimes:
-                  description: SupportedContainerRuntimes represent the container runtimes supported by the given OS
+                  description: SupportedContainerRuntimes represents the container runtimes supported by the given OS
                   type: array
                   items:
+                    description: ContainerRuntimeSpec aggregates information about a specific container runtime
                     type: object
                     required:
-                      - configFile
+                      - extraKubeletFlags
+                      - files
                       - name
-                      - scriptFile
+                      - templates
                     properties:
-                      configFile:
-                        description: Config file
-                        type: string
+                      extraKubeletFlags:
+                        description: ExtraKubeletFlags represents the Kubelet flags related to the given container runtime
+                        type: array
+                        items:
+                          type: string
+                      files:
+                        description: Files to add to the main files list when the containerRuntime is selected
+                        type: array
+                        items:
+                          description: File is a file that should get written to the host's file system. The content can either be inlined or referenced from a secret in the same namespace.
+                          type: object
+                          required:
+                            - content
+                            - path
+                          properties:
+                            content:
+                              description: Content describe the file's content.
+                              type: object
+                              properties:
+                                inline:
+                                  description: Inline is a struct that contains information about the inlined data.
+                                  type: object
+                                  required:
+                                    - data
+                                    - encoding
+                                  properties:
+                                    data:
+                                      description: Data is the file's data.
+                                      type: string
+                                    encoding:
+                                      description: Encoding is the file's encoding (e.g. base64).
+                                      type: string
+                            path:
+                              description: Path is the path of the file system where the file should get written to.
+                              type: string
+                            permissions:
+                              description: Permissions describes with which permissions the file should get written to the file system. Should be defaulted to octal 0644.
+                              type: integer
+                              format: int32
                       name:
-                        description: Container runtime name
+                        description: Name of the Container runtime
                         type: string
-                      scriptFile:
-                        description: Setup script for the given container runtime
-                        type: string
+                      templates:
+                        description: Templates to add to the available templates when the containerRuntime is selected
+                        type: object
+                        additionalProperties:
+                          type: string
+                templates:
+                  description: Templates to be included in units and files
+                  type: object
+                  additionalProperties:
+                    type: string
                 units:
                   description: Units a list of the systemd unit files which will run on the instance
                   type: array

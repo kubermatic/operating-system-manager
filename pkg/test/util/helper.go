@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The Machine Controller Authors.
+Copyright 2021 The Kubermatic Kubernetes Platform contributors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ func CompareOutput(t *testing.T, name, output string, update bool) {
 		t.Fatalf("failed to get absolute path to testdata file: %v", err)
 	}
 	if update {
-		if err := ioutil.WriteFile(golden, []byte(output), 0644); err != nil {
+		if err := ioutil.WriteFile(golden, []byte(output), 0600); err != nil {
 			t.Fatalf("failed to write updated fixture: %v", err)
 		}
 	}
