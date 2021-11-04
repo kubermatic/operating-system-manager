@@ -27,7 +27,7 @@ spec:
         region: "us-west-1a"
   units:
     - name: download-script.service
-      enabled: true
+      enable: true
       content: |
         [Unit]
         Requires=network-online.target
@@ -40,7 +40,7 @@ spec:
         WantedBy=multi-user.target
 
     - name: nodeip.service
-      enabled: true
+      enable: true
       content: |
         [Unit]
         Description=Setup Kubelet Node IP Env
@@ -55,8 +55,8 @@ spec:
         WantedBy=multi-user.target
 
     - name: containerd.service
-      enabled: true
-      dropins:
+      enable: true
+      dropIns:
       - name: 10-environment.conf
         content: |
           [Service]
@@ -114,25 +114,33 @@ spec:
     - path: /proc/sys/kernel/panic_on_oops
       permissions: 0644
       content:
-        inline: |
-          1
+        inline:
+          encoding: b64
+          data: |
+            1
 
     - path: /proc/sys/kernel/panic
       permissions: 0644
       content:
-        inline: |
-          10
+        inline:
+          encoding: b64
+          data: |
+            10
 
     - path: /proc/sys/vm/overcommit_memory
       permissions: 0644
       content:
-        inline: |
-          1
+        inline:
+          encoding: b64
+          data: |
+            1
 
     - path: "/opt/bin/setup_net_env.sh"
       permissions: 0755
       content:
-        inline: |
+        inline:
+          encoding: b64
+          data: |
             #!/usr/bin/env bash
             echodate() {
               echo "[$(date -Is)]" "$@"
@@ -165,16 +173,19 @@ spec:
 
     - path: /etc/ssh/sshd_config
       permissions: 0600
-      content: |
-        # Use most defaults for sshd configuration.
-        Subsystem sftp internal-sftp
-        ClientAliveInterval 180
-        UseDNS no
-        UsePAM yes
-        PrintLastLog no # handled by PAM
-        PrintMotd no # handled by PAM
-        PasswordAuthentication no
-        ChallengeResponseAuthentication no
+      content:
+        inline:
+          encoding: b64
+          data: |
+            # Use most defaults for sshd configuration.
+            Subsystem sftp internal-sftp
+            ClientAliveInterval 180
+            UseDNS no
+            UsePAM yes
+            PrintLastLog no # handled by PAM
+            PrintMotd no # handled by PAM
+            PasswordAuthentication no
+            ChallengeResponseAuthentication no
 
     - path: "/opt/bin/setup"
       permissions: 0755
