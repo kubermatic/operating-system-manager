@@ -197,9 +197,6 @@ runcmd:
 				t.Fatalf("failed to generate cloud config: %v", err)
 			}
 
-			fmt.Printf("\n expected \n%s\n\n", string(testCase.expectedCloudConfig))
-			fmt.Printf("\n userData \n%s\n\n", string(userData))
-			
 			if string(userData) != string(testCase.expectedCloudConfig) {
 				t.Fatal("unexpected generated cloud config")
 			}

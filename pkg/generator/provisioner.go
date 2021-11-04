@@ -24,8 +24,8 @@ const (
 	CloudInit ProvisioningUtility = "cloud-init"
 )
 
-// getProvisioningUtility returns the provisioning utility for the given machine
-func getProvisioningUtility(osFlavor string) ProvisioningUtility {
+// GetProvisioningUtility returns the provisioning utility for the given machine
+func GetProvisioningUtility(osFlavor string) ProvisioningUtility {
 	switch osFlavor {
 	case "flatcar":
 		return Ignition

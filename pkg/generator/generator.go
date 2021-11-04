@@ -26,8 +26,6 @@ import (
 
 const defaultUnitsPath = "/etc/systemd/system/"
 
-// TODO @Waleed: CloudConfigGenerator should have a better name
-
 // CloudConfigGenerator generates the machine provisioning configurations for the corresponding operating system config
 type CloudConfigGenerator interface {
 	Generate(osc *osmv1alpha1.OperatingSystemConfig) ([]byte, error)
@@ -72,7 +70,7 @@ func (d *DefaultCloudConfigGenerator) Generate(osc *osmv1alpha1.OperatingSystemC
 
 	tmpl, err := template.New("user-data").Funcs(TxtFuncMap()).Parse(userDataTemplate)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse cloud-init template: %v", err)
+		return nil, fmt.Errorf("failed to parse user-data template: %v", err)
 	}
 
 	var buf bytes.Buffer
@@ -86,7 +84,7 @@ func (d *DefaultCloudConfigGenerator) Generate(osc *osmv1alpha1.OperatingSystemC
 		return nil, err
 	}
 
-	if getProvisioningUtility(osc.Spec.OSName) == CloudInit {
+	if GetProvisioningUtility(osc.Spec.OSName) == CloudInit {
 		return buf.Bytes(), nil
 	}
 
@@ -94,7 +92,7 @@ func (d *DefaultCloudConfigGenerator) Generate(osc *osmv1alpha1.OperatingSystemC
 }
 
 func getUserDataTemplate(osName string) (string, error) {
-	pUtil := getProvisioningUtility(osName)
+	pUtil := GetProvisioningUtility(osName)
 	switch pUtil {
 	case CloudInit:
 		return cloudInitTemplate, nil

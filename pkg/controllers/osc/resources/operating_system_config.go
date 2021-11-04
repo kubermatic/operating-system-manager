@@ -37,10 +37,10 @@ import (
 	kyaml "sigs.k8s.io/yaml"
 )
 
-type CloudInitSecret string
+type CloudConfigSecret string
 
 const (
-	ProvisioningCloudInit CloudInitSecret = "provisioning"
+	ProvisioningCloudConfig CloudConfigSecret = "provisioning"
 
 	MachineDeploymentSubresourceNamePattern = "%s-osc-%s"
 
@@ -56,7 +56,7 @@ func OperatingSystemConfigCreator(
 	clusterDNSIPs []net.IP,
 ) reconciling.NamedOperatingSystemConfigCreatorGetter {
 	return func() (string, reconciling.OperatingSystemConfigCreator) {
-		var oscName = fmt.Sprintf(MachineDeploymentSubresourceNamePattern, md.Name, ProvisioningCloudInit)
+		var oscName = fmt.Sprintf(MachineDeploymentSubresourceNamePattern, md.Name, ProvisioningCloudConfig)
 
 		return oscName, func(osc *osmv1alpha1.OperatingSystemConfig) (*osmv1alpha1.OperatingSystemConfig, error) {
 			ospOriginal := osp.DeepCopy()

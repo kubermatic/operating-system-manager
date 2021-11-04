@@ -128,7 +128,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 				expectedOSCs: []*osmv1alpha1.OperatingSystemConfig{
 					{
 						ObjectMeta: v1.ObjectMeta{
-							Name:            fmt.Sprintf("ubuntu-20.04-osc-%s", resources.ProvisioningCloudInit),
+							Name:            fmt.Sprintf("ubuntu-20.04-osc-%s", resources.ProvisioningCloudConfig),
 							Namespace:       "kube-system",
 							ResourceVersion: "1",
 						},
@@ -169,7 +169,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 				expectedSecrets: []*corev1.Secret{
 					{
 						ObjectMeta: v1.ObjectMeta{
-							Name:            fmt.Sprintf("ubuntu-20.04-osc-%s", resources.ProvisioningCloudInit),
+							Name:            fmt.Sprintf("ubuntu-20.04-osc-%s", resources.ProvisioningCloudConfig),
 							Namespace:       "kube-system",
 							ResourceVersion: "1",
 						},
@@ -193,7 +193,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 			osc := &osmv1alpha1.OperatingSystemConfig{}
 			if err := fakeClient.Get(ctx, types.NamespacedName{
 				Namespace: "kube-system",
-				Name:      fmt.Sprintf("ubuntu-20.04-osc-%s", resources.ProvisioningCloudInit)},
+				Name:      fmt.Sprintf("ubuntu-20.04-osc-%s", resources.ProvisioningCloudConfig)},
 				osc); err != nil {
 				t.Fatalf("failed to get osc: %v", err)
 			}
@@ -206,7 +206,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 			secret := &corev1.Secret{}
 			if err := fakeClient.Get(ctx, types.NamespacedName{
 				Namespace: "kube-system",
-				Name:      fmt.Sprintf("ubuntu-20.04-osc-%s", resources.ProvisioningCloudInit)},
+				Name:      fmt.Sprintf("ubuntu-20.04-osc-%s", resources.ProvisioningCloudConfig)},
 				secret); err != nil {
 				t.Fatalf("failed to get secret: %v", err)
 			}
@@ -263,7 +263,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 			osc := &osmv1alpha1.OperatingSystemConfig{}
 			if err := fakeClient.Get(ctx, types.NamespacedName{
 				Namespace: "kube-system",
-				Name:      fmt.Sprintf("ubuntu-20.04-lts-osc-%s", resources.ProvisioningCloudInit)},
+				Name:      fmt.Sprintf("ubuntu-20.04-lts-osc-%s", resources.ProvisioningCloudConfig)},
 				osc); err != nil {
 				t.Fatalf("failed to get osc: %v", err)
 			}
@@ -272,7 +272,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 			secret := &corev1.Secret{}
 			if err := fakeClient.Get(ctx, types.NamespacedName{
 				Namespace: "kube-system",
-				Name:      fmt.Sprintf("ubuntu-20.04-lts-osc-%s", resources.ProvisioningCloudInit)},
+				Name:      fmt.Sprintf("ubuntu-20.04-lts-osc-%s", resources.ProvisioningCloudConfig)},
 				secret); err != nil {
 				t.Fatalf("failed to get secret: %v", err)
 			}
@@ -301,7 +301,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 			// Ensure that OperatingSystemConfig was deleted
 			if err := fakeClient.Get(ctx, types.NamespacedName{
 				Namespace: "kube-system",
-				Name:      fmt.Sprintf("ubuntu-20.04-lts-osc-%s", resources.ProvisioningCloudInit)},
+				Name:      fmt.Sprintf("ubuntu-20.04-lts-osc-%s", resources.ProvisioningCloudConfig)},
 				osc); err == nil || !kerrors.IsNotFound(err) {
 				t.Fatalf("failed to delete osc")
 			}
@@ -309,7 +309,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 			// Ensure that corresponding secret was deleted
 			if err := fakeClient.Get(ctx, types.NamespacedName{
 				Namespace: "kube-system",
-				Name:      fmt.Sprintf("ubuntu-20.04-lts-osc-%s", resources.ProvisioningCloudInit)},
+				Name:      fmt.Sprintf("ubuntu-20.04-lts-osc-%s", resources.ProvisioningCloudConfig)},
 				secret); err == nil || !kerrors.IsNotFound(err) {
 				t.Fatalf("failed to delete secret")
 			}
