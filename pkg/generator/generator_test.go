@@ -26,8 +26,8 @@ import (
 
 func TestDefaultCloudConfigGenerator_Generate(t *testing.T) {
 	testCases := []struct {
-		name              string
-		osc               *osmv1alpha1.OperatingSystemConfig
+		name                string
+		osc                 *osmv1alpha1.OperatingSystemConfig
 		expectedCloudConfig []byte
 	}{
 		{

@@ -31,7 +31,6 @@ linters:
     - gocritic
     - gocyclo
     - gofmt
-    - gosec
     - gosimple
     - govet
     - ineffassign
