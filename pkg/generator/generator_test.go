@@ -17,6 +17,7 @@ limitations under the License.
 package generator
 
 import (
+	"fmt"
 	"testing"
 
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
@@ -63,7 +64,6 @@ func TestDefaultCloudConfigGenerator_Generate(t *testing.T) {
 				},
 			},
 			expectedCloudConfig: []byte(`#cloud-config
-
 ssh_pwauth: no
 ssh_authorized_keys:
 - 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3'
@@ -108,17 +108,16 @@ runcmd:
 				},
 			},
 			expectedCloudConfig: []byte(`#cloud-config
-		
 ssh_pwauth: no
 ssh_authorized_keys:
 - 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3'
 - 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4'
 write_files:
 - path: '/opt/bin/test'
-permissions: '0700'
-encoding: b64
-content: |
-IyEvYmluL2Jhc2gKICAgIHNldCAteGV1byBwaXBlZmFpbAogICAgY2xvdWQtaW5pdCBjbGVhbgogICAgY2xvdWQtaW5pdCBpbml0CiAgICBzeXN0ZW1jdGwgc3RhcnQgcHJvdmlzaW9uLnNlcnZpY2U=
+  permissions: '0700'
+  encoding: b64
+  content: |
+    IyEvYmluL2Jhc2gKICAgIHNldCAteGV1byBwaXBlZmFpbAogICAgY2xvdWQtaW5pdCBjbGVhbgogICAgY2xvdWQtaW5pdCBpbml0CiAgICBzeXN0ZW1jdGwgc3RhcnQgcHJvdmlzaW9uLnNlcnZpY2U=
 runcmd:
 - systemctl daemon-reload`),
 		},
@@ -142,15 +141,14 @@ runcmd:
 				},
 			},
 			expectedCloudConfig: []byte(`#cloud-config
-		
 ssh_pwauth: no
 ssh_authorized_keys:
 write_files:
 - path: '/opt/bin/test'
-permissions: '0700'
-encoding: b64
-content: |
-IyEvYmluL2Jhc2gKICAgIHNldCAteGV1byBwaXBlZmFpbAogICAgY2xvdWQtaW5pdCBjbGVhbgogICAgY2xvdWQtaW5pdCBpbml0CiAgICBzeXN0ZW1jdGwgc3RhcnQgcHJvdmlzaW9uLnNlcnZpY2U=
+  permissions: '0700'
+  encoding: b64
+  content: |
+    IyEvYmluL2Jhc2gKICAgIHNldCAteGV1byBwaXBlZmFpbAogICAgY2xvdWQtaW5pdCBjbGVhbgogICAgY2xvdWQtaW5pdCBpbml0CiAgICBzeXN0ZW1jdGwgc3RhcnQgcHJvdmlzaW9uLnNlcnZpY2U=
 runcmd:
 - systemctl daemon-reload`),
 		},
@@ -186,7 +184,7 @@ runcmd:
 					},
 				},
 			},
-			expectedCloudConfig: []byte(`userData {"ignition":{"config":{},"security":{"tls":{}},"timeouts":{},"version":"2.2.0"},"networkd":{},"passwd":{"users":[{"name":"core","sshAuthorizedKeys":["ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3","ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4"]}]},"storage":{"files":[{"filesystem":"root","path":"/opt/bin/test.service","contents":{"source":"data:,%23!%2Fbin%2Fbash%0Aset%20-xeuo%20pipefail%0Acloud-init%20clean%0Acloud-init%20init%0Asystemctl%20start%20provision.service%0A","verification":{}},"mode":448},{"filesystem":"root","path":"/opt/bin/setup.service","contents":{"source":"data:,%23!%2Fbin%2Fbash%0Aset%20-xeuo%20pipefail%0Acloud-init%20clean%0Acloud-init%20init%0Asystemctl%20start%20provision.service%0A","verification":{}},"mode":448}]},"systemd":{}}`),
+			expectedCloudConfig: []byte(`{"ignition":{"config":{},"security":{"tls":{}},"timeouts":{},"version":"2.2.0"},"networkd":{},"passwd":{"users":[{"name":"core","sshAuthorizedKeys":["ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3","ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4"]}]},"storage":{"files":[{"filesystem":"root","path":"/opt/bin/test.service","contents":{"source":"data:,%23!%2Fbin%2Fbash%0Aset%20-xeuo%20pipefail%0Acloud-init%20clean%0Acloud-init%20init%0Asystemctl%20start%20provision.service%0A","verification":{}},"mode":448},{"filesystem":"root","path":"/opt/bin/setup.service","contents":{"source":"data:,%23!%2Fbin%2Fbash%0Aset%20-xeuo%20pipefail%0Acloud-init%20clean%0Acloud-init%20init%0Asystemctl%20start%20provision.service%0A","verification":{}},"mode":448}]},"systemd":{}}`),
 		},
 	}
 
@@ -199,6 +197,9 @@ runcmd:
 				t.Fatalf("failed to generate cloud config: %v", err)
 			}
 
+			fmt.Printf("\n expected \n%s\n\n", string(testCase.expectedCloudConfig))
+			fmt.Printf("\n userData \n%s\n\n", string(userData))
+			
 			if string(userData) != string(testCase.expectedCloudConfig) {
 				t.Fatal("unexpected generated cloud config")
 			}
