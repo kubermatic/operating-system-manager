@@ -17,7 +17,6 @@ limitations under the License.
 package generator
 
 import (
-	"fmt"
 	"testing"
 
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
