@@ -135,7 +135,7 @@ func parseClusterDNSIPs(s string) ([]net.IP, error) {
 }
 
 // getKubeConfigPath returns the path to the kubeconfig file.
-func getKubeConfigPath() (string) {
+func getKubeConfigPath() string {
 	if os.Getenv("KUBECONFIG") != "" {
 		return os.Getenv("KUBECONFIG")
 	} else {
