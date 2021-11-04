@@ -37,7 +37,7 @@ func CloudConfigSecretCreator(mdName string, osName string, oscType CloudConfigS
 			switch generator.GetProvisioningUtility(osName) {
 			case generator.Ignition:
 				sec.Data["ignition"] = data
-			// This should be handled in a better way
+			// TODO: This should be handled in a better way
 			default:
 				sec.Data["cloud-init"] = data
 			}
