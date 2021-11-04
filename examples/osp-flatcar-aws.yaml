@@ -66,7 +66,7 @@ spec:
     - path: "/etc/systemd/journald.conf.d/max_disk_use.conf"
       content:
         inline:
-          encoding: b64
+          encoding: "none"
           data: |
             [Journal]
             SystemMaxUse=5G
@@ -74,7 +74,7 @@ spec:
     - path: "/etc/kubernetes/kubelet.conf"
       content:
         inline:
-          encoding: b64
+          encoding: "none"
           data: |
             {{ .KubeletConfiguration }}
 
@@ -82,7 +82,7 @@ spec:
       permissions: 0755
       content:
         inline:
-          encoding: b64
+          encoding: "none"
           data: |
             #!/usr/bin/env bash
             set -euo pipefail
@@ -101,7 +101,7 @@ spec:
     - path: "/etc/sysctl.d/k8s.conf"
       content:
         inline:
-          encoding: b64
+          encoding: "none"
           data: |
             net.bridge.bridge-nf-call-ip6tables = 1
             net.bridge.bridge-nf-call-iptables = 1
@@ -115,7 +115,7 @@ spec:
       permissions: 0644
       content:
         inline:
-          encoding: b64
+          encoding: "none"
           data: |
             1
 
@@ -123,7 +123,7 @@ spec:
       permissions: 0644
       content:
         inline:
-          encoding: b64
+          encoding: "none"
           data: |
             10
 
@@ -131,7 +131,7 @@ spec:
       permissions: 0644
       content:
         inline:
-          encoding: b64
+          encoding: "none"
           data: |
             1
 
@@ -139,7 +139,7 @@ spec:
       permissions: 0755
       content:
         inline:
-          encoding: b64
+          encoding: "none"
           data: |
             #!/usr/bin/env bash
             echodate() {
@@ -175,7 +175,7 @@ spec:
       permissions: 0600
       content:
         inline:
-          encoding: b64
+          encoding: "none"
           data: |
             # Use most defaults for sshd configuration.
             Subsystem sftp internal-sftp
@@ -191,7 +191,7 @@ spec:
       permissions: 0755
       content:
         inline:
-          encoding: b64
+          encoding: "none"
           data: |
             #!/bin/bash
             set -xeuo pipefail
@@ -273,6 +273,6 @@ spec:
     - path: "/etc/systemd/system/kubelet.service"
       content:
         inline:
-          encoding: b64
+          encoding: "none"
           data: |
             {{ .KubeletSystemdUnit }}
