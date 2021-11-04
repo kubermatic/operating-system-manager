@@ -53,7 +53,7 @@ type Reconciler struct {
 	log            *zap.SugaredLogger
 	namespace      string
 	clusterAddress string
-	generator      generator.CloudInitGenerator
+	generator      generator.CloudConfigGenerator
 
 	clusterDNSIPs []net.IP
 	kubeconfig    string
@@ -67,7 +67,7 @@ func Add(
 	workerCount int,
 	clusterDNSIPs []net.IP,
 	kubeconfig string,
-	generator generator.CloudInitGenerator) error {
+	generator generator.CloudConfigGenerator) error {
 	reconciler := &Reconciler{
 		Client:         mgr.GetClient(),
 		log:            log,

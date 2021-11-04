@@ -26,28 +26,30 @@ import (
 
 const defaultUnitsPath = "/etc/systemd/system/"
 
-// CloudInitGenerator generates the cloud-init configurations for the corresponding operating system config
-type CloudInitGenerator interface {
+// TODO @Waleed: CloudConfigGenerator should have a better name
+
+// CloudConfigGenerator generates the machine provisioning configurations for the corresponding operating system config
+type CloudConfigGenerator interface {
 	Generate(osc *osmv1alpha1.OperatingSystemConfig) ([]byte, error)
 }
 
-// DefaultCloudInitGenerator represents the default generator of the cloud-init configuration
-type DefaultCloudInitGenerator struct {
+// DefaultCloudConfigGenerator represents the default generator of the machine provisioning configurations
+type DefaultCloudConfigGenerator struct {
 	unitsPath string
 }
 
-// NewDefaultCloudInitGenerator creates a new cloud-init generator.
-func NewDefaultCloudInitGenerator(unitsPath string) CloudInitGenerator {
+// NewDefaultCloudConfigGenerator creates a new CloudConfigGenerator.
+func NewDefaultCloudConfigGenerator(unitsPath string) CloudConfigGenerator {
 	if unitsPath == "" {
 		unitsPath = defaultUnitsPath
 	}
 
-	return &DefaultCloudInitGenerator{
+	return &DefaultCloudConfigGenerator{
 		unitsPath: unitsPath,
 	}
 }
 
-func (d *DefaultCloudInitGenerator) Generate(osc *osmv1alpha1.OperatingSystemConfig) ([]byte, error) {
+func (d *DefaultCloudConfigGenerator) Generate(osc *osmv1alpha1.OperatingSystemConfig) ([]byte, error) {
 	var files []*fileSpec
 	for _, file := range osc.Spec.Files {
 		fSpec := &fileSpec{
@@ -62,7 +64,13 @@ func (d *DefaultCloudInitGenerator) Generate(osc *osmv1alpha1.OperatingSystemCon
 		files = append(files, fSpec)
 	}
 
-	tmpl, err := template.New("user-data").Funcs(TxtFuncMap()).Parse(cloudInitTemplate)
+	// Fetch user data template based on the provisioning utility
+	userDataTemplate, err := getUserDataTemplate(osc.Spec.OSName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get an appropriate user-data template: %v", err)
+	}
+
+	tmpl, err := template.New("user-data").Funcs(TxtFuncMap()).Parse(userDataTemplate)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse cloud-init template: %v", err)
 	}
@@ -78,7 +86,24 @@ func (d *DefaultCloudInitGenerator) Generate(osc *osmv1alpha1.OperatingSystemCon
 		return nil, err
 	}
 
-	return buf.Bytes(), nil
+	if getProvisioningUtility(osc.Spec.OSName) == CloudInit {
+		return buf.Bytes(), nil
+	}
+
+	return toIgnition(buf.String())
+}
+
+func getUserDataTemplate(osName string) (string, error) {
+	pUtil := getProvisioningUtility(osName)
+	switch pUtil {
+	case CloudInit:
+		return cloudInitTemplate, nil
+	case Ignition:
+		return ignitionTemplate, nil
+	default:
+		return "", fmt.Errorf("invalid provisioning utility %s, allowed values are %s or %s",
+			pUtil, Ignition, CloudInit)
+	}
 }
 
 type fileSpec struct {
@@ -109,4 +134,26 @@ runcmd:
 - systemctl restart {{ $cmd }}
 {{ end -}}
 - systemctl daemon-reload
+`
+
+var ignitionTemplate = `passwd:
+{{- if ne (len .UserSSHKeys) 0 }}
+  users:
+    - name: core
+      ssh_authorized_keys:
+        {{range .UserSSHKeys}}- {{.}}
+        {{end}}
+{{- end }}
+
+storage:
+  files:
+{{- range $_, $file := .Files }}
+  - path: '{{ $file.Path }}'
+{{- if $file.Permissions }}
+  mode: '{{ $file.Permissions }}'
+{{- end }}
+  filesystem: root
+  contents: |-
+{{ $file.Content | indent 4 }}
+{{ end }}
 `

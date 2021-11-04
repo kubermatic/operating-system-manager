@@ -24,7 +24,7 @@ import (
 	"k8s.io/utils/pointer"
 )
 
-func TestDefaultCloudInitGenerator_Generate(t *testing.T) {
+func TestDefaultCloudConfigGenerator_Generate(t *testing.T) {
 	testCases := []struct {
 		name              string
 		osc               *osmv1alpha1.OperatingSystemConfig
@@ -159,7 +159,7 @@ runcmd:
 	for _, testCase := range testCases {
 		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
-			generator := NewDefaultCloudInitGenerator("")
+			generator := NewDefaultCloudConfigGenerator("")
 			cloudInit, err := generator.Generate(testCase.osc)
 			if err != nil {
 				t.Fatalf("failed to generate cloud-init configs: %v", err)

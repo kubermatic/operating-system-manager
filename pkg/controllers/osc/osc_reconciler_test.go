@@ -119,7 +119,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 				reconciler: Reconciler{
 					Client:         fakeClient,
 					namespace:      "kube-system",
-					generator:      generator.NewDefaultCloudInitGenerator(""),
+					generator:      generator.NewDefaultCloudConfigGenerator(""),
 					log:            testUtil.DefaultLogger,
 					clusterAddress: "http://127.0.0.1/configs",
 					kubeconfig:     kubeconfigPath,
@@ -239,7 +239,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 			reconciler: Reconciler{
 				Client:         fakeClient,
 				namespace:      "kube-system",
-				generator:      generator.NewDefaultCloudInitGenerator(""),
+				generator:      generator.NewDefaultCloudConfigGenerator(""),
 				log:            testUtil.DefaultLogger,
 				clusterAddress: "http://127.0.0.1/configs",
 				kubeconfig:     kubeconfigPath,

@@ -104,7 +104,7 @@ func main() {
 		opt.workerCount,
 		clusterDNSIPs,
 		opt.kubeconfig,
-		generator.NewDefaultCloudInitGenerator(""),
+		generator.NewDefaultCloudConfigGenerator(""),
 	); err != nil {
 		klog.Fatal(err)
 	}
