@@ -94,7 +94,6 @@ func OperatingSystemConfigCreator(
 				ContainerRuntime:      containerRuntime,
 				ContainerdVersion:     containerdVersion,
 				CloudProviderName:     cloudProvider.Name,
-				Hostname:              "Node-1", // FIX this shit
 				ExtraKubeletFlags:     KubeletFlags(osp, containerRuntime),
 				ExternalCloudProvider: externalCloudProvider,
 				PauseImage:            pauseImage,
@@ -137,7 +136,6 @@ type filesData struct {
 	ContainerRuntime      string
 	ContainerdVersion     string
 	CloudProviderName     string
-	Hostname              string
 	ExtraKubeletFlags     []string
 	ExternalCloudProvider bool
 	PauseImage            string

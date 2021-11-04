@@ -10,6 +10,9 @@ spec:
   - name: "aws"
     spec:
       region: "eu-central-1"
+  - name: "azure"
+    spec:
+      location: "westeurope"
   supportedContainerRuntimes:
   - name: containerd
     files:
@@ -156,6 +159,92 @@ spec:
     - name: test-unit-1
       enable: true
   files:
+  - path: "/etc/systemd/journald.conf.d/max_disk_use.conf"
+    content:
+      inline:
+        encoding: b64
+        data: |
+          [Journal]
+          SystemMaxUse=5G
+  
+  - path: "/opt/load-kernel-modules.sh"
+    permissions: 0755
+    content:
+      inline:
+        encoding: b64
+        data: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          modprobe ip_vs
+          modprobe ip_vs_rr
+          modprobe ip_vs_wrr
+          modprobe ip_vs_sh
+
+          if modinfo nf_conntrack_ipv4 &> /dev/null; then
+            modprobe nf_conntrack_ipv4
+          else
+            modprobe nf_conntrack
+          fi
+
+  - path: "/etc/sysctl.d/k8s.conf"
+    content:
+      inline:
+        encoding: b64
+        data: |
+          net.bridge.bridge-nf-call-ip6tables = 1
+          net.bridge.bridge-nf-call-iptables = 1
+          kernel.panic_on_oops = 1
+          kernel.panic = 10
+          net.ipv4.ip_forward = 1
+          vm.overcommit_memory = 1
+          fs.inotify.max_user_watches = 1048576
+  
+  - path: "/etc/default/grub.d/60-swap-accounting.cfg"
+    content:
+      inline:
+        encoding: b64
+        data: |
+          # Added by kubermatic machine-controller
+          # Enable cgroups memory and swap accounting
+          GRUB_CMDLINE_LINUX="cgroup_enable=memory swapaccount=1"
+
+  - path: "/opt/bin/setup_net_env.sh"
+    permissions: 0755
+    content:
+      inline:
+        encoding: b64
+        data: |
+          #!/usr/bin/env bash
+          echodate() {
+            echo "[$(date -Is)]" "$@"
+          }
+
+          # get the default interface IP address
+          DEFAULT_IFC_IP=$(ip -o  route get 1 | grep -oP "src \K\S+")
+
+          if [ -z "${DEFAULT_IFC_IP}" ]
+          then
+            echodate "Failed to get IP address for the default route interface"
+            exit 1
+          fi
+
+           # get the full hostname
+          FULL_HOSTNAME=$(hostname -f)
+
+          # write the nodeip_env file
+          # we need the line below because flatcar has the same string "coreos" in that file
+          if grep -q coreos /etc/os-release
+          then
+            echo "KUBELET_NODE_IP=${DEFAULT_IFC_IP}\nKUBELET_HOSTNAME=${FULL_HOSTNAME}" > /etc/kubernetes/nodeip.conf
+          elif [ ! -d /etc/systemd/system/kubelet.service.d ]
+          then
+            echodate "Can't find kubelet service extras directory"
+            exit 1
+          else
+            echo -e "[Service]\nEnvironment=\"KUBELET_NODE_IP=${DEFAULT_IFC_IP}\"\nEnvironment=\"KUBELET_HOSTNAME=${FULL_HOSTNAME}\"" > /etc/systemd/system/kubelet.service.d/nodeip.conf
+          fi
+
   - path: "/opt/bin/setup"
     permissions: 0755
     content:
@@ -198,17 +287,6 @@ spec:
             open-vm-tools \
             {{- end }}
             ipvsadm
-
-          # Update grub to include kernel command options to enable swap accounting.
-          # Exclude alibaba cloud until this is fixed https://github.com/kubermatic/machine-controller/issues/682
-          {{ if eq .CloudProviderName "alibaba" }}
-          if grep -v -q swapaccount=1 /proc/cmdline
-          then
-            echo "Reboot system if not alibaba cloud"
-            update-grub
-            touch /var/run/reboot-required
-          fi
-          {{ end }}
           
           {{- template "containerRuntimeInstallation" }}
 
@@ -220,6 +298,18 @@ spec:
           systemctl enable --now kubelet
           systemctl enable --now --no-block kubelet-healthcheck.service
 
+  - path: "/opt/bin/supervise.sh"
+    permissions: 0755
+    content: 
+      inline:
+        encoding: b64
+        data: |
+          #!/bin/bash
+          set -xeuo pipefail
+          while ! "$@"; do
+            sleep 1
+          done
+      
   - path: "/etc/systemd/system/kubelet.service"
     content:
       inline:
@@ -253,8 +343,8 @@ spec:
             {{- if .ExternalCloudProvider }}
             --cloud-provider=external \
             {{- end }}
-            {{- if and (.Hostname) (ne .CloudProviderName "aws") }}
-            --hostname-override=%H \
+            {{- if ne .CloudProviderName "aws" }}
+            --hostname-override=${KUBELET_HOSTNAME} \
             {{- end }}
             --dynamic-config-dir=/etc/kubernetes/dynamic-config-dir \
             --exit-on-lock-contention \
@@ -272,6 +362,14 @@ spec:
 
           [Install]
           WantedBy=multi-user.target
+
+  - path: "/etc/systemd/system/kubelet.service.d/extras.conf"
+    content:
+      inline:
+        encoding: b64
+        data: |
+          [Service]
+          Environment="KUBELET_EXTRA_ARGS=--resolv-conf=/run/systemd/resolve/resolv.conf"
 
   - path: "/etc/kubernetes/kubelet.conf"
     content:
