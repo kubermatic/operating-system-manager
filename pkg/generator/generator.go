@@ -144,16 +144,16 @@ var ignitionTemplate = `passwd:
         {{range .UserSSHKeys}}- {{.}}
         {{end}}
 {{- end }}
-
 storage:
   files:
 {{- range $_, $file := .Files }}
   - path: '{{ $file.Path }}'
 {{- if $file.Permissions }}
-  mode: '{{ $file.Permissions }}'
+    mode: {{ $file.Permissions }}
 {{- end }}
-  filesystem: root
-  contents: |-
-{{ $file.Content | indent 4 }}
+    filesystem: root
+    contents:
+        inline: |
+{{ $file.Content | indent 6 }}
 {{ end }}
 `

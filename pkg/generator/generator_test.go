@@ -28,7 +28,7 @@ func TestDefaultCloudConfigGenerator_Generate(t *testing.T) {
 	testCases := []struct {
 		name              string
 		osc               *osmv1alpha1.OperatingSystemConfig
-		expectedCloudInit []byte
+		expectedCloudConfig []byte
 	}{
 		{
 			name: "generated cloud-init for ubuntu",
@@ -62,7 +62,7 @@ func TestDefaultCloudConfigGenerator_Generate(t *testing.T) {
 					},
 				},
 			},
-			expectedCloudInit: []byte(`#cloud-config
+			expectedCloudConfig: []byte(`#cloud-config
 
 ssh_pwauth: no
 ssh_authorized_keys:
@@ -107,7 +107,7 @@ runcmd:
 					},
 				},
 			},
-			expectedCloudInit: []byte(`#cloud-config
+			expectedCloudConfig: []byte(`#cloud-config
 		
 ssh_pwauth: no
 ssh_authorized_keys:
@@ -141,7 +141,7 @@ runcmd:
 					},
 				},
 			},
-			expectedCloudInit: []byte(`#cloud-config
+			expectedCloudConfig: []byte(`#cloud-config
 		
 ssh_pwauth: no
 ssh_authorized_keys:
@@ -154,19 +154,53 @@ IyEvYmluL2Jhc2gKICAgIHNldCAteGV1byBwaXBlZmFpbAogICAgY2xvdWQtaW5pdCBjbGVhbgogICAg
 runcmd:
 - systemctl daemon-reload`),
 		},
+		{
+			name: "generated cloud-init for flatcar",
+			osc: &osmv1alpha1.OperatingSystemConfig{
+				Spec: osmv1alpha1.OperatingSystemConfigSpec{
+					OSName:    "flatcar",
+					OSVersion: "2605.22.1",
+					Files: []osmv1alpha1.File{
+						{
+							Path:        "/opt/bin/test.service",
+							Permissions: pointer.Int32Ptr(0700),
+							Content: osmv1alpha1.FileContent{
+								Inline: &osmv1alpha1.FileContentInline{
+									Data: "    #!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    cloud-init init\n    systemctl start provision.service",
+								},
+							},
+						},
+						{
+							Path:        "/opt/bin/setup.service",
+							Permissions: pointer.Int32Ptr(0700),
+							Content: osmv1alpha1.FileContent{
+								Inline: &osmv1alpha1.FileContentInline{
+									Data: "    #!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    cloud-init init\n    systemctl start provision.service",
+								},
+							},
+						},
+					},
+					UserSSHKeys: []string{
+						"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3",
+						"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4",
+					},
+				},
+			},
+			expectedCloudConfig: []byte(`userData {"ignition":{"config":{},"security":{"tls":{}},"timeouts":{},"version":"2.2.0"},"networkd":{},"passwd":{"users":[{"name":"core","sshAuthorizedKeys":["ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3","ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4"]}]},"storage":{"files":[{"filesystem":"root","path":"/opt/bin/test.service","contents":{"source":"data:,%23!%2Fbin%2Fbash%0Aset%20-xeuo%20pipefail%0Acloud-init%20clean%0Acloud-init%20init%0Asystemctl%20start%20provision.service%0A","verification":{}},"mode":448},{"filesystem":"root","path":"/opt/bin/setup.service","contents":{"source":"data:,%23!%2Fbin%2Fbash%0Aset%20-xeuo%20pipefail%0Acloud-init%20clean%0Acloud-init%20init%0Asystemctl%20start%20provision.service%0A","verification":{}},"mode":448}]},"systemd":{}}`),
+		},
 	}
 
 	for _, testCase := range testCases {
 		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
 			generator := NewDefaultCloudConfigGenerator("")
-			cloudInit, err := generator.Generate(testCase.osc)
+			userData, err := generator.Generate(testCase.osc)
 			if err != nil {
-				t.Fatalf("failed to generate cloud-init configs: %v", err)
+				t.Fatalf("failed to generate cloud config: %v", err)
 			}
 
-			if string(cloudInit) == string(testCase.expectedCloudInit) {
-				t.Fatal("unexpected generated cloud-init")
+			if string(userData) != string(testCase.expectedCloudConfig) {
+				t.Fatal("unexpected generated cloud config")
 			}
 		})
 	}
