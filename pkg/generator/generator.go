@@ -146,12 +146,10 @@ storage:
   files:
 {{- range $_, $file := .Files }}
   - path: '{{ $file.Path }}'
-{{- if $file.Permissions }}
-    mode: {{ $file.Permissions }}
-{{- end }}
+    mode: {{or $file.Permissions 0644}}
     filesystem: root
     contents:
         inline: |
-{{ $file.Content | indent 6 }}
+{{ $file.Content | indent 10 }}
 {{ end }}
 `

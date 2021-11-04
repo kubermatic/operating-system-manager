@@ -26,7 +26,8 @@ import (
 func toIgnition(s string) ([]byte, error) {
 	// Convert to ignition
 	cfg, ast, report := ctconfig.Parse([]byte(s))
-	if len(report.Entries) > 0 {
+	// Check if report has any errors
+	if report.IsFatal() {
 		return nil, fmt.Errorf("failed to validate coreos cloud config: %s", report.String())
 	}
 
