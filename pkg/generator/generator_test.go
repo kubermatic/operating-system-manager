@@ -152,7 +152,7 @@ runcmd:
 - systemctl daemon-reload`),
 		},
 		{
-			name: "generated cloud-init for flatcar",
+			name: "generated ignition config for flatcar",
 			osc: &osmv1alpha1.OperatingSystemConfig{
 				Spec: osmv1alpha1.OperatingSystemConfigSpec{
 					OSName:    "flatcar",
