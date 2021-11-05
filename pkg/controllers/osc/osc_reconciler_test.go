@@ -26,14 +26,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
-	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
-
 	"k8c.io/operating-system-manager/pkg/controllers/osc/resources"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/generator"
 	testUtil "k8c.io/operating-system-manager/pkg/test/util"
 
+	"github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
+	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

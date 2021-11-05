@@ -23,12 +23,12 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
-	corev1 "k8s.io/api/core/v1"
-
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/resources"
 	"k8c.io/operating-system-manager/pkg/resources/reconciling"
+
+	"github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 type CloudInitSecret string

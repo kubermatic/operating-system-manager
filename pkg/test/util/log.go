@@ -19,7 +19,6 @@ package utils
 import (
 	"github.com/onsi/ginkgo"
 	"go.uber.org/zap"
-
 	ctrlruntimelogzap "sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 

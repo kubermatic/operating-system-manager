@@ -20,10 +20,9 @@ import (
 	"context"
 	"fmt"
 
-	"go.uber.org/zap"
-
 	"k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 
+	"go.uber.org/zap"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrlruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
