@@ -24,6 +24,7 @@ import (
 	"text/template"
 
 	"github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/resources"
@@ -43,6 +44,7 @@ const (
 func OperatingSystemConfigCreator(
 	md *v1alpha1.MachineDeployment,
 	osp *osmv1alpha1.OperatingSystemProfile,
+	cloudConfigSecret *corev1.Secret,
 	kubeconfig string,
 	clusterDNSIPs string,
 	containerRuntime string,
@@ -69,6 +71,11 @@ func OperatingSystemConfigCreator(
 				return nil, fmt.Errorf("failed to get cloud provider from machine deployment: %v", err)
 			}
 
+			cloudConfig, err := GetCloudConfig(cloudConfigSecret)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get cloud config data from cloud config secret: %v", err)
+			}
+
 			CACert, err := resources.GetCACert(kubeconfig)
 			if err != nil {
 				return nil, err
@@ -91,6 +98,7 @@ func OperatingSystemConfigCreator(
 				ClusterDNSIPs:         clusterDNSIPs,
 				KubernetesCACert:      CACert,
 				Kubeconfig:            kubeconfigStr,
+				CloudConfig:           cloudConfig,
 				ContainerRuntime:      containerRuntime,
 				ContainerdVersion:     containerdVersion,
 				CloudProviderName:     cloudProvider.Name,
@@ -133,6 +141,7 @@ type filesData struct {
 	KubernetesCACert      string
 	ServerAddress         string
 	Kubeconfig            string
+	CloudConfig           string
 	ContainerRuntime      string
 	ContainerdVersion     string
 	CloudProviderName     string

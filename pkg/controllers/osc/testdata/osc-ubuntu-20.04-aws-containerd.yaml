@@ -246,6 +246,8 @@ spec:
             --config=/etc/kubernetes/kubelet.conf \
             --network-plugin=cni \
             --cert-dir=/etc/kubernetes/pki \
+            --cloud-provider=aws \
+            --cloud-config=/etc/kubernetes/cloud-config \
             --dynamic-config-dir=/etc/kubernetes/dynamic-config-dir \
             --exit-on-lock-contention \
             --lock-file=/tmp/kubelet.lock \
@@ -257,6 +259,13 @@ spec:
           WantedBy=multi-user.target
         encoding: b64
     path: /etc/systemd/system/kubelet.service
+  - content:
+      inline:
+        data: |
+          test-cloud-config
+        encoding: b64
+    path: /etc/kubernetes/cloud-config
+    permissions: 384
   - content:
       inline:
         data: |

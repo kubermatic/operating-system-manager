@@ -18,12 +18,20 @@ package resources
 
 import (
 	"encoding/json"
+	"strings"
 
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
-
 	"k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
+
+	"encoding/base64"
 
 	"k8s.io/apimachinery/pkg/runtime"
+)
+
+const (
+	CloudConfigSecretName = "cloud-config"
+	CloudConfigConfigName = "config"
 )
 
 func GetCloudProviderFromMachineDeployment(md *clusterv1alpha1.MachineDeployment) (*v1alpha1.CloudProviderSpec, error) {
@@ -40,4 +48,14 @@ func GetCloudProviderFromMachineDeployment(md *clusterv1alpha1.MachineDeployment
 		Name: cloudProvider.CloudProvider,
 		Spec: *cloudProvider.CloudProviderSpec,
 	}, nil
+}
+
+func GetCloudConfig(secret *corev1.Secret) (string, error) {
+	cloudConfig := secret.Data[CloudConfigConfigName]
+	decodedCloudConfig := make([]byte, base64.StdEncoding.DecodedLen(len(cloudConfig)))
+	if _, err := base64.StdEncoding.Decode(decodedCloudConfig, cloudConfig); err != nil {
+		return "", err
+	}
+	strCloudConfig := strings.ReplaceAll(string(decodedCloudConfig), "\n", "")
+	return strCloudConfig, nil
 }

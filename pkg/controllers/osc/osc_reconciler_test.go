@@ -36,7 +36,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -119,11 +119,11 @@ func TestReconciler_Reconcile(t *testing.T) {
 		if err := loadFile(osp, testCase.ospFile); err != nil {
 			t.Fatalf("failed loading osp %s from testdata: %v", testCase.name, err)
 		}
-
+		cloudConfig := generateCloudConfigSecret()
 		fakeClient := fakectrlruntimeclient.
 			NewClientBuilder().
 			WithScheme(scheme.Scheme).
-			WithObjects(osp).
+			WithObjects(osp, cloudConfig).
 			Build()
 
 		reconciler := buildReconciler(fakeClient, testCase.config)
@@ -217,11 +217,11 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 		}
 
 		md := generateMachineDeployment(testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.cloudProvider, testCase.cloudProviderSpec)
-
+		cloudConfig := generateCloudConfigSecret()
 		fakeClient := fakectrlruntimeclient.
 			NewClientBuilder().
 			WithScheme(scheme.Scheme).
-			WithObjects(osp, md).
+			WithObjects(osp, md, cloudConfig).
 			Build()
 
 		reconciler := buildReconciler(fakeClient, testCase.config)
@@ -261,7 +261,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 			}
 
 			// Add deletionTimestamp to Machinedeployment to queue it up for deletion
-			machineDeployment.ObjectMeta.DeletionTimestamp = &v1.Time{Time: time.Now()}
+			machineDeployment.ObjectMeta.DeletionTimestamp = &metav1.Time{Time: time.Now()}
 			err := fakeClient.Update(ctx, machineDeployment)
 			if err != nil {
 				t.Fatalf("failed to update machine deployment with deletionTimestamp: %v", err)
@@ -305,7 +305,7 @@ func generateMachineDeployment(name, namespace, osp string, cloudprovider string
 	}
 
 	md := &v1alpha1.MachineDeployment{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 			Annotations: map[string]string{
@@ -328,6 +328,18 @@ func generateMachineDeployment(name, namespace, osp string, cloudprovider string
 		},
 	}
 	return md
+}
+
+func generateCloudConfigSecret() *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      resources.CloudConfigSecretName,
+			Namespace: metav1.NamespaceSystem,
+		},
+		Data: map[string][]byte{
+			resources.CloudConfigConfigName: []byte(`dGVzdC1jbG91ZC1jb25maWcK`),
+		},
+	}
 }
 
 func loadFile(obj runtime.Object, name string) error {
