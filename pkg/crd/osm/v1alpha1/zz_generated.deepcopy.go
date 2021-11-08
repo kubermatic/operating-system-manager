@@ -317,6 +317,11 @@ func (in *Unit) DeepCopyInto(out *Unit) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.Mask != nil {
+		in, out := &in.Mask, &out.Mask
+		*out = new(bool)
+		**out = **in
+	}
 	if in.Content != nil {
 		in, out := &in.Content, &out.Content
 		*out = new(string)

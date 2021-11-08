@@ -65,10 +65,19 @@ func (d *DefaultCloudConfigGenerator) Generate(osc *osmv1alpha1.OperatingSystemC
 	var units []*unitSpec
 	for _, unit := range osc.Spec.Units {
 		uSpec := &unitSpec{
-			Name:    unit.Name,
-			Enable: *unit.Enable,
-			Mask:   *unit.Mask,
-			Content: *unit.Content,
+			Name: unit.Name,
+		}
+
+		if unit.Enable != nil {
+			uSpec.Enable = *unit.Enable
+		}
+
+		if unit.Mask != nil {
+			uSpec.Mask = *unit.Mask
+		}
+
+		if unit.Content != nil {
+			uSpec.Content = *unit.Content
 		}
 
 		for _, dropIn := range unit.DropIns {
@@ -95,7 +104,7 @@ func (d *DefaultCloudConfigGenerator) Generate(osc *osmv1alpha1.OperatingSystemC
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, &struct {
 		Files       []*fileSpec
-		Units 	 []*unitSpec
+		Units       []*unitSpec
 		UserSSHKeys []string
 	}{
 		Files:       files,
@@ -134,11 +143,10 @@ type fileSpec struct {
 
 type unitSpec struct {
 	Name    string
-	Enable bool
-	Mask bool
+	Enable  bool
+	Mask    bool
 	Content string
 	DropIns []dropInSpec
-
 }
 
 type dropInSpec struct {
@@ -187,10 +195,12 @@ storage:
         inline: |
 {{ $file.Content | indent 10 }}
 {{- end }}
+systemd:
+  units:
 {{- range $_, $unit := .Units }}
   - name: {{ $unit.Name }}
-    enable: {{ $unit.Enable }}
-    mask: {{ $unit.Mask }}
+    enable: {{or $unit.Enable false}}
+    mask: {{or $unit.Mask false}}
 {{ if $unit.Content }}
     contents: |
 {{ $unit.Content | indent 6 }}
@@ -198,8 +208,8 @@ storage:
 {{ if $unit.Content }}
     dropins:
 {{- range $_, $dropIn := $unit.DropIns }}
-	  - name: {{ $dropIn.Name }}
-	    contents: |
+      - name: {{ $dropIn.Name }}
+        contents: |
 {{ $dropIn.Content | indent 10 }}
 {{- end }}
 {{- end }}

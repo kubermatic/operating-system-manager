@@ -28,7 +28,6 @@ const (
 	CloudInit ProvisioningUtility = "cloud-init"
 )
 
-
 // GetProvisioningUtility returns the provisioning utility for the given machine
 func GetProvisioningUtility(osName osmv1alpha1.OperatingSystem) ProvisioningUtility {
 	switch osName {
