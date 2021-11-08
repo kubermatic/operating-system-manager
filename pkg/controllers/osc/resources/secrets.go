@@ -19,28 +19,20 @@ package resources
 import (
 	"fmt"
 
-	"k8c.io/operating-system-manager/pkg/generator"
 	"k8c.io/operating-system-manager/pkg/resources/reconciling"
 
 	corev1 "k8s.io/api/core/v1"
 )
 
 // CloudConfigSecretCreator returns a function to create a secret that contains the cloud-init or ignition configurations.
-func CloudConfigSecretCreator(mdName string, osName string, oscType CloudConfigSecret, data []byte) reconciling.NamedSecretCreatorGetter {
+func CloudConfigSecretCreator(mdName string, oscType CloudConfigSecret, data []byte) reconciling.NamedSecretCreatorGetter {
 	return func() (string, reconciling.SecretCreator) {
 		secretName := fmt.Sprintf(MachineDeploymentSubresourceNamePattern, mdName, oscType)
 		return secretName, func(sec *corev1.Secret) (*corev1.Secret, error) {
 			if sec.Data == nil {
 				sec.Data = map[string][]byte{}
 			}
-
-			switch generator.GetProvisioningUtility(osName) {
-			case generator.Ignition:
-				sec.Data["ignition"] = data
-			// TODO: This should be handled in a better way
-			default:
-				sec.Data["cloud-init"] = data
-			}
+			sec.Data["cloud-config"] = data
 			return sec, nil
 		}
 	}

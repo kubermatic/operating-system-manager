@@ -160,7 +160,7 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 			r.clusterDNSIPs,
 		),
 	}, r.namespace, r.Client); err != nil {
-		return fmt.Errorf("failed to reconcile provision operating system config: %v", err)
+		return fmt.Errorf("failed to reconcile provisioning operating system config: %v", err)
 	}
 
 	return nil
@@ -180,7 +180,7 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.M
 		}
 
 		if err := reconciling.ReconcileSecrets(ctx, []reconciling.NamedSecretCreatorGetter{
-			resources.CloudConfigSecretCreator(md.Name, oscs[i].Spec.OSName, resources.ProvisioningCloudConfig, provisionData),
+			resources.CloudConfigSecretCreator(md.Name, resources.ProvisioningCloudConfig, provisionData),
 		}, r.namespace, r.Client); err != nil {
 			return fmt.Errorf("failed to reconcile provisioning secrets: %v", err)
 		}
