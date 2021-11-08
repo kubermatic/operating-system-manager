@@ -20,24 +20,27 @@ import (
 	"encoding/json"
 	"fmt"
 
-	ignitionconfig "github.com/coreos/ignition/v2/config/v3_3"
+	config "github.com/kinvolk/container-linux-config-transpiler/config"
 )
 
 func toIgnition(s string) ([]byte, error) {
-	// Convert to ignition
-	cfg, report, err := ignitionconfig.Parse([]byte(s))
-	if err != nil {
-		return nil, fmt.Errorf("failed to validate coreos cloud config: %v", err)
-	}
+	// Convert string to container linux config
+	cfg, ast, report := config.Parse([]byte(s))
+
 	// Check if report has any errors
 	if report.IsFatal() {
 		return nil, fmt.Errorf("failed to validate coreos cloud config: %s", report.String())
 	}
 
-	out, err := json.Marshal(cfg)
+	// Convert container linux config to ignition config
+	ignCfg, report := config.Convert(cfg, "", ast)
+	if len(report.Entries) > 0 {
+		return nil, fmt.Errorf("failed to convert container linux config to ignition: %s", report.String())
+	}
+
+	out, err := json.Marshal(ignCfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal ignition config: %v", err)
 	}
-
 	return out, nil
 }

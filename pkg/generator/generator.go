@@ -62,6 +62,25 @@ func (d *DefaultCloudConfigGenerator) Generate(osc *osmv1alpha1.OperatingSystemC
 		files = append(files, fSpec)
 	}
 
+	var units []*unitSpec
+	for _, unit := range osc.Spec.Units {
+		uSpec := &unitSpec{
+			Name:    unit.Name,
+			Enable: *unit.Enable,
+			Mask:   *unit.Mask,
+			Content: *unit.Content,
+		}
+
+		for _, dropIn := range unit.DropIns {
+			dSpec := &dropInSpec{
+				Name:    dropIn.Name,
+				Content: dropIn.Content,
+			}
+			uSpec.DropIns = append(uSpec.DropIns, *dSpec)
+		}
+		units = append(units, uSpec)
+	}
+
 	// Fetch user data template based on the provisioning utility
 	userDataTemplate, err := getUserDataTemplate(osc.Spec.OSName)
 	if err != nil {
@@ -76,9 +95,11 @@ func (d *DefaultCloudConfigGenerator) Generate(osc *osmv1alpha1.OperatingSystemC
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, &struct {
 		Files       []*fileSpec
+		Units 	 []*unitSpec
 		UserSSHKeys []string
 	}{
 		Files:       files,
+		Units:       units,
 		UserSSHKeys: osc.Spec.UserSSHKeys,
 	}); err != nil {
 		return nil, err
@@ -109,6 +130,20 @@ type fileSpec struct {
 	Content     string
 	Permissions *string
 	Name        string
+}
+
+type unitSpec struct {
+	Name    string
+	Enable bool
+	Mask bool
+	Content string
+	DropIns []dropInSpec
+
+}
+
+type dropInSpec struct {
+	Name    string
+	Content string
 }
 
 var cloudInitTemplate = `#cloud-config
@@ -151,5 +186,22 @@ storage:
     contents:
         inline: |
 {{ $file.Content | indent 10 }}
-{{ end }}
+{{- end }}
+{{- range $_, $unit := .Units }}
+  - name: {{ $unit.Name }}
+    enable: {{ $unit.Enable }}
+    mask: {{ $unit.Mask }}
+{{ if $unit.Content }}
+    contents: |
+{{ $unit.Content | indent 6 }}
+{{- end }}
+{{ if $unit.Content }}
+    dropins:
+{{- range $_, $dropIn := $unit.DropIns }}
+	  - name: {{ $dropIn.Name }}
+	    contents: |
+{{ $dropIn.Content | indent 10 }}
+{{- end }}
+{{- end }}
+{{- end }}
 `

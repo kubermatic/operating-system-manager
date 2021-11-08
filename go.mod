@@ -4,8 +4,8 @@ go 1.15
 
 require (
 	github.com/Masterminds/sprig/v3 v3.2.2
-	github.com/coreos/ignition/v2 v2.12.0
 	github.com/go-test/deep v1.0.7
+	github.com/kinvolk/container-linux-config-transpiler v0.9.1
 	github.com/kubermatic/machine-controller v1.26.0
 	github.com/onsi/ginkgo v1.14.2
 	go.uber.org/zap v1.16.0

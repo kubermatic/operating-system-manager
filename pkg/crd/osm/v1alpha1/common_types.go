@@ -47,6 +47,8 @@ type Unit struct {
 	Name string `json:"name"`
 	// Enable describes whether the unit is enabled or not.
 	Enable *bool `json:"enable,omitempty"`
+	// Mask describes whether the unit is masked or not.
+	Mask *bool `json:"mask,omitempty"`
 	// Content is the unit's content.
 	Content *string `json:"content,omitempty"`
 	// DropIns is a list of drop-ins for this unit.
