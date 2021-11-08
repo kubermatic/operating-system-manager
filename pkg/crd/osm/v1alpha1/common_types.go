@@ -20,6 +20,18 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
+// OperatingSystem represents a supported operating system.
+type OperatingSystem string
+
+const (
+	OperatingSystemFlatcar      OperatingSystem = "flatcar"
+	OperatingSystemRHEL         OperatingSystem = "rhel"
+	OperatingSystemCentOS       OperatingSystem = "centos"
+	OperatingSystemUbuntu       OperatingSystem = "ubuntu"
+	OperatingSystemSLES         OperatingSystem = "sles"
+	OperatingSystemAmazonLinux2 OperatingSystem = "amzn2"
+)
+
 // CloudProviderSpec contains the os/image reference for a specific supported cloud provider
 type CloudProviderSpec struct {
 	// Name represents the name of the supported cloud provider

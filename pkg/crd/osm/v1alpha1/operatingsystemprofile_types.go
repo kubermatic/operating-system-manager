@@ -43,7 +43,7 @@ type OperatingSystemProfile struct {
 // OperatingSystemProfileSpec represents the data in the newly created OperatingSystemProfile
 type OperatingSystemProfileSpec struct {
 	// OSType represent the operating system name e.g: ubuntu
-	OSName string `json:"osName"`
+	OSName OperatingSystem `json:"osName"`
 	// OSVersion the version of the operating system
 	OSVersion string `json:"osVersion"`
 	// SupportedCloudProviders represent the cloud providers that support the given operating system version
