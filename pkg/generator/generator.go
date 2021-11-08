@@ -91,7 +91,7 @@ func (d *DefaultCloudConfigGenerator) Generate(osc *osmv1alpha1.OperatingSystemC
 	return toIgnition(buf.String())
 }
 
-func getUserDataTemplate(osName string) (string, error) {
+func getUserDataTemplate(osName osmv1alpha1.OperatingSystem) (string, error) {
 	pUtil := GetProvisioningUtility(osName)
 	switch pUtil {
 	case CloudInit:

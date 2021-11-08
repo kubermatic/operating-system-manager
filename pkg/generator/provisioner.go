@@ -16,6 +16,10 @@ limitations under the License.
 
 package generator
 
+import (
+	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
+)
+
 // ProvisioningUtility specifies the type of utility used for machine provisioning
 type ProvisioningUtility string
 
@@ -24,10 +28,11 @@ const (
 	CloudInit ProvisioningUtility = "cloud-init"
 )
 
+
 // GetProvisioningUtility returns the provisioning utility for the given machine
-func GetProvisioningUtility(osFlavor string) ProvisioningUtility {
-	switch osFlavor {
-	case "flatcar":
+func GetProvisioningUtility(osName osmv1alpha1.OperatingSystem) ProvisioningUtility {
+	switch osName {
+	case osmv1alpha1.OperatingSystemFlatcar:
 		return Ignition
 	default:
 		return CloudInit
