@@ -69,8 +69,6 @@ type ContainerRuntimeSpec struct {
 	Files []File `json:"files"`
 	// Templates to add to the available templates when the containerRuntime is selected
 	Templates map[string]string `json:"templates"`
-	// ExtraKubeletFlags represents the Kubelet flags related to the given container runtime
-	ExtraKubeletFlags []string `json:"extraKubeletFlags"`
 }
 
 // FileContent can either reference a secret or contain inline configuration.

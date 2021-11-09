@@ -102,7 +102,6 @@ func OperatingSystemConfigCreator(
 				ContainerRuntime:      containerRuntime,
 				ContainerdVersion:     containerdVersion,
 				CloudProviderName:     cloudProvider.Name,
-				ExtraKubeletFlags:     KubeletFlags(osp, containerRuntime),
 				ExternalCloudProvider: externalCloudProvider,
 				PauseImage:            pauseImage,
 				InitialTaints:         initialTaints,
@@ -229,14 +228,4 @@ func selectAdditionalTemplates(osp *osmv1alpha1.OperatingSystemProfile, containe
 
 func addTemplatingSequence(templateName, template string) string {
 	return fmt.Sprintf("\n{{- define \"%s\" }}\n%s\n{{- end }}", templateName, template)
-}
-
-func KubeletFlags(osp *osmv1alpha1.OperatingSystemProfile, containerRuntime string) []string {
-	for _, cr := range osp.Spec.SupportedContainerRuntimes {
-		if containerRuntime == cr.Name {
-			return cr.ExtraKubeletFlags
-		}
-	}
-
-	return nil
 }

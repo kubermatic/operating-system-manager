@@ -118,16 +118,10 @@ spec:
                     description: ContainerRuntimeSpec aggregates information about a specific container runtime
                     type: object
                     required:
-                      - extraKubeletFlags
                       - files
                       - name
                       - templates
                     properties:
-                      extraKubeletFlags:
-                        description: ExtraKubeletFlags represents the Kubelet flags related to the given container runtime
-                        type: array
-                        items:
-                          type: string
                       files:
                         description: Files to add to the main files list when the containerRuntime is selected
                         type: array

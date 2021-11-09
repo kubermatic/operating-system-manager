@@ -90,7 +90,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 		cloudProviderSpec runtime.RawExtension
 	}{
 		{
-			name:       "test the creation of operating system config",
+			name:       "Ubuntu OS in AWS with Containerd",
 			ospFile:    "osp-ubuntu-20.04.yaml",
 			ospName:    "osp-ubuntu-aws",
 			oscFile:    "osc-ubuntu-20.04-aws-containerd.yaml",
@@ -105,6 +105,26 @@ func TestReconciler_Reconcile(t *testing.T) {
 				containerdVersion: "1.4",
 				kubeVersion:       "1.22.1",
 				clusterDNSIPs:     "10.0.0.0",
+			},
+			cloudProvider:     "aws",
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"cloudProvider":"aws", "cloudProviderSpec":"test-provider-spec"}`)},
+		},
+		{
+			name:       "Ubuntu OS in AWS with Docker",
+			ospFile:    "osp-ubuntu-20.04.yaml",
+			ospName:    "osp-ubuntu-aws",
+			oscFile:    "osc-ubuntu-20.04-aws-docker.yaml",
+			oscName:    "ubuntu-20.04-aws-osc-provisioning",
+			mdName:     "ubuntu-20.04-aws",
+			secretFile: "secret-ubuntu-20.04-aws-docker.yaml",
+			config: testConfig{
+				namespace:         "kube-system",
+				clusterAddress:    "http://127.0.0.1/configs",
+				containerRuntime:  "docker",
+				cniVersion:        "v0.8.7",
+				containerdVersion: "1.4",
+				kubeVersion:       "1.22.1",
+				clusterDNSIPs:     "10.10.10.10",
 			},
 			cloudProvider:     "aws",
 			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"cloudProvider":"aws", "cloudProviderSpec":"test-provider-spec"}`)},

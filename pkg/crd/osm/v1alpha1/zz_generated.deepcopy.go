@@ -58,11 +58,6 @@ func (in *ContainerRuntimeSpec) DeepCopyInto(out *ContainerRuntimeSpec) {
 			(*out)[key] = val
 		}
 	}
-	if in.ExtraKubeletFlags != nil {
-		in, out := &in.ExtraKubeletFlags, &out.ExtraKubeletFlags
-		*out = make([]string, len(*in))
-		copy(*out, *in)
-	}
 	return
 }
 

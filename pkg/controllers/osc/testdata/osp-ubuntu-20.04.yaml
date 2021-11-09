@@ -39,9 +39,8 @@ spec:
               [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
               [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
               endpoint = ["https://registry-1.docker.io"]
-
     templates:
-      containerRuntimeInstallation : |-
+      containerRuntimeInstallation: |-
         apt-get update
         apt-get install -y apt-transport-https ca-certificates curl software-properties-common lsb-release
         curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
@@ -64,16 +63,39 @@ spec:
         systemctl daemon-reload
         systemctl enable --now containerd
         
-    extraKubeletFlags:
-    - "--container-runtime=containerd"
-    - "--container-runtime-endpoint=unix:///run/containerd/containerd.sock"
   - name: docker
+    files:
+    - path: /etc/docker/daemon.json
+      permissions: 0644
+      content:
+        inline:
+          encoding: b64
+          data: |-
+            {"exec-opts":["native.cgroupdriver=systemd"],"storage-driver":"overlay2","log-driver":"json-file","log-opts":{"max-file":"5","max-size":"10m"}}
     templates:
-      containerRuntimeInstallation : "" 
-      containerRuntimeConfiguration: ""
-    extraKubeletFlags: 
-    - "--container-runtime=docker"
-    - "--container-runtime-endpoint=unix:///var/run/dockershim.sock"
+      containerRuntimeInstallation: |-
+        apt-get update
+        apt-get install -y apt-transport-https ca-certificates curl software-properties-common lsb-release
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+        add-apt-repository "deb https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+
+        mkdir -p /etc/systemd/system/containerd.service.d /etc/systemd/system/docker.service.d
+
+        cat <<EOF | tee /etc/systemd/system/containerd.service.d/environment.conf /etc/systemd/system/docker.service.d/environment.conf
+        [Service]
+        Restart=always
+        EnvironmentFile=-/etc/environment
+        EOF
+
+        apt-get install -y \
+            containerd.io=1.4.3* \
+            docker-ce=5:19.03.13* \
+            docker-ce-cli=5:19.03.13*
+        apt-mark hold docker-ce docker-ce-cli containerd.io
+
+        systemctl daemon-reload
+        systemctl enable --now docker
+
   templates:
     safeDownloadBinariesScript: |-
       {{- /*setup some common directories */ -}}
@@ -155,9 +177,11 @@ spec:
           curl -Lfo /opt/bin/health-monitor.sh https://raw.githubusercontent.com/kubermatic/machine-controller/7967a0af2b75f29ad2ab227eeaa26ea7b0f2fbde/pkg/userdata/scripts/health-monitor.sh
           chmod +x /opt/bin/health-monitor.sh
       fi
+
   units:
     - name: test-unit-1
       enable: true
+      
   files:
   - path: "/etc/systemd/journald.conf.d/max_disk_use.conf"
     content:
@@ -322,8 +346,13 @@ spec:
             {{- if .InitialTaints }}
             --register-with-taints={{- .InitialTaints }} \
             {{- end }}
-            {{- range .ExtraKubeletFlags }}
-            {{ . }} \
+            {{- if eq .ContainerRuntime "containerd" }}
+            --container-runtime=containerd \
+            --container-runtime-endpoint=unix:///run/containerd/containerd.sock \
+            {{- end }}
+            {{- if eq .ContainerRuntime "docker" }}
+            --container-runtime=docker \
+            --container-runtime-endpoint=unix:///var/run/dockershim.sock \
             {{- end }}
             --node-ip ${KUBELET_NODE_IP}
 
