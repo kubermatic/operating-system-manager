@@ -115,7 +115,7 @@ presubmits:
             limits:
               memory: 2Gi
 
-  - name: pull-operating-system-manager-e2e
+  - name: pull-operating-system-manager-test
     always_run: true
     decorate: true
     error_on_eviction: true

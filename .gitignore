@@ -3,4 +3,3 @@
 .kubeconfig
 /vendor
 _build
-kind-config.yaml
