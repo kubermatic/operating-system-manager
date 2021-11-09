@@ -199,7 +199,7 @@ systemd:
   units:
 {{- range $_, $unit := .Units }}
   - name: {{ $unit.Name }}
-    enable: {{or $unit.Enable false}}
+    enabled: {{or $unit.Enable false}}
     mask: {{or $unit.Mask false}}
 {{ if $unit.Content }}
     contents: |
