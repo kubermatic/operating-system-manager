@@ -336,7 +336,7 @@ func generateCloudConfigSecret() *corev1.Secret {
 			Namespace: metav1.NamespaceSystem,
 		},
 		Data: map[string][]byte{
-			resources.CloudConfigConfigName: []byte(`dGVzdC1jbG91ZC1jb25maWcK`),
+			resources.CloudConfigConfigName: []byte(`test-cloud-config`),
 		},
 	}
 }

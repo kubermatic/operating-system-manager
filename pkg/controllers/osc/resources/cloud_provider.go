@@ -17,9 +17,8 @@ limitations under the License.
 package resources
 
 import (
-	"encoding/base64"
 	"encoding/json"
-	"strings"
+	"fmt"
 
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
@@ -50,11 +49,12 @@ func GetCloudProviderFromMachineDeployment(md *clusterv1alpha1.MachineDeployment
 }
 
 func GetCloudConfig(secret *corev1.Secret) (string, error) {
-	cloudConfig := secret.Data[CloudConfigConfigName]
-	decodedCloudConfig := make([]byte, base64.StdEncoding.DecodedLen(len(cloudConfig)))
-	if _, err := base64.StdEncoding.Decode(decodedCloudConfig, cloudConfig); err != nil {
-		return "", err
+	if secret.Data == nil {
+		return "", fmt.Errorf("cloud-config secret data are empty")
 	}
-	strCloudConfig := strings.ReplaceAll(string(decodedCloudConfig), "\n", "")
-	return strCloudConfig, nil
+	cloudConfig := secret.Data[CloudConfigConfigName]
+	if len(cloudConfig) == 0 {
+		return "", fmt.Errorf("config not found in cloud-config secret data")
+	}
+	return string(cloudConfig), nil
 }
