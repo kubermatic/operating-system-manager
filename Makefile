@@ -1,4 +1,4 @@
-# Copyright 2021 The Kubermatic Kubernetes Platform contributors.
+# Copyright 2021 The Operating System Manager contributors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -74,6 +74,14 @@ $(CMD): %: $(BUILD_DEST)/%
 
 $(BUILD_DEST)/%: cmd/% 
 	go build -o $@ ./cmd/$*
+
+.PHONY: run
+run:
+	./hack/run-operating-system-manager.sh
+
+.PHONY: test
+test:
+	go test -v ./pkg...
 
 .PHONY: clean
 clean:
