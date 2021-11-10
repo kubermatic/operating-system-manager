@@ -9,8 +9,7 @@ spec:
   cloudProvider:
     name: aws
     spec:
-      cloudProvider: aws
-      cloudProviderSpec: test-provider-spec
+      cloud-config-key: cloud-config-value
   files:
   - content:
       inline:
@@ -234,7 +233,7 @@ spec:
   - content:
       inline:
         data: |
-          test-cloud-config
+          {"cloud-config-key":"cloud-config-value"}
         encoding: b64
     path: /etc/kubernetes/cloud-config
     permissions: 384

@@ -107,7 +107,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 				clusterDNSIPs:     "10.0.0.0",
 			},
 			cloudProvider:     "aws",
-			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"cloudProvider":"aws", "cloudProviderSpec":"test-provider-spec"}`)},
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"cloud-config-key": "cloud-config-value"}`)},
 		},
 		{
 			name:       "Ubuntu OS in AWS with Docker",
@@ -127,7 +127,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 				clusterDNSIPs:     "10.10.10.10",
 			},
 			cloudProvider:     "aws",
-			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"cloudProvider":"aws", "cloudProviderSpec":"test-provider-spec"}`)},
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"cloud-config-key": "cloud-config-value"}`)},
 		},
 	}
 
@@ -138,11 +138,10 @@ func TestReconciler_Reconcile(t *testing.T) {
 		if err := loadFile(osp, testCase.ospFile); err != nil {
 			t.Fatalf("failed loading osp %s from testdata: %v", testCase.name, err)
 		}
-		cloudConfig := generateCloudConfigSecret()
 		fakeClient := fakectrlruntimeclient.
 			NewClientBuilder().
 			WithScheme(scheme.Scheme).
-			WithObjects(osp, cloudConfig).
+			WithObjects(osp).
 			Build()
 
 		reconciler := buildReconciler(fakeClient, testCase.config)
@@ -236,11 +235,10 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 		}
 
 		md := generateMachineDeployment(testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.cloudProvider, testCase.cloudProviderSpec)
-		cloudConfig := generateCloudConfigSecret()
 		fakeClient := fakectrlruntimeclient.
 			NewClientBuilder().
 			WithScheme(scheme.Scheme).
-			WithObjects(osp, md, cloudConfig).
+			WithObjects(osp, md).
 			Build()
 
 		reconciler := buildReconciler(fakeClient, testCase.config)
@@ -347,18 +345,6 @@ func generateMachineDeployment(name, namespace, osp string, cloudprovider string
 		},
 	}
 	return md
-}
-
-func generateCloudConfigSecret() *corev1.Secret {
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      resources.CloudConfigSecretName,
-			Namespace: metav1.NamespaceSystem,
-		},
-		Data: map[string][]byte{
-			resources.CloudConfigConfigName: []byte(`test-cloud-config`),
-		},
-	}
 }
 
 func loadFile(obj runtime.Object, name string) error {

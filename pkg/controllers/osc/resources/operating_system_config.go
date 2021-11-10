@@ -29,8 +29,6 @@ import (
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/resources"
 	"k8c.io/operating-system-manager/pkg/resources/reconciling"
-
-	corev1 "k8s.io/api/core/v1"
 )
 
 type CloudInitSecret string
@@ -46,7 +44,6 @@ const (
 func OperatingSystemConfigCreator(
 	md *v1alpha1.MachineDeployment,
 	osp *osmv1alpha1.OperatingSystemProfile,
-	cloudConfigSecret *corev1.Secret,
 	kubeconfig string,
 	clusterDNSIPs string,
 	containerRuntime string,
@@ -72,11 +69,7 @@ func OperatingSystemConfigCreator(
 			if err != nil {
 				return nil, fmt.Errorf("failed to get cloud provider from machine deployment: %v", err)
 			}
-
-			cloudConfig, err := GetCloudConfig(cloudConfigSecret)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get cloud config data from cloud config secret: %v", err)
-			}
+			cloudConfig := string(cloudProvider.Spec.Raw)
 
 			CACert, err := resources.GetCACert(kubeconfig)
 			if err != nil {
