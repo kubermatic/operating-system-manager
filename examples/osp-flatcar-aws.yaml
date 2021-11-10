@@ -18,14 +18,26 @@ metadata:
   name: osp-flatcar-aws
   namespace: kube-system
 spec:
-  osName: "flatcar"
+  osName: flatcar
   ## Flatcar Stable (2021-10-27)
   osVersion: "2605.22.1"
   supportedCloudProviders:
-    - name: "aws"
+    - name: aws
       spec:
-        region: "us-west-1a"
+        region: us-west-1a
   units:
+    - name: containerd.service
+      enable: true
+      dropIns:
+      - name: 10-custom.conf
+        content: |
+          [Service]
+          Restart=always
+          EnvironmentFile=-/etc/environment
+          Environment=CONTAINERD_CONFIG=/etc/containerd/config.toml
+          ExecStart=
+          ExecStart=/usr/bin/env PATH=${TORCX_BINDIR}:${PATH} ${TORCX_BINDIR}/containerd --config ${CONTAINERD_CONFIG}
+
     - name: download-script.service
       enable: true
       content: |
@@ -36,6 +48,25 @@ spec:
         Type=oneshot
         EnvironmentFile=-/etc/environment
         ExecStart=/opt/bin/download.sh
+        [Install]
+        WantedBy=multi-user.target
+
+    - name: kubelet-healthcheck.service
+      enable: true
+      dropIns:
+      - name: 40-download.conf
+        content: |
+          [Unit]
+          Requires=download-script.service
+          After=download-script.service
+      content: |
+        [Unit]
+        Requires=kubelet.service
+        After=kubelet.service
+
+        [Service]
+        ExecStart=/opt/bin/health-monitor.sh kubelet
+
         [Install]
         WantedBy=multi-user.target
 
@@ -54,35 +85,35 @@ spec:
         [Install]
         WantedBy=multi-user.target
 
-    - name: containerd.service
+    - name: kubelet.service
       enable: true
       dropIns:
-      - name: 10-environment.conf
-        content: |
+      - name: 10-nodeip.conf
+        contents: |
           [Service]
-          EnvironmentFile=-/etc/environment
-
+          EnvironmentFile=/etc/kubernetes/nodeip.conf
+      - name: 40-download.conf
+        contents: |
+          [Unit]
+          Requires=download-script.service
+          After=download-script.service
+      content: |
+        {{ .KubeletSystemdUnit}}
+          
   files:
-    - path: "/etc/systemd/journald.conf.d/max_disk_use.conf"
+    - path: /etc/systemd/journald.conf.d/max_disk_use.conf
       content:
         inline:
-          encoding: "none"
+          encoding: none
           data: |
             [Journal]
             SystemMaxUse=5G
 
-    - path: "/etc/kubernetes/kubelet.conf"
-      content:
-        inline:
-          encoding: "none"
-          data: |
-            {{ .KubeletConfiguration }}
-
-    - path: "/opt/load-kernel-modules.sh"
+    - path: /opt/load-kernel-modules.sh
       permissions: 0755
       content:
         inline:
-          encoding: "none"
+          encoding: none
           data: |
             #!/usr/bin/env bash
             set -euo pipefail
@@ -97,11 +128,11 @@ spec:
             else
               modprobe nf_conntrack
             fi
- 
-    - path: "/etc/sysctl.d/k8s.conf"
+
+    - path: /etc/sysctl.d/k8s.conf
       content:
         inline:
-          encoding: "none"
+          encoding: none
           data: |
             net.bridge.bridge-nf-call-ip6tables = 1
             net.bridge.bridge-nf-call-iptables = 1
@@ -115,7 +146,7 @@ spec:
       permissions: 0644
       content:
         inline:
-          encoding: "none"
+          encoding: none
           data: |
             1
 
@@ -123,7 +154,7 @@ spec:
       permissions: 0644
       content:
         inline:
-          encoding: "none"
+          encoding: none
           data: |
             10
 
@@ -131,15 +162,15 @@ spec:
       permissions: 0644
       content:
         inline:
-          encoding: "none"
+          encoding: none
           data: |
             1
 
-    - path: "/opt/bin/setup_net_env.sh"
+    - path: /opt/bin/setup_net_env.sh
       permissions: 0755
       content:
         inline:
-          encoding: "none"
+          encoding: none
           data: |
             #!/usr/bin/env bash
             echodate() {
@@ -171,6 +202,48 @@ spec:
               echo -e "[Service]\nEnvironment=\"KUBELET_NODE_IP=${DEFAULT_IFC_IP}\"\nEnvironment=\"KUBELET_HOSTNAME=${FULL_HOSTNAME}\"" > /etc/systemd/system/kubelet.service.d/nodeip.conf
             fi
 
+    - path: /opt/bin/setup_net_env.sh
+      permissions: 0755
+      content:
+        inline:
+          encoding: none
+          data: |
+            #!/bin/bash
+            set -xeuo pipefail
+            {{ .SafeDownloadBinariesScript }}
+            systemctl disable download-script.service
+
+    - path: /etc/kubernetes/bootstrap-kubelet.conf
+      permissions: 0600
+      content:
+        inline:
+          encoding: none
+          data: |
+            {{ .Kubeconfig }}
+
+
+    - path: /etc/kubernetes/pki/ca.crt
+      content:
+        inline:
+          encoding: none
+          data: |
+            {{ .KubernetesCACert }}
+
+    - path: /etc/kubernetes/cloud-config
+      permissions: 0400
+      content:
+        inline:
+          encoding: none
+          data: |
+            {{ .CloudConfig }}
+
+    - path: "/etc/kubernetes/kubelet.conf"
+      content:
+        inline:
+          encoding: "none"
+          data: |
+            {{ .KubeletConfiguration }}
+
     - path: /etc/ssh/sshd_config
       permissions: 0600
       content:
@@ -186,93 +259,32 @@ spec:
             PrintMotd no # handled by PAM
             PasswordAuthentication no
             ChallengeResponseAuthentication no
-
-    - path: "/opt/bin/setup"
-      permissions: 0755
+    
+    - path: /etc/crictl.yaml
       content:
         inline:
-          encoding: "none"
+          encoding: none
           data: |
-            #!/bin/bash
-            set -xeuo pipefail
-            if systemctl is-active ufw; then systemctl stop ufw; fi
-            systemctl mask ufw
+            runtime-endpoint: unix:///run/containerd/containerd.sock
 
-            {{- /* As we added some modules and don't want to reboot, restart the service */}}
-            systemctl restart systemd-modules-load.service
-            sysctl --system
-
-            {{- /* Make sure we always disable swap - Otherwise the kubelet won't start'. */}}
-            sed -i.orig '/.*swap.*/d' /etc/fstab
-            swapoff -a
-
-            apt-get update
-
-            DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y \
-              curl \
-              ca-certificates \
-              ceph-common \
-              cifs-utils \
-              conntrack \
-              e2fsprogs \
-              ebtables \
-              ethtool \
-              glusterfs-client \
-              iptables \
-              jq \
-              kmod \
-              openssh-client \
-              nfs-common \
-              socat \
-              util-linux \
-              {{- if eq .CloudProviderName "vsphere" }}
-              open-vm-tools \
-              {{- end }}
-              ipvsadm
-
-            # Update grub to include kernel command options to enable swap accounting.
-            # Exclude alibaba cloud until this is fixed https://github.com/kubermatic/machine-controller/issues/682
-            {{ if eq .CloudProviderName "alibaba" }}
-            if grep -v -q swapaccount=1 /proc/cmdline
-            then
-              echo "Reboot system if not alibaba cloud"
-              update-grub
-              touch /var/run/reboot-required
-            fi
-            {{ end }}
-            
-            apt-get update
-            apt-get install -y apt-transport-https ca-certificates curl software-properties-common lsb-release
-            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
-            add-apt-repository "deb https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-
-            mkdir -p /etc/systemd/system/containerd.service.d /etc/systemd/system/docker.service.d
-
-            cat <<EOF | tee /etc/systemd/system/containerd.service.d/environment.conf /etc/systemd/system/docker.service.d/environment.conf
-            [Service]
-            Restart=always
-            EnvironmentFile=-/etc/environment
-            EOF
-
-            apt-get install -y \
-                containerd.io=1.4.3* \
-                docker-ce=5:19.03.13* \
-                docker-ce-cli=5:19.03.13*
-            apt-mark hold docker-ce docker-ce-cli containerd.io
-
-            systemctl daemon-reload
-            systemctl enable --now docker
-
-            {{ .SafeDownloadBinariesScript }}
-            # set kubelet nodeip environment variable
-            /opt/bin/setup_net_env.sh
-
-            systemctl enable --now kubelet
-            systemctl enable --now --no-block kubelet-healthcheck.service
-
-    - path: "/etc/systemd/system/kubelet.service"
+    ## TODO: Templatize this
+    - path: /etc/containerd/config.toml
       content:
         inline:
-          encoding: "none"
+          encoding: none
           data: |
-            {{ .KubeletSystemdUnit }}
+            version = 2
+            [metrics]
+            address = "127.0.0.1:1338"
+            [plugins]
+            [plugins."io.containerd.grpc.v1.cri"]
+            [plugins."io.containerd.grpc.v1.cri".containerd]
+            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
+            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+            runtime_type = "io.containerd.runc.v2"
+            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+            SystemdCgroup = true
+            [plugins."io.containerd.grpc.v1.cri".registry]
+            [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
+            [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
+            endpoint = ["https://registry-1.docker.io"]

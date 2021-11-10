@@ -50,10 +50,11 @@ const (
 
 type Reconciler struct {
 	client.Client
-	log            *zap.SugaredLogger
-	namespace      string
-	clusterAddress string
-	generator      generator.CloudConfigGenerator
+	log              *zap.SugaredLogger
+	namespace        string
+	containerRuntime string
+	clusterAddress   string
+	generator        generator.CloudConfigGenerator
 
 	clusterDNSIPs []net.IP
 	kubeconfig    string
@@ -64,18 +65,20 @@ func Add(
 	log *zap.SugaredLogger,
 	namespace string,
 	clusterName string,
+	containerRuntime string,
 	workerCount int,
 	clusterDNSIPs []net.IP,
 	kubeconfig string,
 	generator generator.CloudConfigGenerator) error {
 	reconciler := &Reconciler{
-		Client:         mgr.GetClient(),
-		log:            log,
-		namespace:      namespace,
-		clusterAddress: clusterName,
-		generator:      generator,
-		kubeconfig:     kubeconfig,
-		clusterDNSIPs:  clusterDNSIPs,
+		Client:           mgr.GetClient(),
+		log:              log,
+		namespace:        namespace,
+		clusterAddress:   clusterName,
+		containerRuntime: containerRuntime,
+		generator:        generator,
+		kubeconfig:       kubeconfig,
+		clusterDNSIPs:    clusterDNSIPs,
 	}
 	log.Info("Reconciling OSC resource..")
 	c, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: reconciler, MaxConcurrentReconciles: workerCount})

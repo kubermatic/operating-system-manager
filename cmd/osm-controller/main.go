@@ -38,9 +38,10 @@ import (
 )
 
 type options struct {
-	workerCount int
-	namespace   string
-	clusterName string
+	workerCount      int
+	namespace        string
+	clusterName      string
+	containerRuntime string
 
 	clusterDNSIPs string
 	kubeconfig    string
@@ -57,6 +58,7 @@ func main() {
 
 	flag.IntVar(&opt.workerCount, "worker-count", 10, "Number of workers which process reconciliation in parallel.")
 	flag.StringVar(&opt.clusterName, "cluster-name", "", "The cluster where the OSC will run")
+	flag.StringVar(&opt.containerRuntime, "container-runtime", "containerd", "container runtime to deploy.")
 	flag.StringVar(&opt.namespace, "namespace", "", "The namespace where the OSC controller will run.")
 
 	flag.StringVar(&opt.clusterDNSIPs, "cluster-dns", "10.10.10.10", "Comma-separated list of DNS server IP address.")
@@ -101,6 +103,7 @@ func main() {
 		log,
 		opt.namespace,
 		opt.clusterName,
+		opt.containerRuntime,
 		opt.workerCount,
 		clusterDNSIPs,
 		opt.kubeconfig,
