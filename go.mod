@@ -3,6 +3,7 @@ module k8c.io/operating-system-manager
 go 1.15
 
 require (
+	github.com/Masterminds/semver/v3 v3.1.1
 	github.com/Masterminds/sprig/v3 v3.2.2
 	github.com/go-test/deep v1.0.7
 	github.com/kubermatic/machine-controller v1.26.0

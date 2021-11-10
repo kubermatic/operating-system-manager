@@ -23,6 +23,8 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/Masterminds/semver/v3"
+
 	"github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/resources"
@@ -87,13 +89,17 @@ func OperatingSystemConfigCreator(
 			}
 
 			// ensure that Kubelet version is prefixed by "v"
-			kubeVersion := md.Spec.Template.Spec.Versions.Kubelet
-			if !strings.HasPrefix(kubeVersion, "v") {
-				kubeVersion = fmt.Sprintf("v%s", kubeVersion)
+			kubeletVersion, err := semver.NewVersion(md.Spec.Template.Spec.Versions.Kubelet)
+			if err != nil {
+				return nil, fmt.Errorf("invalid kubelet version: %w", err)
+			}
+			kubeletVersionStr := kubeletVersion.String()
+			if !strings.HasPrefix(kubeletVersionStr, "v") {
+				kubeletVersionStr = fmt.Sprintf("v%s", kubeletVersionStr)
 			}
 
 			data := filesData{
-				KubeVersion:           kubeVersion,
+				KubeVersion:           kubeletVersionStr,
 				CNIVersion:            cniVersion,
 				ClusterDNSIPs:         clusterDNSIPs,
 				KubernetesCACert:      CACert,

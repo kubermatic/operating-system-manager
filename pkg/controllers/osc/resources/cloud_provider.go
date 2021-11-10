@@ -18,7 +18,7 @@ package resources
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
@@ -50,11 +50,11 @@ func GetCloudProviderFromMachineDeployment(md *clusterv1alpha1.MachineDeployment
 
 func GetCloudConfig(secret *corev1.Secret) (string, error) {
 	if secret.Data == nil {
-		return "", fmt.Errorf("cloud-config secret data are empty")
+		return "", errors.New("cloud-config secret data are empty")
 	}
-	cloudConfig := secret.Data[CloudConfigConfigName]
-	if len(cloudConfig) == 0 {
-		return "", fmt.Errorf("config not found in cloud-config secret data")
+	if cloudConfig, ok := secret.Data[CloudConfigConfigName]; ok {
+		return string(cloudConfig), nil
 	}
-	return string(cloudConfig), nil
+
+	return "", errors.New("config not found in cloud-config secret data")
 }
