@@ -53,7 +53,6 @@ func OperatingSystemConfigCreator(
 	initialTaints string,
 	cniVersion string,
 	containerdVersion string,
-	kubeletRepository string,
 ) reconciling.NamedOperatingSystemConfigCreatorGetter {
 	return func() (string, reconciling.OperatingSystemConfigCreator) {
 		var oscName = fmt.Sprintf(MachineDeploymentSubresourceNamePattern, md.Name, ProvisioningCloudConfig)
@@ -67,8 +66,6 @@ func OperatingSystemConfigCreator(
 			if err != nil {
 				return nil, fmt.Errorf("failed to decode provider configs: %v", err)
 			}
-
-			kubeletImage := fmt.Sprintf("%s:v%s", kubeletRepository, md.Spec.Template.Spec.Versions.Kubelet)
 
 			var cloudConfig string
 			if pconfig.OverwriteCloudConfig != nil {
@@ -107,7 +104,6 @@ func OperatingSystemConfigCreator(
 				ClusterDNSIPs:         clusterDNSIPs,
 				KubernetesCACert:      CACert,
 				Kubeconfig:            kubeconfigStr,
-				KubeletImage:          kubeletImage,
 				CloudConfig:           cloudConfig,
 				ContainerRuntime:      containerRuntime,
 				ContainerdVersion:     containerdVersion,
@@ -154,7 +150,6 @@ type filesData struct {
 	CNIVersion            string
 	ClusterDNSIPs         string
 	KubernetesCACert      string
-	KubeletImage          string
 	ServerAddress         string
 	Kubeconfig            string
 	CloudConfig           string
@@ -196,6 +191,7 @@ func populateFilesList(files []osmv1alpha1.File, additionalTemplates []string, d
 
 // CloudConfig will return the cloud provider specific cloud-config
 func CloudConfig(md *v1alpha1.MachineDeployment) (string, error) {
+
 	// TODO @waleed Implement this
 	return `[global]
 Zone="eu-central-1a"

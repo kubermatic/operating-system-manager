@@ -62,7 +62,6 @@ type Reconciler struct {
 	cniVersion            string
 	containerdVersion     string
 	nodeHTTPProxy         string
-	nodeKubeletRepository string
 }
 
 func Add(
@@ -80,8 +79,7 @@ func Add(
 	initialTaints string,
 	cniVersion string,
 	containerdVersion string,
-	nodeHTTPProxy string,
-	nodeKubeletRepository string) error {
+	nodeHTTPProxy string) error {
 	reconciler := &Reconciler{
 		Client:                mgr.GetClient(),
 		log:                   log,
@@ -97,7 +95,6 @@ func Add(
 		cniVersion:            cniVersion,
 		containerdVersion:     containerdVersion,
 		nodeHTTPProxy:         nodeHTTPProxy,
-		nodeKubeletRepository: nodeKubeletRepository,
 	}
 	log.Info("Reconciling OSC resource..")
 	c, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: reconciler, MaxConcurrentReconciles: workerCount})
@@ -186,7 +183,6 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 			r.initialTaints,
 			r.cniVersion,
 			r.containerdVersion,
-			r.nodeKubeletRepository,
 		),
 	}, r.namespace, r.Client); err != nil {
 		return fmt.Errorf("failed to reconcile provisioning operating system config: %v", err)

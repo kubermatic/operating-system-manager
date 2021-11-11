@@ -82,7 +82,7 @@ type ContainerRuntimeSpec struct {
 	// Files to add to the main files list when the containerRuntime is selected
 	Files []File `json:"files"`
 	// Templates to add to the available templates when the containerRuntime is selected
-	Templates map[string]string `json:"templates"`
+	Templates map[string]string `json:"templates,omitempty"`
 }
 
 // FileContent can either reference a secret or contain inline configuration.
