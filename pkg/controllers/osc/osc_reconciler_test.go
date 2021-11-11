@@ -73,7 +73,7 @@ type testConfig struct {
 	containerdVersion string
 	cniVersion        string
 	kubeVersion       string
-	clusterDNSIPs     string
+	clusterDNSIPs     []string
 }
 
 func TestReconciler_Reconcile(t *testing.T) {
@@ -104,7 +104,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 				cniVersion:        "v0.8.7",
 				containerdVersion: "1.4",
 				kubeVersion:       "1.22.1",
-				clusterDNSIPs:     "10.0.0.0",
+				clusterDNSIPs:     []string{"10.0.0.0"},
 			},
 			cloudProvider:     "aws",
 			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"cloud-config-key": "cloud-config-value"}`)},
@@ -124,7 +124,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 				cniVersion:        "v0.8.7",
 				containerdVersion: "1.4",
 				kubeVersion:       "1.22.1",
-				clusterDNSIPs:     "10.10.10.10",
+				clusterDNSIPs:     []string{"10.10.10.10"},
 			},
 			cloudProvider:     "aws",
 			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"cloud-config-key": "cloud-config-value"}`)},

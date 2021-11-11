@@ -58,7 +58,7 @@ func OperatingSystemConfigCreator(
 		var oscName = fmt.Sprintf(MachineDeploymentSubresourceNamePattern, md.Name, ProvisioningCloudConfig)
 
 		return oscName, func(osc *osmv1alpha1.OperatingSystemConfig) (*osmv1alpha1.OperatingSystemConfig, error) {
-			ospOriginal  := osp.DeepCopy()
+			ospOriginal := osp.DeepCopy()
 
 			// Get providerConfig from machineDeployment
 			pconfig := providerconfigtypes.Config{}
@@ -69,7 +69,7 @@ func OperatingSystemConfigCreator(
 
 			if pconfig.OverwriteCloudConfig != nil {
 				cloudConfig = *pconfig.OverwriteCloudConfig
-			} 
+			}
 
 			cloudProviderName := string(pconfig.CloudProvider)
 			CACert, err := resources.GetCACert(kubeconfig)
