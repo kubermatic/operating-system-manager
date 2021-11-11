@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright 2021 The Kubermatic Kubernetes Platform contributors.
+# Copyright 2021 The Operating System Manager contributors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,4 +19,5 @@ set -euo pipefail
 cd $(dirname $0)/..
 
 boilerplate \
-  -boilerplates hack/boilerplate/
+  -boilerplates hack/boilerplate/ \
+  -exclude pkg/controllers/osc/testdata

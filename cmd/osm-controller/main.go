@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The Kubermatic Kubernetes Platform contributors.
+Copyright 2021 The Operating System Manager contributors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -40,9 +40,15 @@ import (
 )
 
 type options struct {
-	workerCount int
-	namespace   string
-	clusterName string
+	workerCount           int
+	namespace             string
+	clusterName           string
+	containerRuntime      string
+	externalCloudProvider bool
+	pauseImage            string
+	initialTaints         string
+	cniVersion            string
+	containerdVersion     string
 
 	clusterDNSIPs string
 	kubeconfig    string
@@ -58,16 +64,28 @@ func main() {
 	}
 
 	flag.IntVar(&opt.workerCount, "worker-count", 10, "Number of workers which process reconciliation in parallel.")
-	flag.StringVar(&opt.clusterName, "cluster-name", "", "The cluster where the OSC will run")
+	flag.StringVar(&opt.clusterName, "cluster-name", "", "The cluster where the OSC will run.")
 	flag.StringVar(&opt.namespace, "namespace", "", "The namespace where the OSC controller will run.")
-
+	flag.StringVar(&opt.containerRuntime, "container-runtime", "containerd", "container runtime to deploy.")
+	flag.BoolVar(&opt.externalCloudProvider, "external-cloud-provider", false, "cloud-provider Kubelet flag set to external.")
 	flag.StringVar(&opt.clusterDNSIPs, "cluster-dns", "10.10.10.10", "Comma-separated list of DNS server IP address.")
+	flag.StringVar(&opt.pauseImage, "pause-image", "", "pause image to use in Kubelet.")
+	flag.StringVar(&opt.initialTaints, "initial-taints", "", "taints to use when creating the node.")
+	flag.StringVar(&opt.cniVersion, "cni-version", "", "CNI version to use in the cluster.")
+	flag.StringVar(&opt.containerdVersion, "containerd-version", "", "Containerd version to use in the cluster.")
 
 	flag.Parse()
 
 	if len(opt.namespace) == 0 {
 		klog.Fatal("-namespace is required")
 	}
+	if len(opt.cniVersion) == 0 {
+		klog.Fatal("-cni-version is required")
+	}
+	if len(opt.containerdVersion) == 0 {
+		klog.Fatal("-containerd-version is required")
+	}
+
 	opt.kubeconfig = flag.Lookup("kubeconfig").Value.(flag.Getter).Get().(string)
 
 	// out-of-cluster config was not provided using the flag, try to use the in-cluster config.
@@ -75,8 +93,8 @@ func main() {
 		opt.kubeconfig = getKubeConfigPath()
 	}
 
-	clusterDNSIPs, err := parseClusterDNSIPs(opt.clusterDNSIPs)
-	if err != nil {
+
+	if err := validateClusterDNSIPs(opt.clusterDNSIPs); err != nil {
 		klog.Fatalf("invalid cluster dns specified: %v", err)
 	}
 
@@ -109,9 +127,15 @@ func main() {
 		opt.namespace,
 		opt.clusterName,
 		opt.workerCount,
-		clusterDNSIPs,
+		opt.clusterDNSIPs,
 		opt.kubeconfig,
 		generator.NewDefaultCloudInitGenerator(""),
+		opt.containerRuntime,
+		opt.externalCloudProvider,
+		opt.pauseImage,
+		opt.initialTaints,
+		opt.cniVersion,
+		opt.containerdVersion,
 	); err != nil {
 		klog.Fatal(err)
 	}
@@ -121,17 +145,15 @@ func main() {
 	}
 }
 
-func parseClusterDNSIPs(s string) ([]net.IP, error) {
-	var ips []net.IP
+func validateClusterDNSIPs(s string) error {
 	sips := strings.Split(s, ",")
 	for _, sip := range sips {
 		ip := net.ParseIP(strings.TrimSpace(sip))
 		if ip == nil {
-			return nil, fmt.Errorf("unable to parse ip %s", sip)
+			return fmt.Errorf("unable to parse ip %s", sip)
 		}
-		ips = append(ips, ip)
 	}
-	return ips, nil
+	return nil
 }
 
 // getKubeConfigPath returns the path to the kubeconfig file.

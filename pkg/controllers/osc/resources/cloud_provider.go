@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The Kubermatic Kubernetes Platform contributors.
+Copyright 2021 The Operating System Manager contributors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
-
 	"k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -28,8 +27,8 @@ import (
 
 func GetCloudProviderFromMachineDeployment(md *clusterv1alpha1.MachineDeployment) (*v1alpha1.CloudProviderSpec, error) {
 	cloudProvider := &struct {
-		CloudProvider     string                `json:"cloudProvider"`
-		CloudProviderSpec *runtime.RawExtension `json:"cloudProviderSpec"`
+		CloudProvider     string               `json:"cloudProvider"`
+		CloudProviderSpec runtime.RawExtension `json:"cloudProviderSpec"`
 	}{}
 
 	if err := json.Unmarshal(md.Spec.Template.Spec.ProviderSpec.Value.Raw, cloudProvider); err != nil {
@@ -38,6 +37,6 @@ func GetCloudProviderFromMachineDeployment(md *clusterv1alpha1.MachineDeployment
 
 	return &v1alpha1.CloudProviderSpec{
 		Name: cloudProvider.CloudProvider,
-		Spec: *cloudProvider.CloudProviderSpec,
+		Spec: cloudProvider.CloudProviderSpec,
 	}, nil
 }

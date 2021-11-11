@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 # Copyright 2021 The Operating System Manager contributors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,41 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-run:
-  issues-exit-code: 1
-  skip-dirs:
-    - hack
-    - vendor
+set -e
 
-  skip-files:
-    - zz_generated.*.go
+NAMESPACE="${NAMESPACE:-kube-system}"
 
-linters:
-  disable-all: true
-  enable:
-    - bodyclose
-    - deadcode
-    - errcheck
-    - goconst
-    - gocritic
-    - gocyclo
-    - gofmt
-    - golint
-    - gosimple
-    - govet
-    - ineffassign
-    - interfacer
-    - misspell
-    - nakedret
-    - scopelint
-    - structcheck
-    - stylecheck
-    - unconvert
-    - unparam
-    - unused
-    - varcheck
-    - whitespace
-
-linters-settings:
-  goimports:
-    local-prefixes: k8c.io/operating-system-manager
+make -C $(dirname $0)/.. build
+$(dirname $0)/../_build/osm-controller \
+  -namespace=$NAMESPACE
