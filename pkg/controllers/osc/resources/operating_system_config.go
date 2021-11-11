@@ -25,6 +25,7 @@ import (
 	"text/template"
 
 	"github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
+	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
 
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/resources"
@@ -54,24 +55,32 @@ func OperatingSystemConfigCreator(
 	osp *osmv1alpha1.OperatingSystemProfile,
 	kubeconfig string,
 	clusterDNSIPs []net.IP,
+	containerRuntime string,
 ) reconciling.NamedOperatingSystemConfigCreatorGetter {
 	return func() (string, reconciling.OperatingSystemConfigCreator) {
 		var oscName = fmt.Sprintf(MachineDeploymentSubresourceNamePattern, md.Name, ProvisioningCloudConfig)
 
 		return oscName, func(osc *osmv1alpha1.OperatingSystemConfig) (*osmv1alpha1.OperatingSystemConfig, error) {
 			ospOriginal := osp.DeepCopy()
-			userSSHKeys := struct {
-				SSHPublicKeys []string `json:"sshPublicKeys"`
-			}{}
-			if err := json.Unmarshal(md.Spec.Template.Spec.ProviderSpec.Value.Raw, &userSSHKeys); err != nil {
-				return nil, fmt.Errorf("failed to get user ssh keys: %v", err)
-			}
 
-			cloudProvider, err := GetCloudProviderFromMachineDeployment(md)
+			// Get providerConfig from machineDeployment
+			pconfig := providerconfigtypes.Config{}
+			err := json.Unmarshal(md.Spec.Template.Spec.ProviderSpec.Value.Raw, &pconfig)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get cloud provider from machine deployment: %v", err)
+				return nil, fmt.Errorf("failed to decode provider configs: %v", err)
 			}
 
+			var cloudConfig string
+			if pconfig.OverwriteCloudConfig != nil {
+				cloudConfig = *pconfig.OverwriteCloudConfig
+			} else {
+				cloudConfig, err = CloudConfig(md)
+				if err != nil {
+					return nil, err
+				}
+			}
+
+			cloudProviderName := string(pconfig.CloudProvider)
 			CACert, err := resources.GetCACert(kubeconfig)
 			if err != nil {
 				return nil, err
@@ -85,7 +94,7 @@ func OperatingSystemConfigCreator(
 				return nil, err
 			}
 
-			kubeletSystemdUnit, err := KubeletSystemdUnit("docker", md.Spec.Template.Spec.Versions.Kubelet, cloudProvider.Name, "node-1", clusterDNSIPs, false,
+			kubeletSystemdUnit, err := KubeletSystemdUnit(containerRuntime, md.Spec.Template.Spec.Versions.Kubelet, cloudProviderName, "node-1", clusterDNSIPs, false,
 				"", nil, KubeletFlags())
 			if err != nil {
 				return nil, err
@@ -100,12 +109,13 @@ func OperatingSystemConfigCreator(
 				KubeletVersion:       md.Spec.Template.Spec.Versions.Kubelet,
 				KubeletConfiguration: kubeletConfig,
 				KubeletSystemdUnit:   kubeletSystemdUnit,
+				CloudConfig:          cloudConfig,
 				CNIVersion:           cniVersion,
 				ClusterDNSIPs:        clusterDNSIPs,
 				KubernetesCACert:     CACert,
 				Kubeconfig:           kubeconfigStr,
-				ContainerRuntime:     "docker",
-				CloudProviderName:    cloudProvider.Name,
+				ContainerRuntime:     containerRuntime,
+				CloudProviderName:    cloudProviderName,
 				Hostname:             "Node-1", // FIX this shit
 				ExtraKubeletFlags:    KubeletFlags(),
 
@@ -118,12 +128,15 @@ func OperatingSystemConfigCreator(
 			}
 
 			osc.Spec = osmv1alpha1.OperatingSystemConfigSpec{
-				OSName:        ospOriginal.Spec.OSName,
-				OSVersion:     ospOriginal.Spec.OSVersion,
-				Units:         ospOriginal.Spec.Units,
-				Files:         populatedFiles,
-				CloudProvider: *cloudProvider,
-				UserSSHKeys:   userSSHKeys.SSHPublicKeys,
+				OSName:    ospOriginal.Spec.OSName,
+				OSVersion: ospOriginal.Spec.OSVersion,
+				Units:     ospOriginal.Spec.Units,
+				Files:     populatedFiles,
+				CloudProvider: osmv1alpha1.CloudProviderSpec{
+					Name: cloudProviderName,
+					Spec: pconfig.CloudProviderSpec,
+				},
+				UserSSHKeys: pconfig.SSHPublicKeys,
 			}
 
 			return osc, nil
@@ -135,6 +148,7 @@ type filesData struct {
 	KubeletVersion       string
 	KubeletConfiguration string
 	KubeletSystemdUnit   string
+	CloudConfig          string
 	CNIVersion           string
 	ClusterDNSIPs        []net.IP
 	KubernetesCACert     string
@@ -167,6 +181,11 @@ func populateFilesList(files []osmv1alpha1.File, d filesData) ([]osmv1alpha1.Fil
 	}
 
 	return pfiles, nil
+}
+
+// CloudConfig will return the cloud provider specific cloud-config
+func CloudConfig(md *v1alpha1.MachineDeployment) (string, error) {
+	return "", nil
 }
 
 // kubeletConfiguration returns marshaled kubelet.config.k8s.io/v1beta1 KubeletConfiguration

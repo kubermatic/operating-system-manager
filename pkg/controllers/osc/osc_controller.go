@@ -161,6 +161,7 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 			osp,
 			r.kubeconfig,
 			r.clusterDNSIPs,
+			r.containerRuntime,
 		),
 	}, r.namespace, r.Client); err != nil {
 		return fmt.Errorf("failed to reconcile provisioning operating system config: %v", err)

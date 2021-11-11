@@ -89,11 +89,11 @@ spec:
       enable: true
       dropIns:
       - name: 10-nodeip.conf
-        contents: |
+        content: |
           [Service]
           EnvironmentFile=/etc/kubernetes/nodeip.conf
       - name: 40-download.conf
-        contents: |
+        content: |
           [Unit]
           Requires=download-script.service
           After=download-script.service
