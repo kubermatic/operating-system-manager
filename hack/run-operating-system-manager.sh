@@ -16,8 +16,14 @@
 
 set -e
 
-NAMESPACE="${NAMESPACE:-kube-system}"
+# Use a special env variable for machine-controller only
+OSM_KUBECONFIG=${MC_KUBECONFIG:-$(dirname $0)/../.kubeconfig}
+# If you want to use the default kubeconfig `export MC_KUBECONFIG=$KUBECONFIG`
 
 make -C $(dirname $0)/.. build
 $(dirname $0)/../_build/osm-controller \
-  -namespace=$NAMESPACE
+  -kubeconfig=$OSM_KUBECONFIG \
+  -namespace=cloud-init-settings \
+  -worker-count=50 \
+  -cni-version=v0.8.7 \
+  -containerd-version=1.4
