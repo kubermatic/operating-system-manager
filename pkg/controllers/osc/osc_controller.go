@@ -57,7 +57,7 @@ type Reconciler struct {
 	pauseImage            string
 	initialTaints         string
 	generator             generator.CloudConfigGenerator
-	clusterDNSIPs         string
+	clusterDNSIPs         []string
 	kubeconfig            string
 	cniVersion            string
 	containerdVersion     string
@@ -70,7 +70,7 @@ func Add(
 	namespace string,
 	clusterName string,
 	workerCount int,
-	clusterDNSIPs string,
+	clusterDNSIPs []string,
 	kubeconfig string,
 	generator generator.CloudConfigGenerator,
 	containerRuntime string,
