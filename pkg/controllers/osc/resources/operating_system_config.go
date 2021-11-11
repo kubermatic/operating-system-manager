@@ -67,6 +67,11 @@ func OperatingSystemConfigCreator(
 				return nil, fmt.Errorf("failed to get user ssh keys: %v", err)
 			}
 
+			cloudProvider, err := GetCloudProviderFromMachineDeployment(md)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get cloud provider from machine deployment: %v", err)
+			}
+
 			CACert, err := resources.GetCACert(kubeconfig)
 			if err != nil {
 				return nil, err
@@ -113,11 +118,12 @@ func OperatingSystemConfigCreator(
 			}
 
 			osc.Spec = osmv1alpha1.OperatingSystemConfigSpec{
-				OSName:      ospOriginal.Spec.OSName,
-				OSVersion:   ospOriginal.Spec.OSVersion,
-				Units:       ospOriginal.Spec.Units,
-				Files:       populatedFiles,
-				UserSSHKeys: providerSpec.SSHPublicKeys,
+				OSName:        ospOriginal.Spec.OSName,
+				OSVersion:     ospOriginal.Spec.OSVersion,
+				Units:         ospOriginal.Spec.Units,
+				Files:         populatedFiles,
+				CloudProvider: *cloudProvider,
+				UserSSHKeys:   providerSpec.SSHPublicKeys,
 			}
 
 			return osc, nil
