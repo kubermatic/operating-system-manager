@@ -19,4 +19,5 @@ set -euo pipefail
 cd $(dirname $0)/..
 
 boilerplate \
-  -boilerplates hack/boilerplate/
+  -boilerplates hack/boilerplate/ \
+  -exclude pkg/controllers/osc/testdata
