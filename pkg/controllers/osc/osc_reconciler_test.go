@@ -83,7 +83,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 		ospName           string
 		oscFile           string
 		oscName           string
-		operatingSystem	providerconfigtypes.OperatingSystem
+		operatingSystem   providerconfigtypes.OperatingSystem
 		mdName            string
 		secretFile        string
 		config            testConfig
@@ -91,14 +91,14 @@ func TestReconciler_Reconcile(t *testing.T) {
 		cloudProviderSpec runtime.RawExtension
 	}{
 		{
-			name:       "Ubuntu OS in AWS with Containerd",
-			ospFile:    "osp-ubuntu-20.04.yaml",
-			ospName:    "osp-ubuntu-aws",
+			name:            "Ubuntu OS in AWS with Containerd",
+			ospFile:         "osp-ubuntu-20.04.yaml",
+			ospName:         "osp-ubuntu-aws",
 			operatingSystem: providerconfigtypes.OperatingSystemUbuntu,
-			oscFile:    "osc-ubuntu-20.04-aws-containerd.yaml",
-			oscName:    "ubuntu-20.04-aws-osc-provisioning",
-			mdName:     "ubuntu-20.04-aws",
-			secretFile: "secret-ubuntu-20.04-aws-containerd.yaml",
+			oscFile:         "osc-ubuntu-20.04-aws-containerd.yaml",
+			oscName:         "ubuntu-20.04-aws-osc-provisioning",
+			mdName:          "ubuntu-20.04-aws",
+			secretFile:      "secret-ubuntu-20.04-aws-containerd.yaml",
 			config: testConfig{
 				namespace:         "kube-system",
 				clusterAddress:    "http://127.0.0.1/configs",
@@ -112,14 +112,14 @@ func TestReconciler_Reconcile(t *testing.T) {
 			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"cloud-config-key": "cloud-config-value"}`)},
 		},
 		{
-			name:       "Ubuntu OS in AWS with Docker",
-			ospFile:    "osp-ubuntu-20.04.yaml",
-			ospName:    "osp-ubuntu-aws",
+			name:            "Ubuntu OS in AWS with Docker",
+			ospFile:         "osp-ubuntu-20.04.yaml",
+			ospName:         "osp-ubuntu-aws",
 			operatingSystem: providerconfigtypes.OperatingSystemUbuntu,
-			oscFile:    "osc-ubuntu-20.04-aws-docker.yaml",
-			oscName:    "ubuntu-20.04-aws-osc-provisioning",
-			mdName:     "ubuntu-20.04-aws",
-			secretFile: "secret-ubuntu-20.04-aws-docker.yaml",
+			oscFile:         "osc-ubuntu-20.04-aws-docker.yaml",
+			oscName:         "ubuntu-20.04-aws-osc-provisioning",
+			mdName:          "ubuntu-20.04-aws",
+			secretFile:      "secret-ubuntu-20.04-aws-docker.yaml",
 			config: testConfig{
 				namespace:         "kube-system",
 				clusterAddress:    "http://127.0.0.1/configs",
@@ -133,14 +133,14 @@ func TestReconciler_Reconcile(t *testing.T) {
 			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"cloud-config-key": "cloud-config-value"}`)},
 		},
 		{
-			name:       "Flatcar OS in AWS with Containerd",
-			ospFile:    "osp-flatcar-2605.22.1.yaml",
-			ospName:    "osp-flatcar-aws",
+			name:            "Flatcar OS in AWS with Containerd",
+			ospFile:         "osp-flatcar-2605.22.1.yaml",
+			ospName:         "osp-flatcar-aws",
 			operatingSystem: providerconfigtypes.OperatingSystemFlatcar,
-			oscFile:    "osc-flatcar-2605.22.1-aws-containerd.yaml",
-			oscName:    "flatcar-2605.22.1-aws-osc-provisioning",
-			mdName:     "flatcar-2605.22.1-aws",
-			secretFile: "secret-flatcar-2605.22.1-aws-containerd.yaml",
+			oscFile:         "osc-flatcar-2605.22.1-aws-containerd.yaml",
+			oscName:         "flatcar-2605.22.1-aws-osc-provisioning",
+			mdName:          "flatcar-2605.22.1-aws",
+			secretFile:      "secret-flatcar-2605.22.1-aws-containerd.yaml",
 			config: testConfig{
 				namespace:         "kube-system",
 				clusterAddress:    "http://127.0.0.1/configs",
@@ -234,7 +234,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 		name              string
 		ospFile           string
 		ospName           string
-		operatingSystem	providerconfigtypes.OperatingSystem
+		operatingSystem   providerconfigtypes.OperatingSystem
 		oscFile           string
 		oscName           string
 		mdName            string
@@ -245,14 +245,14 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 	}{
 		{
 
-			name:       "test the deletion of machineDeployment",
-			ospFile:    "osp-ubuntu-20.04.yaml",
-			ospName:    "osp-ubuntu-aws",
+			name:            "test the deletion of machineDeployment",
+			ospFile:         "osp-ubuntu-20.04.yaml",
+			ospName:         "osp-ubuntu-aws",
 			operatingSystem: providerconfigtypes.OperatingSystemUbuntu,
-			oscFile:    "osc-ubuntu-20.04-aws-containerd.yaml",
-			oscName:    "ubuntu-20.04-aws-osc-provisioning",
-			mdName:     "ubuntu-20.04-aws",
-			secretFile: "secret-ubuntu-20.04-aws-containerd.yaml",
+			oscFile:         "osc-ubuntu-20.04-aws-containerd.yaml",
+			oscName:         "ubuntu-20.04-aws-osc-provisioning",
+			mdName:          "ubuntu-20.04-aws",
+			secretFile:      "secret-ubuntu-20.04-aws-containerd.yaml",
 			config: testConfig{
 				namespace:        "kube-system",
 				clusterAddress:   "http://127.0.0.1/configs",
