@@ -56,6 +56,7 @@ func OperatingSystemConfigCreator(
 	kubeconfig string,
 	clusterDNSIPs []net.IP,
 	containerRuntime string,
+	kubeletRepository string,
 ) reconciling.NamedOperatingSystemConfigCreatorGetter {
 	return func() (string, reconciling.OperatingSystemConfigCreator) {
 		var oscName = fmt.Sprintf(MachineDeploymentSubresourceNamePattern, md.Name, ProvisioningCloudConfig)
@@ -69,6 +70,8 @@ func OperatingSystemConfigCreator(
 			if err != nil {
 				return nil, fmt.Errorf("failed to decode provider configs: %v", err)
 			}
+
+			kubeletImage := fmt.Sprintf("%s:v%s", kubeletRepository, md.Spec.Template.Spec.Versions.Kubelet)
 
 			var cloudConfig string
 			if pconfig.OverwriteCloudConfig != nil {
@@ -95,7 +98,7 @@ func OperatingSystemConfigCreator(
 			}
 
 			kubeletSystemdUnit, err := KubeletSystemdUnit(containerRuntime, md.Spec.Template.Spec.Versions.Kubelet, cloudProviderName, "node-1", clusterDNSIPs, false,
-				"", nil, KubeletFlags())
+				"", nil, KubeletFlags(containerRuntime))
 			if err != nil {
 				return nil, err
 			}
@@ -114,10 +117,11 @@ func OperatingSystemConfigCreator(
 				ClusterDNSIPs:        clusterDNSIPs,
 				KubernetesCACert:     CACert,
 				Kubeconfig:           kubeconfigStr,
+				KubeletImage:         kubeletImage,
 				ContainerRuntime:     containerRuntime,
 				CloudProviderName:    cloudProviderName,
 				Hostname:             "Node-1", // FIX this shit
-				ExtraKubeletFlags:    KubeletFlags(),
+				ExtraKubeletFlags:    KubeletFlags(containerRuntime),
 
 				SafeDownloadBinariesScript: safeDownloadBinariesScript,
 			}
@@ -152,6 +156,7 @@ type filesData struct {
 	CNIVersion           string
 	ClusterDNSIPs        []net.IP
 	KubernetesCACert     string
+	KubeletImage         string
 	ServerAddress        string
 	Kubeconfig           string
 	ContainerRuntime     string
@@ -185,6 +190,7 @@ func populateFilesList(files []osmv1alpha1.File, d filesData) ([]osmv1alpha1.Fil
 
 // CloudConfig will return the cloud provider specific cloud-config
 func CloudConfig(md *v1alpha1.MachineDeployment) (string, error) {
+	// TODO @waleed Implement this
 	return "", nil
 }
 
@@ -269,10 +275,20 @@ func KubeletSystemdUnit(containerRuntime, kubeletVersion, cloudProvider, hostnam
 	return buf.String(), nil
 }
 
-func KubeletFlags() []string {
-	return []string{
-		"--container-runtime=docker",
-		"--container-runtime-endpoint=unix:///var/run/dockershim.sock",
+func KubeletFlags(containerRuntime string) []string {
+	switch containerRuntime {
+	case "docker":
+		return []string{
+			"--container-runtime=docker",
+			"--container-runtime-endpoint=unix:///var/run/dockershim.sock",
+		}
+	case "containerd":
+		return []string{
+			"--container-runtime=remote",
+			"--container-runtime-endpoint=unix:///run/containerd/containerd.sock",
+		}
+	default:
+		return []string{}
 	}
 }
 

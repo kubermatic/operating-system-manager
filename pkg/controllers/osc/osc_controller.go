@@ -56,8 +56,10 @@ type Reconciler struct {
 	clusterAddress   string
 	generator        generator.CloudConfigGenerator
 
-	clusterDNSIPs []net.IP
-	kubeconfig    string
+	clusterDNSIPs         []net.IP
+	kubeconfig            string
+	nodeHTTPProxy         string
+	nodeKubeletRepository string
 }
 
 func Add(
@@ -69,16 +71,20 @@ func Add(
 	workerCount int,
 	clusterDNSIPs []net.IP,
 	kubeconfig string,
+	nodeHTTPProxy string,
+	nodeKubeletRepository string,
 	generator generator.CloudConfigGenerator) error {
 	reconciler := &Reconciler{
-		Client:           mgr.GetClient(),
-		log:              log,
-		namespace:        namespace,
-		clusterAddress:   clusterName,
-		containerRuntime: containerRuntime,
-		generator:        generator,
-		kubeconfig:       kubeconfig,
-		clusterDNSIPs:    clusterDNSIPs,
+		Client:                mgr.GetClient(),
+		log:                   log,
+		namespace:             namespace,
+		clusterAddress:        clusterName,
+		containerRuntime:      containerRuntime,
+		generator:             generator,
+		kubeconfig:            kubeconfig,
+		clusterDNSIPs:         clusterDNSIPs,
+		nodeHTTPProxy:         nodeHTTPProxy,
+		nodeKubeletRepository: nodeKubeletRepository,
 	}
 	log.Info("Reconciling OSC resource..")
 	c, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: reconciler, MaxConcurrentReconciles: workerCount})
@@ -162,6 +168,7 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 			r.kubeconfig,
 			r.clusterDNSIPs,
 			r.containerRuntime,
+			r.nodeKubeletRepository,
 		),
 	}, r.namespace, r.Client); err != nil {
 		return fmt.Errorf("failed to reconcile provisioning operating system config: %v", err)

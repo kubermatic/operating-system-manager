@@ -43,8 +43,10 @@ type options struct {
 	clusterName      string
 	containerRuntime string
 
-	clusterDNSIPs string
-	kubeconfig    string
+	clusterDNSIPs         string
+	kubeconfig            string
+	nodeHTTPProxy         string
+	nodeKubeletRepository string
 }
 
 func main() {
@@ -60,7 +62,8 @@ func main() {
 	flag.StringVar(&opt.clusterName, "cluster-name", "", "The cluster where the OSC will run")
 	flag.StringVar(&opt.containerRuntime, "container-runtime", "containerd", "container runtime to deploy.")
 	flag.StringVar(&opt.namespace, "namespace", "", "The namespace where the OSC controller will run.")
-
+	flag.StringVar(&opt.nodeHTTPProxy, "node-http-proxy", "", "If set, it configures the 'HTTP_PROXY' & 'HTTPS_PROXY' environment variable on the nodes.")
+	flag.StringVar(&opt.nodeKubeletRepository, "node-kubelet-repository", "quay.io/kubermatic/kubelet", "Repository for the kubelet container. Only has effect on Flatcar Linux, and for kubernetes >= 1.18.")
 	flag.StringVar(&opt.clusterDNSIPs, "cluster-dns", "10.10.10.10", "Comma-separated list of DNS server IP address.")
 
 	flag.Parse()
@@ -68,6 +71,11 @@ func main() {
 	if len(opt.namespace) == 0 {
 		klog.Fatal("-namespace is required")
 	}
+
+	if !(opt.containerRuntime == "docker" || opt.containerRuntime == "containerd") {
+		klog.Fatalf("%s not supported; containerd, docker are the supported container runtimes", opt.containerRuntime)
+	}
+
 	opt.kubeconfig = flag.Lookup("kubeconfig").Value.(flag.Getter).Get().(string)
 
 	clusterDNSIPs, err := parseClusterDNSIPs(opt.clusterDNSIPs)
@@ -107,6 +115,8 @@ func main() {
 		opt.workerCount,
 		clusterDNSIPs,
 		opt.kubeconfig,
+		opt.nodeHTTPProxy,
+		opt.nodeKubeletRepository,
 		generator.NewDefaultCloudConfigGenerator(""),
 	); err != nil {
 		klog.Fatal(err)

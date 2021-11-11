@@ -267,7 +267,6 @@ spec:
           data: |
             runtime-endpoint: unix:///run/containerd/containerd.sock
 
-    ## TODO: Templatize this
     - path: /etc/containerd/config.toml
       content:
         inline:
