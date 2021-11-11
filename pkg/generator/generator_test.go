@@ -70,18 +70,27 @@ ssh_authorized_keys:
 write_files:
 - path: '/opt/bin/test.service'
   permissions: '0700'
-  encoding: b64
-  content: |
-    IyEvYmluL2Jhc2gKICAgIHNldCAteGV1byBwaXBlZmFpbAogICAgY2xvdWQtaW5pdCBjbGVhbgogICAgY2xvdWQtaW5pdCBpbml0CiAgICBzeXN0ZW1jdGwgc3RhcnQgcHJvdmlzaW9uLnNlcnZpY2U=
+  content: |-
+        #!/bin/bash
+        set -xeuo pipefail
+        cloud-init clean
+        cloud-init init
+        systemctl start provision.service
+
 - path: '/opt/bin/setup.service'
   permissions: '0700'
-  encoding: b64
-  content: |
-    IyEvYmluL2Jhc2gKICAgIHNldCAteGV1byBwaXBlZmFpbAogICAgY2xvdWQtaW5pdCBjbGVhbgogICAgY2xvdWQtaW5pdCBpbml0CiAgICBzeXN0ZW1jdGwgc3RhcnQgcHJvdmlzaW9uLnNlcnZpY2U=
+  content: |-
+        #!/bin/bash
+        set -xeuo pipefail
+        cloud-init clean
+        cloud-init init
+        systemctl start provision.service
+
 runcmd:
 - systemctl restart test.service
 - systemctl restart setup.service
-- systemctl daemon-reload`),
+- systemctl daemon-reload
+`),
 		},
 		{
 			name: "generated cloud-init for ubuntu without a service",
@@ -114,11 +123,16 @@ ssh_authorized_keys:
 write_files:
 - path: '/opt/bin/test'
   permissions: '0700'
-  encoding: b64
-  content: |
-    IyEvYmluL2Jhc2gKICAgIHNldCAteGV1byBwaXBlZmFpbAogICAgY2xvdWQtaW5pdCBjbGVhbgogICAgY2xvdWQtaW5pdCBpbml0CiAgICBzeXN0ZW1jdGwgc3RhcnQgcHJvdmlzaW9uLnNlcnZpY2U=
+  content: |-
+        #!/bin/bash
+        set -xeuo pipefail
+        cloud-init clean
+        cloud-init init
+        systemctl start provision.service
+
 runcmd:
-- systemctl daemon-reload`),
+- systemctl daemon-reload
+`),
 		},
 		{
 			name: "generated cloud-init for ubuntu without a service and ssh keys",
@@ -145,11 +159,16 @@ ssh_authorized_keys:
 write_files:
 - path: '/opt/bin/test'
   permissions: '0700'
-  encoding: b64
-  content: |
-    IyEvYmluL2Jhc2gKICAgIHNldCAteGV1byBwaXBlZmFpbAogICAgY2xvdWQtaW5pdCBjbGVhbgogICAgY2xvdWQtaW5pdCBpbml0CiAgICBzeXN0ZW1jdGwgc3RhcnQgcHJvdmlzaW9uLnNlcnZpY2U=
+  content: |-
+        #!/bin/bash
+        set -xeuo pipefail
+        cloud-init clean
+        cloud-init init
+        systemctl start provision.service
+
 runcmd:
-- systemctl daemon-reload`),
+- systemctl daemon-reload
+`),
 		},
 		{
 			name: "generated ignition config for flatcar",
@@ -183,7 +202,7 @@ runcmd:
 					},
 				},
 			},
-			expectedCloudConfig: []byte(`{"ignition":{"config":{},"security":{"tls":{}},"timeouts":{},"version":"2.2.0"},"networkd":{},"passwd":{"users":[{"name":"core","sshAuthorizedKeys":["ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3","ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4"]}]},"storage":{"files":[{"filesystem":"root","path":"/opt/bin/test.service","contents":{"source":"data:,%23!%2Fbin%2Fbash%0Aset%20-xeuo%20pipefail%0Acloud-init%20clean%0Acloud-init%20init%0Asystemctl%20start%20provision.service%0A","verification":{}},"mode":448},{"filesystem":"root","path":"/opt/bin/setup.service","contents":{"source":"data:,%23!%2Fbin%2Fbash%0Aset%20-xeuo%20pipefail%0Acloud-init%20clean%0Acloud-init%20init%0Asystemctl%20start%20provision.service%0A","verification":{}},"mode":448}]},"systemd":{}}`),
+			expectedCloudConfig: []byte(`{"ignition":{"config":{},"security":{"tls":{}},"timeouts":{},"version":"2.3.0"},"networkd":{},"passwd":{"users":[{"name":"core","sshAuthorizedKeys":["ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3","ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4"]}]},"storage":{"files":[{"filesystem":"root","path":"/opt/bin/test.service","contents":{"source":"data:,%23!%2Fbin%2Fbash%0Aset%20-xeuo%20pipefail%0Acloud-init%20clean%0Acloud-init%20init%0Asystemctl%20start%20provision.service%0A","verification":{}},"mode":448},{"filesystem":"root","path":"/opt/bin/setup.service","contents":{"source":"data:,%23!%2Fbin%2Fbash%0Aset%20-xeuo%20pipefail%0Acloud-init%20clean%0Acloud-init%20init%0Asystemctl%20start%20provision.service%0A","verification":{}},"mode":448}]},"systemd":{}}`),
 		},
 	}
 

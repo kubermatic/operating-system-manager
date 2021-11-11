@@ -470,7 +470,11 @@ spec:
           authorization:
             mode: Webhook
           cgroupDriver: systemd
-          clusterDNS: {{ .ClusterDNSIPs }}
+          {{- if ne (len .ClusterDNSIPs) 0 }}
+          clusterDNS:
+          {{range .ClusterDNSIPs}}- {{.}}
+          {{- end }}
+          {{- end }}
           clusterDomain: cluster.local
           featureGates:
             RotateKubeletServerCertificate: true
