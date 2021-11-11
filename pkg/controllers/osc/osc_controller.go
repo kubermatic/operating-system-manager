@@ -45,6 +45,7 @@ const (
 	ControllerName = "operating-system-config-controller"
 	// MachineDeploymentCleanupFinalizer indicates that sub-resources created by OSC controller against a MachineDeployment should be deleted
 	MachineDeploymentCleanupFinalizer = "kubermatic.io/cleanup-operating-system-configs"
+	cloudConfigSecretName             = "cloud-config"
 )
 
 type Reconciler struct {
@@ -171,6 +172,11 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 		return fmt.Errorf("failed to get OperatingSystemProfile: %v", err)
 	}
 
+	cloudConfig, err := fetchCloudConfigForProvider(ctx, r.Client)
+	if err != nil {
+		return fmt.Errorf("failed to fetch cloud-config: %v", err)
+	}
+
 	if err := reconciling.ReconcileOperatingSystemConfigs(ctx, []reconciling.NamedOperatingSystemConfigCreatorGetter{
 		resources.OperatingSystemConfigCreator(
 			md,
@@ -183,6 +189,7 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 			r.initialTaints,
 			r.cniVersion,
 			r.containerdVersion,
+			cloudConfig,
 		),
 	}, r.namespace, r.Client); err != nil {
 		return fmt.Errorf("failed to reconcile provisioning operating system config: %v", err)
@@ -212,6 +219,19 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.M
 		r.log.Infof("successfully generated provisioning secret: %v", fmt.Sprintf(resources.MachineDeploymentSubresourceNamePattern, md.Name, resources.ProvisioningCloudConfig))
 	}
 	return nil
+}
+
+func fetchCloudConfigForProvider(ctx context.Context, c client.Client) (string, error) {
+	cloudConfigSecret := &corev1.Secret{}
+	if err := c.Get(ctx, types.NamespacedName{Name: cloudConfigSecretName, Namespace: "kube-system"}, cloudConfigSecret); err != nil {
+		return "", fmt.Errorf("failed to get cloud-config secret: %v", err)
+	}
+
+	if cloudConfigSecret.Data != nil && cloudConfigSecret.Data["config"] != nil {
+		return string(cloudConfigSecret.Data["config"]), nil
+	}
+
+	return "", nil
 }
 
 // handleMachineDeploymentCleanup handles the cleanup of resources created against a MachineDeployment

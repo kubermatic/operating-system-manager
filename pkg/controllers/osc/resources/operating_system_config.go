@@ -38,8 +38,7 @@ const (
 	ProvisioningCloudConfig CloudConfigSecret = "provisioning"
 
 	MachineDeploymentSubresourceNamePattern = "%s-osc-%s"
-
-	MachineDeploymentOSPAnnotation = "k8c.io/operating-system-profile"
+	MachineDeploymentOSPAnnotation          = "k8c.io/operating-system-profile"
 )
 
 func OperatingSystemConfigCreator(
@@ -53,12 +52,13 @@ func OperatingSystemConfigCreator(
 	initialTaints string,
 	cniVersion string,
 	containerdVersion string,
+	cloudConfig string,
 ) reconciling.NamedOperatingSystemConfigCreatorGetter {
 	return func() (string, reconciling.OperatingSystemConfigCreator) {
 		var oscName = fmt.Sprintf(MachineDeploymentSubresourceNamePattern, md.Name, ProvisioningCloudConfig)
 
 		return oscName, func(osc *osmv1alpha1.OperatingSystemConfig) (*osmv1alpha1.OperatingSystemConfig, error) {
-			ospOriginal := osp.DeepCopy()
+			ospOriginal  := osp.DeepCopy()
 
 			// Get providerConfig from machineDeployment
 			pconfig := providerconfigtypes.Config{}
@@ -67,15 +67,9 @@ func OperatingSystemConfigCreator(
 				return nil, fmt.Errorf("failed to decode provider configs: %v", err)
 			}
 
-			var cloudConfig string
 			if pconfig.OverwriteCloudConfig != nil {
 				cloudConfig = *pconfig.OverwriteCloudConfig
-			} else {
-				cloudConfig, err = CloudConfig(md)
-				if err != nil {
-					return nil, err
-				}
-			}
+			} 
 
 			cloudProviderName := string(pconfig.CloudProvider)
 			CACert, err := resources.GetCACert(kubeconfig)
@@ -107,7 +101,7 @@ func OperatingSystemConfigCreator(
 				CloudConfig:           cloudConfig,
 				ContainerRuntime:      containerRuntime,
 				ContainerdVersion:     containerdVersion,
-				CloudProviderName:     cloudProviderName,
+				CloudProviderName:     pconfig.CloudProvider,
 				ExternalCloudProvider: externalCloudProvider,
 				PauseImage:            pauseImage,
 				InitialTaints:         initialTaints,
@@ -155,7 +149,7 @@ type filesData struct {
 	CloudConfig           string
 	ContainerRuntime      string
 	ContainerdVersion     string
-	CloudProviderName     string
+	CloudProviderName     providerconfigtypes.CloudProvider
 	ExtraKubeletFlags     []string
 	ExternalCloudProvider bool
 	PauseImage            string
@@ -189,23 +183,6 @@ func populateFilesList(files []osmv1alpha1.File, additionalTemplates []string, d
 	return pfiles, nil
 }
 
-// CloudConfig will return the cloud provider specific cloud-config
-func CloudConfig(md *v1alpha1.MachineDeployment) (string, error) {
-
-	// TODO @waleed Implement this
-	return `[global]
-Zone="eu-central-1a"
-VPC="vpc-819f62e9"
-SubnetID="subnet-0cfda22f6b09ee38b"
-RouteTableID=""
-RoleARN=""
-KubernetesClusterID=""
-DisableSecurityGroupIngress=false
-ElbSecurityGroup=""
-DisableStrictZoneCheck=false
-`, nil
-}
-
 func selectAdditionalFiles(osp *osmv1alpha1.OperatingSystemProfile, containerRuntime string) []osmv1alpha1.File {
 	filesToAdd := make([]osmv1alpha1.File, 0)
 	// select container runtime files
@@ -225,16 +202,16 @@ func selectAdditionalTemplates(osp *osmv1alpha1.OperatingSystemProfile, containe
 	// select container runtime scripts
 	for _, cr := range osp.Spec.SupportedContainerRuntimes {
 		if cr.Name == containerRuntime {
-			for name, template := range cr.Templates {
-				templatesToRender[name] = template
+			for name, temp := range cr.Templates {
+				templatesToRender[name] = temp
 			}
 			break
 		}
 	}
 
 	// select templates from templates field
-	for name, template := range osp.Spec.Templates {
-		templatesToRender[name] = template
+	for name, temp := range osp.Spec.Templates {
+		templatesToRender[name] = temp
 	}
 
 	templates := make([]string, 0)
