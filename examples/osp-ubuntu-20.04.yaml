@@ -16,7 +16,7 @@ apiVersion: operatingsystemmanager.k8c.io/v1alpha1
 kind: OperatingSystemProfile
 metadata:
   name: osp-ubuntu-aws
-  namespace: kube-system
+  namespace: cloud-init-settings
 spec:
   osName: "ubuntu"
   osVersion: "20.04"
@@ -480,7 +480,10 @@ spec:
           authorization:
             mode: Webhook
           cgroupDriver: systemd
-          clusterDNS: {{ .ClusterDNSIPs }}
+          clusterDNS:
+          {{- range .ClusterDNSIPs }}
+          - "{{ . }}"
+          {{- end }}
           clusterDomain: cluster.local
           featureGates:
             RotateKubeletServerCertificate: true
