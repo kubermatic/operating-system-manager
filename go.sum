@@ -1853,7 +1853,6 @@ k8s.io/kube-openapi v0.0.0-20201113171705-d219536bb9fd h1:sOHNzJIkytDF6qadMNKhhD
 k8s.io/kube-openapi v0.0.0-20201113171705-d219536bb9fd/go.mod h1:WOJ3KddDSol4tAGcJo0Tvi+dK12EcqSLqcWsryKMpfM=
 k8s.io/kubectl v0.19.0/go.mod h1:gPCjjsmE6unJzgaUNXIFGZGafiUp5jh0If3F/x7/rRg=
 k8s.io/kubectl v0.19.4/go.mod h1:XPmlu4DJEYgD83pvZFeKF8+MSvGnYGqunbFSrJsqHv0=
-k8s.io/kubelet v0.19.4 h1:X5xd2BAJYz7i+arNgMlQSJl7r2xzpfducf4BYqn/Loo=
 k8s.io/kubelet v0.19.4/go.mod h1:zJnPeb7nJCRvtAwxJhe9fFCtMLXL3cXbQiczPmpDrLU=
 k8s.io/legacy-cloud-providers v0.17.0/go.mod h1:DdzaepJ3RtRy+e5YhNtrCYwlgyK87j/5+Yfp0L9Syp8=
 k8s.io/metrics v0.19.0/go.mod h1:WykpW8B60OeAJx1imdwUgyOID2kDljr/Q+1zrPJ98Wo=

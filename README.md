@@ -64,13 +64,18 @@ _The code and sample YAML files in the master branch of the operating-system-man
 
 ## Development
 
+### Testing
+
+Simply run `make test`
+
+### Local Development
+
 To run OSM locally:
 
 - Either use a [kind](https://kind.sigs.k8s.io/docs/user/quick-start/) cluster or actual cluster and make sure that the correct context is loaded
 - Run `kubectl apply -f charts/crd` to install CRDs
 - Create relevant OperatingSystemProfile resources. Check [sample](./examples) for reference.
-- Run `make build` to generate binary
-- Run `./_build/osm-controller` to start the controller
+- Run `make run`
 
 ## Troubleshooting
 

@@ -14,34 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -euo pipefail
+set -e
 
-cd $(dirname $0)/..
-source hack/lib.sh
+NAMESPACE="${NAMESPACE:-kube-system}"
 
-TEMPDIR=_tmp
-DIFFROOT="charts/crd"
-TMP_DIFFROOT="$TEMPDIR/charts/crd"
-
-cleanup() {
-  rm -rf "$TEMPDIR"
-}
-trap "cleanup" EXIT SIGINT
-
-cleanup
-
-mkdir -p "${TMP_DIFFROOT}"
-cp -a "${DIFFROOT}"/* "${TMP_DIFFROOT}"
-
-./hack/update-crds-openapi.sh
-
-echodate "Diffing ${DIFFROOT} against freshly generated CRDs"
-ret=0
-diff -Naupr "${DIFFROOT}" "${TMP_DIFFROOT}" || ret=$?
-cp -a "${TMP_DIFFROOT}"/* "${DIFFROOT}"
-if [[ $ret -eq 0 ]]; then
-  echodate "${DIFFROOT} up to date."
-else
-  echodate "${DIFFROOT} is out of date. Please run hack/update-crds-openapi.sh"
-  exit 1
-fi
+make -C $(dirname $0)/.. build
+$(dirname $0)/../_build/osm-controller \
+  -namespace=$NAMESPACE

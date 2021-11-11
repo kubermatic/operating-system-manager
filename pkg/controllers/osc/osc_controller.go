@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The Kubermatic Kubernetes Platform contributors.
+Copyright 2021 The Operating System Manager contributors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,11 +19,10 @@ package osc
 import (
 	"context"
 	"fmt"
-	"net"
 
-	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	"go.uber.org/zap"
 
+	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	kuberneteshelper "k8c.io/kubermatic/v2/pkg/kubernetes"
 	"k8c.io/operating-system-manager/pkg/controllers/osc/resources"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
@@ -50,14 +49,18 @@ const (
 
 type Reconciler struct {
 	client.Client
-	log              *zap.SugaredLogger
-	namespace        string
-	containerRuntime string
-	clusterAddress   string
-	generator        generator.CloudConfigGenerator
-
-	clusterDNSIPs         []net.IP
+	log                   *zap.SugaredLogger
+	namespace             string
+	clusterAddress        string
+	containerRuntime      string
+	externalCloudProvider bool
+	pauseImage            string
+	initialTaints         string
+	generator             generator.CloudConfigGenerator
+	clusterDNSIPs         string
 	kubeconfig            string
+	cniVersion            string
+	containerdVersion     string
 	nodeHTTPProxy         string
 	nodeKubeletRepository string
 }
@@ -67,22 +70,32 @@ func Add(
 	log *zap.SugaredLogger,
 	namespace string,
 	clusterName string,
-	containerRuntime string,
 	workerCount int,
-	clusterDNSIPs []net.IP,
+	clusterDNSIPs string,
 	kubeconfig string,
+	generator generator.CloudConfigGenerator,
+	containerRuntime string,
+	externalCloudProvider bool,
+	pauseImage string,
+	initialTaints string,
+	cniVersion string,
+	containerdVersion string,
 	nodeHTTPProxy string,
-	nodeKubeletRepository string,
-	generator generator.CloudConfigGenerator) error {
+	nodeKubeletRepository string) error {
 	reconciler := &Reconciler{
 		Client:                mgr.GetClient(),
 		log:                   log,
 		namespace:             namespace,
 		clusterAddress:        clusterName,
-		containerRuntime:      containerRuntime,
 		generator:             generator,
 		kubeconfig:            kubeconfig,
 		clusterDNSIPs:         clusterDNSIPs,
+		containerRuntime:      containerRuntime,
+		pauseImage:            pauseImage,
+		initialTaints:         initialTaints,
+		externalCloudProvider: externalCloudProvider,
+		cniVersion:            cniVersion,
+		containerdVersion:     containerdVersion,
 		nodeHTTPProxy:         nodeHTTPProxy,
 		nodeKubeletRepository: nodeKubeletRepository,
 	}
@@ -168,6 +181,11 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 			r.kubeconfig,
 			r.clusterDNSIPs,
 			r.containerRuntime,
+			r.externalCloudProvider,
+			r.pauseImage,
+			r.initialTaints,
+			r.cniVersion,
+			r.containerdVersion,
 			r.nodeKubeletRepository,
 		),
 	}, r.namespace, r.Client); err != nil {
