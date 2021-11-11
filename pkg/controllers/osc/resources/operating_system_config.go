@@ -26,6 +26,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 
 	"github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
+	"github.com/kubermatic/machine-controller/pkg/providerconfig/types"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/resources"
 	"k8c.io/operating-system-manager/pkg/resources/reconciling"
@@ -37,8 +38,7 @@ const (
 	ProvisioningCloudInit CloudInitSecret = "provisioning"
 
 	MachineDeploymentSubresourceNamePattern = "%s-osc-%s"
-
-	MachineDeploymentOSPAnnotation = "k8c.io/operating-system-profile"
+	MachineDeploymentOSPAnnotation          = "k8c.io/operating-system-profile"
 )
 
 func OperatingSystemConfigCreator(
@@ -52,16 +52,18 @@ func OperatingSystemConfigCreator(
 	initialTaints string,
 	cniVersion string,
 	containerdVersion string,
+	cloudConfig string,
 ) reconciling.NamedOperatingSystemConfigCreatorGetter {
 	return func() (string, reconciling.OperatingSystemConfigCreator) {
 		var oscName = fmt.Sprintf(MachineDeploymentSubresourceNamePattern, md.Name, ProvisioningCloudInit)
 
 		return oscName, func(osc *osmv1alpha1.OperatingSystemConfig) (*osmv1alpha1.OperatingSystemConfig, error) {
-			ospOriginal := osp.DeepCopy()
-			userSSHKeys := struct {
-				SSHPublicKeys []string `json:"sshPublicKeys"`
-			}{}
-			if err := json.Unmarshal(md.Spec.Template.Spec.ProviderSpec.Value.Raw, &userSSHKeys); err != nil {
+			var (
+				ospOriginal  = osp.DeepCopy()
+				providerSpec = types.Config{}
+			)
+
+			if err := json.Unmarshal(md.Spec.Template.Spec.ProviderSpec.Value.Raw, &providerSpec); err != nil {
 				return nil, fmt.Errorf("failed to get user ssh keys: %v", err)
 			}
 
@@ -69,7 +71,6 @@ func OperatingSystemConfigCreator(
 			if err != nil {
 				return nil, fmt.Errorf("failed to get cloud provider from machine deployment: %v", err)
 			}
-			cloudConfig := string(cloudProvider.Spec.Raw)
 
 			CACert, err := resources.GetCACert(kubeconfig)
 			if err != nil {
@@ -100,7 +101,7 @@ func OperatingSystemConfigCreator(
 				CloudConfig:           cloudConfig,
 				ContainerRuntime:      containerRuntime,
 				ContainerdVersion:     containerdVersion,
-				CloudProviderName:     cloudProvider.Name,
+				CloudProviderName:     providerSpec.CloudProvider,
 				ExternalCloudProvider: externalCloudProvider,
 				PauseImage:            pauseImage,
 				InitialTaints:         initialTaints,
@@ -122,7 +123,7 @@ func OperatingSystemConfigCreator(
 				Units:         ospOriginal.Spec.Units,
 				Files:         populatedFiles,
 				CloudProvider: *cloudProvider,
-				UserSSHKeys:   userSSHKeys.SSHPublicKeys,
+				UserSSHKeys:   providerSpec.SSHPublicKeys,
 			}
 
 			return osc, nil
@@ -142,7 +143,7 @@ type filesData struct {
 	CloudConfig           string
 	ContainerRuntime      string
 	ContainerdVersion     string
-	CloudProviderName     string
+	CloudProviderName     types.CloudProvider
 	ExtraKubeletFlags     []string
 	ExternalCloudProvider bool
 	PauseImage            string
@@ -195,16 +196,16 @@ func selectAdditionalTemplates(osp *osmv1alpha1.OperatingSystemProfile, containe
 	// select container runtime scripts
 	for _, cr := range osp.Spec.SupportedContainerRuntimes {
 		if cr.Name == containerRuntime {
-			for name, template := range cr.Templates {
-				templatesToRender[name] = template
+			for name, temp := range cr.Templates {
+				templatesToRender[name] = temp
 			}
 			break
 		}
 	}
 
 	// select templates from templates field
-	for name, template := range osp.Spec.Templates {
-		templatesToRender[name] = template
+	for name, temp := range osp.Spec.Templates {
+		templatesToRender[name] = temp
 	}
 
 	templates := make([]string, 0)

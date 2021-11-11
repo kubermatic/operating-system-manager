@@ -25,11 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-const (
-	CloudConfigSecretName = "cloud-config"
-	CloudConfigConfigName = "config"
-)
-
 func GetCloudProviderFromMachineDeployment(md *clusterv1alpha1.MachineDeployment) (*v1alpha1.CloudProviderSpec, error) {
 	cloudProvider := &struct {
 		CloudProvider     string               `json:"cloudProvider"`

@@ -138,10 +138,20 @@ func TestReconciler_Reconcile(t *testing.T) {
 		if err := loadFile(osp, testCase.ospFile); err != nil {
 			t.Fatalf("failed loading osp %s from testdata: %v", testCase.name, err)
 		}
+
+		cloudConfigSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "cloud-config",
+				Namespace: "kube-system",
+			},
+			Data: map[string][]byte{
+				"config": []byte("{\"cloud-config-key\":\"cloud-config-value\"}"),
+			},
+		}
 		fakeClient := fakectrlruntimeclient.
 			NewClientBuilder().
 			WithScheme(scheme.Scheme).
-			WithObjects(osp).
+			WithObjects(osp, cloudConfigSecret).
 			Build()
 
 		reconciler := buildReconciler(fakeClient, testCase.config)
@@ -234,11 +244,21 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 			t.Fatalf("failed loading osp %s from testdata: %v", testCase.name, err)
 		}
 
+		cloudConfigSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "cloud-config",
+				Namespace: "kube-system",
+			},
+			Data: map[string][]byte{
+				"config": []byte("{\"cloud-config-key\":\"cloud-config-value\"}"),
+			},
+		}
+
 		md := generateMachineDeployment(testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.cloudProvider, testCase.cloudProviderSpec)
 		fakeClient := fakectrlruntimeclient.
 			NewClientBuilder().
 			WithScheme(scheme.Scheme).
-			WithObjects(osp, md).
+			WithObjects(osp, md, cloudConfigSecret).
 			Build()
 
 		reconciler := buildReconciler(fakeClient, testCase.config)
