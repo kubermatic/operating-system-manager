@@ -113,7 +113,7 @@ spec:
               glusterfs-client \
               iptables \
               jq \
-              kmod \{}
+              kmod \
               openssh-client \
               nfs-common \
               socat \

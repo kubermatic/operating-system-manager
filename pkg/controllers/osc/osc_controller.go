@@ -62,7 +62,6 @@ type Reconciler struct {
 	kubeconfig            string
 	cniVersion            string
 	containerdVersion     string
-	nodeHTTPProxy         string
 }
 
 func Add(
@@ -79,8 +78,7 @@ func Add(
 	pauseImage string,
 	initialTaints string,
 	cniVersion string,
-	containerdVersion string,
-	nodeHTTPProxy string) error {
+	containerdVersion string) error {
 	reconciler := &Reconciler{
 		Client:                mgr.GetClient(),
 		log:                   log,
@@ -95,7 +93,6 @@ func Add(
 		externalCloudProvider: externalCloudProvider,
 		cniVersion:            cniVersion,
 		containerdVersion:     containerdVersion,
-		nodeHTTPProxy:         nodeHTTPProxy,
 	}
 	log.Info("Reconciling OSC resource..")
 	c, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: reconciler, MaxConcurrentReconciles: workerCount})

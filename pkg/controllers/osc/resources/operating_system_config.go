@@ -67,10 +67,6 @@ func OperatingSystemConfigCreator(
 				return nil, fmt.Errorf("failed to decode provider configs: %v", err)
 			}
 
-			if pconfig.OverwriteCloudConfig != nil {
-				cloudConfig = *pconfig.OverwriteCloudConfig
-			}
-
 			cloudProviderName := string(pconfig.CloudProvider)
 			CACert, err := resources.GetCACert(kubeconfig)
 			if err != nil {
@@ -117,8 +113,6 @@ func OperatingSystemConfigCreator(
 			if err != nil {
 				return nil, fmt.Errorf("failed to populate OSP file template: %v", err)
 			}
-
-			// Handle units
 
 			osc.Spec = osmv1alpha1.OperatingSystemConfigSpec{
 				OSName:    ospOriginal.Spec.OSName,
