@@ -365,7 +365,7 @@ spec:
             mode: Webhook
           cgroupDriver: systemd
           clusterDNS:
-          - 10.10.10.10
+          - 10.0.0.0
           clusterDomain: cluster.local
           featureGates:
             RotateKubeletServerCertificate: true

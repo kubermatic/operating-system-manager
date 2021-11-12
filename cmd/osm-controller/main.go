@@ -90,7 +90,7 @@ func main() {
 
 	opt.kubeconfig = flag.Lookup("kubeconfig").Value.(flag.Getter).Get().(string)
 
-	clusterDNSIPs, err := parseClusterDNSIPs(opt.clusterDNSIPs)
+	parsedClusterDNSIPs, err := parseClusterDNSIPs(opt.clusterDNSIPs)
 	if err != nil {
 		klog.Fatalf("invalid cluster dns specified: %v", err)
 	}
@@ -124,7 +124,7 @@ func main() {
 		opt.namespace,
 		opt.clusterName,
 		opt.workerCount,
-		clusterDNSIPs,
+		parsedClusterDNSIPs,
 		opt.kubeconfig,
 		generator.NewDefaultCloudConfigGenerator(""),
 		opt.containerRuntime,
@@ -142,13 +142,15 @@ func main() {
 	}
 }
 
-func parseClusterDNSIPs(s string) ([]string, error) {
-	ips := strings.Split(s, ",")
-	for _, ip := range ips {
-		ip := net.ParseIP(strings.TrimSpace(ip))
+func parseClusterDNSIPs(s string) ([]net.IP, error) {
+	var ips []net.IP
+	sips := strings.Split(s, ",")
+	for _, sip := range sips {
+		ip := net.ParseIP(strings.TrimSpace(sip))
 		if ip == nil {
-			return nil, fmt.Errorf("unable to parse ip %s", ip)
+			return nil, fmt.Errorf("unable to parse ip %s", sip)
 		}
+		ips = append(ips, ip)
 	}
 	return ips, nil
 }
