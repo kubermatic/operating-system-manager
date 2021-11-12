@@ -19,6 +19,7 @@ package osc
 import (
 	"context"
 	"fmt"
+	"net"
 
 	"go.uber.org/zap"
 
@@ -58,7 +59,7 @@ type Reconciler struct {
 	pauseImage            string
 	initialTaints         string
 	generator             generator.CloudInitGenerator
-	clusterDNSIPs         string
+	clusterDNSIPs         []net.IP
 	kubeconfig            string
 	cniVersion            string
 	containerdVersion     string
@@ -70,7 +71,7 @@ func Add(
 	namespace string,
 	clusterName string,
 	workerCount int,
-	clusterDNSIPs string,
+	clusterDNSIPs []net.IP,
 	kubeconfig string,
 	generator generator.CloudInitGenerator,
 	containerRuntime string,
