@@ -19,44 +19,55 @@ metadata:
   namespace: kube-system
 spec:
   osName: flatcar
-  ## Flatcar Stable (2021-10-27)
-  osVersion: "2605.22.1"
+  ## Flatcar Stable (09/11/2021)
+  osVersion: "2983.2.0"
   supportedCloudProviders:
     - name: aws
       spec:
         region: us-west-1a
   supportedContainerRuntimes:
-  - name: containerd 
-    files:
-      - path: "/etc/containerd/config.toml"
-        permissions: 0644
-        content:
-          inline:
-            encoding: none
-            data: |
-              version = 2
+    - name: containerd
+      files:
+        - path: /etc/containerd/config.toml
+          permissions: 0644
+          content:
+            inline:
+              encoding: none
+              data: |
+                version = 2
 
-              [metrics]
-              address = "127.0.0.1:1338"
+                [metrics]
+                address = "127.0.0.1:1338"
 
-              [plugins]
-              [plugins."io.containerd.grpc.v1.cri"]
-              [plugins."io.containerd.grpc.v1.cri".containerd]
-              [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
-              [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-              runtime_type = "io.containerd.runc.v2"
-              [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
-              SystemdCgroup = true
-              [plugins."io.containerd.grpc.v1.cri".registry]
-              [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
-              [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
-              endpoint = ["https://registry-1.docker.io"]
-      - path: /etc/crictl.yaml
-        content:
-          inline:
-            encoding: none
-            data: |
-              runtime-endpoint: unix:///run/containerd/containerd.sock
+                [plugins]
+                [plugins."io.containerd.grpc.v1.cri"]
+                [plugins."io.containerd.grpc.v1.cri".containerd]
+                [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
+                [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+                runtime_type = "io.containerd.runc.v2"
+                [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+                SystemdCgroup = true
+                [plugins."io.containerd.grpc.v1.cri".registry]
+                [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
+                [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
+                endpoint = ["https://registry-1.docker.io"]
+        - path: /etc/systemd/system/containerd.service.d/10-custom.conf
+          content:
+            inline:
+              encoding: none
+              data: |
+                [Service]
+                Restart=always
+                EnvironmentFile=-/etc/environment
+                Environment=CONTAINERD_CONFIG=/etc/containerd/config.toml
+                ExecStart=
+                ExecStart=/usr/bin/env PATH=${TORCX_BINDIR}:${PATH} ${TORCX_BINDIR}/containerd --config ${CONTAINERD_CONFIG}
+        - path: /etc/crictl.yaml
+          content:
+            inline:
+              encoding: none
+              data: |
+                runtime-endpoint: unix:///run/containerd/containerd.sock
 
   templates:
     safeDownloadBinariesScript: |-
@@ -142,19 +153,7 @@ spec:
       fi
 
   units:
-    - name: containerd.service
-      enable: true
-      dropIns:
-      - name: 10-custom.conf
-        content: |
-          [Service]
-          Restart=always
-          EnvironmentFile=-/etc/environment
-          Environment=CONTAINERD_CONFIG=/etc/containerd/config.toml
-          ExecStart=
-          ExecStart=/usr/bin/env PATH=${TORCX_BINDIR}:${PATH} ${TORCX_BINDIR}/containerd --config ${CONTAINERD_CONFIG}
-
-    - name: setup-script.service
+    - name: setup.service
       enable: true
       content: |
         [Install]
@@ -248,7 +247,7 @@ spec:
               echo -e "[Service]\nEnvironment=\"KUBELET_NODE_IP=${DEFAULT_IFC_IP}\"\nEnvironment=\"KUBELET_HOSTNAME=${FULL_HOSTNAME}\"" > /etc/systemd/system/kubelet.service.d/nodeip.conf
             fi
 
-    - path: "/opt/bin/setup"
+    - path: /opt/bin/setup
       permissions: 0755
       content:
         inline:
@@ -273,7 +272,7 @@ spec:
 
             systemctl enable --now kubelet
             systemctl enable --now --no-block kubelet-healthcheck.service
-            systemctl disable setup-script.service
+            systemctl disable setup.service
 
     - path: /etc/kubernetes/bootstrap-kubelet.conf
       permissions: 0600
@@ -290,7 +289,7 @@ spec:
           data: |
             {{ .KubernetesCACert }}
 
-    - path: "/etc/systemd/system/kubelet.service"
+    - path: /etc/systemd/system/kubelet.service
       content:
         inline:
           encoding: none
@@ -360,10 +359,10 @@ spec:
           data: |
             {{ .CloudConfig }}
 
-    - path: "/etc/kubernetes/kubelet.conf"
+    - path: /etc/kubernetes/kubelet.conf
       content:
         inline:
-          encoding: "none"
+          encoding: none
           data: |
             apiVersion: kubelet.config.k8s.io/v1beta1
             kind: KubeletConfiguration
@@ -410,7 +409,7 @@ spec:
             - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
             volumePluginDir: /var/lib/kubelet/volumeplugins
 
-## Flatcar specific configuration
+    ## Flatcar specific configuration
     - path: /proc/sys/kernel/panic_on_oops
       permissions: 0644
       content:
@@ -439,7 +438,7 @@ spec:
       permissions: 0600
       content:
         inline:
-          encoding: "none"
+          encoding: none
           data: |
             # Use most defaults for sshd configuration.
             Subsystem sftp internal-sftp
