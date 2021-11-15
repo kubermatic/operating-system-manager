@@ -80,7 +80,7 @@ type FileContent struct {
 // FileContentInline contains keys for inlining a file content's data and encoding.
 type FileContentInline struct {
 	// Encoding is the file's encoding (e.g. base64).
-	Encoding string `json:"encoding"`
+	Encoding string `json:"encoding,omitempty"`
 	// Data is the file's data.
 	Data string `json:"data"`
 }
