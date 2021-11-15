@@ -94,7 +94,8 @@ func main() {
 	}
 
 
-	if err := validateClusterDNSIPs(opt.clusterDNSIPs); err != nil {
+	parsedClusterDNSIPs, err := parseClusterDNSIPs(opt.clusterDNSIPs)
+	if err != nil {
 		klog.Fatalf("invalid cluster dns specified: %v", err)
 	}
 
@@ -127,7 +128,7 @@ func main() {
 		opt.namespace,
 		opt.clusterName,
 		opt.workerCount,
-		opt.clusterDNSIPs,
+		parsedClusterDNSIPs,
 		opt.kubeconfig,
 		generator.NewDefaultCloudInitGenerator(""),
 		opt.containerRuntime,
@@ -145,15 +146,17 @@ func main() {
 	}
 }
 
-func validateClusterDNSIPs(s string) error {
+func parseClusterDNSIPs(s string) ([]net.IP, error) {
+	var ips []net.IP
 	sips := strings.Split(s, ",")
 	for _, sip := range sips {
 		ip := net.ParseIP(strings.TrimSpace(sip))
 		if ip == nil {
-			return fmt.Errorf("unable to parse ip %s", sip)
+			return nil, fmt.Errorf("unable to parse ip %s", sip)
 		}
+		ips = append(ips, ip)
 	}
-	return nil
+	return ips, nil
 }
 
 // getKubeConfigPath returns the path to the kubeconfig file.

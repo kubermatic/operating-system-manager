@@ -16,7 +16,7 @@ apiVersion: operatingsystemmanager.k8c.io/v1alpha1
 kind: OperatingSystemProfile
 metadata:
   name: osp-ubuntu-aws
-  namespace: kube-system
+  namespace: cloud-init-settings
 spec:
   osName: "ubuntu"
   osVersion: "20.04"
@@ -170,7 +170,7 @@ spec:
       for bin in kubelet kubeadm kubectl; do
           {{- /* download kube binary */}}
           curl -Lfo "$kube_dir/$bin" "$kube_base_url/$bin"
-          chmod +x "$kube_dir/$binKubeletVersion"
+          chmod +x "$kube_dir/$bin"
 
           {{- /* download kube binary checksum */}}
           sum=$(curl -Lf "$kube_base_url/$bin.sha256")
@@ -348,6 +348,7 @@ spec:
             --hostname-override=${KUBELET_HOSTNAME} \
             {{- end }}
             --dynamic-config-dir=/etc/kubernetes/dynamic-config-dir \
+            --feature-gates=DynamicKubeletConfig=true \
             --exit-on-lock-contention \
             --lock-file=/tmp/kubelet.lock \
             {{- if .PauseImage }}
@@ -357,7 +358,7 @@ spec:
             --register-with-taints={{- .InitialTaints }} \
             {{- end }}
             {{- if eq .ContainerRuntime "containerd" }}
-            --container-runtime=containerd \
+            --container-runtime=remote \
             --container-runtime-endpoint=unix:///run/containerd/containerd.sock \
             {{- end }}
             {{- if eq .ContainerRuntime "docker" }}
@@ -480,7 +481,10 @@ spec:
           authorization:
             mode: Webhook
           cgroupDriver: systemd
-          clusterDNS: {{ .ClusterDNSIPs }}
+          clusterDNS:
+          {{- range .ClusterDNSIPs }}
+          - "{{ . }}"
+          {{- end }}
           clusterDomain: cluster.local
           featureGates:
             RotateKubeletServerCertificate: true

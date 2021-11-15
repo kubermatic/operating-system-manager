@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net"
 	"strings"
 	"text/template"
 
@@ -45,7 +46,7 @@ func OperatingSystemConfigCreator(
 	md *v1alpha1.MachineDeployment,
 	osp *osmv1alpha1.OperatingSystemProfile,
 	kubeconfig string,
-	clusterDNSIPs string,
+	clusterDNSIPs []net.IP,
 	containerRuntime string,
 	externalCloudProvider bool,
 	pauseImage string,
@@ -136,7 +137,7 @@ type filesData struct {
 	KubeletConfiguration  string
 	KubeletSystemdUnit    string
 	CNIVersion            string
-	ClusterDNSIPs         string
+	ClusterDNSIPs         []net.IP
 	KubernetesCACert      string
 	ServerAddress         string
 	Kubeconfig            string
