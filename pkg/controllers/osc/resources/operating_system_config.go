@@ -108,8 +108,8 @@ func OperatingSystemConfigCreator(
 				ExternalCloudProvider: externalCloudProvider,
 				PauseImage:            pauseImage,
 				InitialTaints:         initialTaints,
-				HTTPProxy: nodeHTTPProxy,
-				NoProxy: nodeNoProxy,
+				HTTPProxy:             nodeHTTPProxy,
+				NoProxy:               nodeNoProxy,
 			}
 
 			osp.Spec.Files = append(osp.Spec.Files, selectAdditionalFiles(osp, containerRuntime)...)
@@ -153,8 +153,8 @@ type filesData struct {
 	ExternalCloudProvider bool
 	PauseImage            string
 	InitialTaints         string
-	HTTPProxy string
-	NoProxy string
+	HTTPProxy             string
+	NoProxy               string
 }
 
 func populateFilesList(files []osmv1alpha1.File, additionalTemplates []string, d filesData) ([]osmv1alpha1.File, error) {
