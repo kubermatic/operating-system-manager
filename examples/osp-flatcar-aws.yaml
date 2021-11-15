@@ -152,6 +152,25 @@ spec:
           chmod +x /opt/bin/health-monitor.sh
       fi
 
+    configureStaticNetwork: |-
+      {{- if .NetworkConfig }}
+      mkdir -p /etc/systemd/system/systemd-networkd.service.d/
+      cat << EOF | tee /etc/systemd/system/systemd-networkd.service.d/10-static-network.conf
+      [Match]
+      # Because of difficulty predicting specific NIC names on different cloud providers,
+      # we only support static addressing on VSphere. There should be a single NIC attached
+      # that we will match by name prefix 'en' which denotes ethernet devices.
+      Name=en*
+
+      [Network]
+      DHCP=no
+      Address={{ .NetworkConfig.CIDR }}
+      Gateway={{ .NetworkConfig.Gateway }}
+      {{range .NetworkConfig.DNS.Servers}}DNS={{.}}
+      {{end}}
+      {{- end }}
+      EOF
+
   units:
     - name: setup.service
       enable: true
@@ -258,6 +277,29 @@ spec:
             if systemctl is-active ufw; then systemctl stop ufw; fi
             systemctl mask ufw
 
+            {{- if .FlatcarConfig.DisableUpdateEngine }}
+            cat << EOF | tee /etc/polkit-1/rules.d/60-noreboot_norestart.rules
+            polkit.addRule(function(action, subject) {
+              if (action.id == "org.freedesktop.login1.reboot" ||
+                  action.id == "org.freedesktop.login1.reboot-multiple-sessions") {
+                  if (subject.user == "core") {
+                      return polkit.Result.YES;
+                  } else {
+                      return polkit.Result.AUTH_ADMIN;
+                  }
+              }
+            });
+            EOF
+
+            systemctl stop update-engine.service
+            systemctl mask update-engine.service
+            {{- end }}
+
+            {{- if .FlatcarConfig.DisableLocksmithD }}
+            systemctl stop locksmithd.service
+            systemctl mask locksmithd.service
+            {{- end }}
+
             {{- /* As we added some modules and don't want to reboot, restart the service */}}
             systemctl restart systemd-modules-load.service
             sysctl --system
@@ -266,6 +308,8 @@ spec:
             swapoff -a
 
             {{- template "safeDownloadBinariesScript" }}
+
+            {{- template "configureStaticNetwork" }}
 
             # set kubelet nodeip environment variable
             /opt/bin/setup_net_env.sh
