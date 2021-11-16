@@ -16,7 +16,7 @@ apiVersion: operatingsystemmanager.k8c.io/v1alpha1
 kind: OperatingSystemProfile
 metadata:
   name: osp-flatcar-aws
-  namespace: kube-system
+  namespace: cloud-init-settings
 spec:
   osName: flatcar
   ## Flatcar Stable (09/11/2021)
@@ -179,6 +179,22 @@ spec:
         WantedBy=multi-user.target
 
         [Unit]
+        Requires=download-script.service
+        After=download-script.service
+
+        [Service]
+        Type=oneshot
+        RemainAfterExit=true
+        EnvironmentFile=-/etc/environment
+        ExecStart=/opt/bin/setup
+
+    - name: download-script.service
+      enable: true
+      content: |
+        [Install]
+        WantedBy=multi-user.target
+
+        [Unit]
         Requires=network-online.target
         After=network-online.target
 
@@ -186,7 +202,37 @@ spec:
         Type=oneshot
         RemainAfterExit=true
         EnvironmentFile=-/etc/environment
-        ExecStart=/opt/bin/setup
+        ExecStart=/opt/bin/download.sh
+
+    - name: nodeip.service
+      enable: true
+      content: |
+        [Unit]
+        Description=Setup Kubelet Node IP Env
+        Requires=network-online.target
+        After=network-online.target
+
+        [Service]
+        ExecStart=/opt/bin/setup_net_env.sh
+        RemainAfterExit=yes
+        Type=oneshot
+        [Install]
+        WantedBy=multi-user.target
+
+    - name: static-network-script.service
+      enable: true
+      content: |
+        [Unit]
+        Description=Setup Static Networking
+        Requires=network-online.target
+        After=network-online.target
+
+        [Service]
+        ExecStart=/opt/bin/configure_static_network.sh
+        RemainAfterExit=yes
+        Type=oneshot
+        [Install]
+        WantedBy=multi-user.target
 
   files:
     - path: /etc/systemd/journald.conf.d/max_disk_use.conf
@@ -266,6 +312,30 @@ spec:
               echo -e "[Service]\nEnvironment=\"KUBELET_NODE_IP=${DEFAULT_IFC_IP}\"\nEnvironment=\"KUBELET_HOSTNAME=${FULL_HOSTNAME}\"" > /etc/systemd/system/kubelet.service.d/nodeip.conf
             fi
 
+    - path: /opt/bin/configure_static_network.sh
+      permissions: 0755
+      content:
+        inline:
+          encoding: none
+          data: |
+            #!/usr/bin/env bash
+            set -xeuo pipefail
+
+            {{- template "configureStaticNetwork" }}
+
+    - path: /opt/bin/download.sh
+      permissions: 0755
+      content:
+        inline:
+          encoding: none
+          data: |
+            #!/usr/bin/env bash
+            set -xeuo pipefail
+
+            {{- template "safeDownloadBinariesScript" }}
+
+            systemctl disable download-script.service
+
     - path: /opt/bin/setup
       permissions: 0755
       content:
@@ -274,10 +344,8 @@ spec:
           data: |
             #!/bin/bash
             set -xeuo pipefail
-            if systemctl is-active ufw; then systemctl stop ufw; fi
-            systemctl mask ufw
 
-            {{- if .FlatcarConfig.DisableUpdateEngine }}
+            {{- if .FlatcarConfig.DisableAutoUpdate }}
             cat << EOF | tee /etc/polkit-1/rules.d/60-noreboot_norestart.rules
             polkit.addRule(function(action, subject) {
               if (action.id == "org.freedesktop.login1.reboot" ||
@@ -290,7 +358,9 @@ spec:
               }
             });
             EOF
+            {{- end }}
 
+            {{- if .FlatcarConfig.DisableUpdateEngine }}
             systemctl stop update-engine.service
             systemctl mask update-engine.service
             {{- end }}
@@ -299,20 +369,6 @@ spec:
             systemctl stop locksmithd.service
             systemctl mask locksmithd.service
             {{- end }}
-
-            {{- /* As we added some modules and don't want to reboot, restart the service */}}
-            systemctl restart systemd-modules-load.service
-            sysctl --system
-
-            {{- /* Make sure we always disable swap - Otherwise the kubelet won't start'. */}}
-            swapoff -a
-
-            {{- template "safeDownloadBinariesScript" }}
-
-            {{- template "configureStaticNetwork" }}
-
-            # set kubelet nodeip environment variable
-            /opt/bin/setup_net_env.sh
 
             systemctl enable --now kubelet
             systemctl enable --now --no-block kubelet-healthcheck.service
@@ -453,6 +509,22 @@ spec:
             - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
             volumePluginDir: /var/lib/kubelet/volumeplugins
 
+    - path: /etc/systemd/system/kubelet-healthcheck.service
+      permissions: 0644
+      content:
+        inline:
+          encoding: none
+          data: |
+            [Unit]
+            Requires=kubelet.service
+            After=kubelet.service
+
+            [Service]
+            ExecStart=/opt/bin/health-monitor.sh kubelet
+
+            [Install]
+            WantedBy=multi-user.target
+
     ## Flatcar specific configuration
     - path: /proc/sys/kernel/panic_on_oops
       permissions: 0644
@@ -493,19 +565,3 @@ spec:
             PrintMotd no # handled by PAM
             PasswordAuthentication no
             ChallengeResponseAuthentication no
-
-    - path: /etc/systemd/system/kubelet-healthcheck.service
-      permissions: 0644
-      content:
-        inline:
-          encoding: none
-          data: |
-            [Unit]
-            Requires=kubelet.service
-            After=kubelet.service
-
-            [Service]
-            ExecStart=/opt/bin/health-monitor.sh kubelet
-
-            [Install]
-            WantedBy=multi-user.target
