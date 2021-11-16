@@ -113,7 +113,7 @@ func OperatingSystemConfigCreator(
 			}
 
 			if providerConfig.Network != nil {
-				data.NetworkConfig = *providerConfig.Network
+				data.NetworkConfig = providerConfig.Network
 			}
 
 			err = setOperatingSystemConfig(providerConfig.OperatingSystem, providerConfig.OperatingSystemSpec, &data)
@@ -162,7 +162,7 @@ type filesData struct {
 	ContainerRuntime      string
 	ContainerdVersion     string
 	CloudProviderName     providerconfigtypes.CloudProvider
-	NetworkConfig         providerconfigtypes.NetworkConfig
+	NetworkConfig         *providerconfigtypes.NetworkConfig
 	ExtraKubeletFlags     []string
 	ExternalCloudProvider bool
 	PauseImage            string

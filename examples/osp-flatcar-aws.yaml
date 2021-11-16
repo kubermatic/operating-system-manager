@@ -69,6 +69,24 @@ spec:
               data: |
                 runtime-endpoint: unix:///run/containerd/containerd.sock
 
+    - name: docker
+      files:
+        - path: /etc/docker/daemon.json
+          permissions: 0644
+          content:
+            inline:
+              encoding: none
+              data: |-
+                {"exec-opts":["native.cgroupdriver=systemd"],"storage-driver":"overlay2","log-driver":"json-file","log-opts":{"max-file":"5","max-size":"10m"}}
+        - path: /etc/systemd/system/docker.service.d/10-custom.conf
+          permissions: 0644
+          content:
+            inline:
+              encoding: none
+              data: |-
+                [Service]
+                EnvironmentFile=-/etc/environment
+
   templates:
     safeDownloadBinariesScript: |-
       {{- /*setup some common directories */ -}}
@@ -168,8 +186,8 @@ spec:
       Gateway={{ .NetworkConfig.Gateway }}
       {{range .NetworkConfig.DNS.Servers}}DNS={{.}}
       {{end}}
-      {{- end }}
       EOF
+      {{- end }}
 
   units:
     - name: setup.service
@@ -345,7 +363,7 @@ spec:
             #!/bin/bash
             set -xeuo pipefail
 
-            {{- if .FlatcarConfig.DisableAutoUpdate }}
+            {{- if not .FlatcarConfig.DisableAutoUpdate }}
             cat << EOF | tee /etc/polkit-1/rules.d/60-noreboot_norestart.rules
             polkit.addRule(function(action, subject) {
               if (action.id == "org.freedesktop.login1.reboot" ||
@@ -360,14 +378,22 @@ spec:
             EOF
             {{- end }}
 
-            {{- if .FlatcarConfig.DisableUpdateEngine }}
+            {{- if or .FlatcarConfig.DisableUpdateEngine .FlatcarConfig.DisableAutoUpdate }}
             systemctl stop update-engine.service
             systemctl mask update-engine.service
             {{- end }}
 
-            {{- if .FlatcarConfig.DisableLocksmithD }}
+            {{- if or .FlatcarConfig.DisableLocksmithD .FlatcarConfig.DisableAutoUpdate }}
             systemctl stop locksmithd.service
             systemctl mask locksmithd.service
+            {{- end }}
+
+            {{- /* Since both container runtimes are enabled/started by default in flatcar, disable the one that is not required */}}
+            {{- if eq .ContainerRuntime "containerd" }}
+            systemctl disable docker
+            {{- end }}
+            {{- if eq .ContainerRuntime "docker" }}
+            systemctl disable containerd
             {{- end }}
 
             systemctl enable --now kubelet
