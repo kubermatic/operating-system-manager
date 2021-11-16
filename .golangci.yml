@@ -13,6 +13,7 @@
 # limitations under the License.
 
 run:
+  deadline: 20m
   issues-exit-code: 1
   skip-dirs:
     - hack
@@ -22,30 +23,21 @@ run:
     - zz_generated.*.go
 
 linters:
-  disable-all: true
   enable:
-    - bodyclose
-    - deadcode
-    - errcheck
-    - goconst
-    - gocritic
-    - gocyclo
-    - gofmt
-    - golint
-    - gosimple
+    - revive
     - govet
-    - ineffassign
-    - interfacer
-    - misspell
-    - nakedret
-    - scopelint
+    - gofmt
     - structcheck
-    - stylecheck
-    - unconvert
-    - unparam
-    - unused
     - varcheck
-    - whitespace
+    - unconvert
+    - ineffassign
+    - goconst
+    - gocyclo
+    - misspell
+    - gosimple
+    - unused
+    - errcheck
+  disable-all: true
 
 linters-settings:
   goimports:

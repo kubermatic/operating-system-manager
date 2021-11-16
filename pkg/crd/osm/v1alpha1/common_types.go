@@ -20,6 +20,18 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
+// OperatingSystem represents a supported operating system.
+type OperatingSystem string
+
+const (
+	OperatingSystemFlatcar      OperatingSystem = "flatcar"
+	OperatingSystemRHEL         OperatingSystem = "rhel"
+	OperatingSystemCentOS       OperatingSystem = "centos"
+	OperatingSystemUbuntu       OperatingSystem = "ubuntu"
+	OperatingSystemSLES         OperatingSystem = "sles"
+	OperatingSystemAmazonLinux2 OperatingSystem = "amzn2"
+)
+
 // CloudProviderSpec contains the os/image reference for a specific supported cloud provider
 type CloudProviderSpec struct {
 	// Name represents the name of the supported cloud provider
@@ -35,6 +47,8 @@ type Unit struct {
 	Name string `json:"name"`
 	// Enable describes whether the unit is enabled or not.
 	Enable *bool `json:"enable,omitempty"`
+	// Mask describes whether the unit is masked or not.
+	Mask *bool `json:"mask,omitempty"`
 	// Content is the unit's content.
 	Content *string `json:"content,omitempty"`
 	// DropIns is a list of drop-ins for this unit.
@@ -68,7 +82,7 @@ type ContainerRuntimeSpec struct {
 	// Files to add to the main files list when the containerRuntime is selected
 	Files []File `json:"files"`
 	// Templates to add to the available templates when the containerRuntime is selected
-	Templates map[string]string `json:"templates"`
+	Templates map[string]string `json:"templates,omitempty"`
 }
 
 // FileContent can either reference a secret or contain inline configuration.

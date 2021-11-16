@@ -79,6 +79,10 @@ func main() {
 	if len(opt.namespace) == 0 {
 		klog.Fatal("-namespace is required")
 	}
+
+	if !(opt.containerRuntime == "docker" || opt.containerRuntime == "containerd") {
+		klog.Fatalf("%s not supported; containerd, docker are the supported container runtimes", opt.containerRuntime)
+	}
 	if len(opt.cniVersion) == 0 {
 		klog.Fatal("-cni-version is required")
 	}
@@ -130,7 +134,7 @@ func main() {
 		opt.workerCount,
 		parsedClusterDNSIPs,
 		opt.kubeconfig,
-		generator.NewDefaultCloudInitGenerator(""),
+		generator.NewDefaultCloudConfigGenerator(""),
 		opt.containerRuntime,
 		opt.externalCloudProvider,
 		opt.pauseImage,
