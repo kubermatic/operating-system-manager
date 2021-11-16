@@ -22,27 +22,21 @@ run:
     - zz_generated.*.go
 
 linters:
-  disable-all: true
   enable:
-    - bodyclose
-    - deadcode
-    - errcheck
-    - goconst
-    - gocritic
-    - gocyclo
-    - gofmt
-    - gosimple
+    - revive
     - govet
-    - ineffassign
-    - misspell
-    - nakedret
+    - gofmt
     - structcheck
-    - stylecheck
-    - unconvert
-    - unparam
-    - unused
     - varcheck
-    - whitespace
+    - unconvert
+    - ineffassign
+    - goconst
+    - gocyclo
+    - misspell
+    - gosimple
+    - unused
+    - errcheck
+  disable-all: true
 
 linters-settings:
   goimports:
