@@ -112,10 +112,14 @@ func OperatingSystemConfigCreator(
 				ExternalCloudProvider: externalCloudProvider,
 				PauseImage:            pauseImage,
 				InitialTaints:         initialTaints,
-				HTTPProxy:             nodeHTTPProxy,
-				NoProxy:               nodeNoProxy,
 			}
 
+			if len(nodeHTTPProxy) > 0 {
+				data.HTTPProxy = &nodeHTTPProxy
+			}
+			if len(nodeNoProxy) > 0 {
+				data.NoProxy = &nodeNoProxy
+			}
 			if providerConfig.Network != nil {
 				data.NetworkConfig = providerConfig.Network
 			}
@@ -171,8 +175,8 @@ type filesData struct {
 	ExternalCloudProvider bool
 	PauseImage            string
 	InitialTaints         string
-	HTTPProxy             string
-	NoProxy               string
+	HTTPProxy             *string
+	NoProxy               *string
 	OperatingSystemConfig
 }
 
