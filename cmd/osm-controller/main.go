@@ -97,7 +97,6 @@ func main() {
 		opt.kubeconfig = getKubeConfigPath()
 	}
 
-
 	parsedClusterDNSIPs, err := parseClusterDNSIPs(opt.clusterDNSIPs)
 	if err != nil {
 		klog.Fatalf("invalid cluster dns specified: %v", err)
