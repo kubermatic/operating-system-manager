@@ -137,6 +137,9 @@ spec:
                       enable:
                         description: Enable describes whether the unit is enabled or not.
                         type: boolean
+                      mask:
+                        description: Mask describes whether the unit is masked or not.
+                        type: boolean
                       name:
                         description: Name is the name of a unit.
                         type: string
