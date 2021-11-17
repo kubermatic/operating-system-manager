@@ -84,6 +84,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 		ospName           string
 		oscFile           string
 		oscName           string
+		operatingSystem   providerconfigtypes.OperatingSystem
 		mdName            string
 		secretFile        string
 		config            testConfig
@@ -91,13 +92,14 @@ func TestReconciler_Reconcile(t *testing.T) {
 		cloudProviderSpec runtime.RawExtension
 	}{
 		{
-			name:       "Ubuntu OS in AWS with Containerd",
-			ospFile:    "osp-ubuntu-20.04.yaml",
-			ospName:    "osp-ubuntu-aws",
-			oscFile:    "osc-ubuntu-20.04-aws-containerd.yaml",
-			oscName:    "ubuntu-20.04-aws-osc-provisioning",
-			mdName:     "ubuntu-20.04-aws",
-			secretFile: "secret-ubuntu-20.04-aws-containerd.yaml",
+			name:            "Ubuntu OS in AWS with Containerd",
+			ospFile:         "osp-ubuntu-20.04.yaml",
+			ospName:         "osp-ubuntu-aws",
+			operatingSystem: providerconfigtypes.OperatingSystemUbuntu,
+			oscFile:         "osc-ubuntu-20.04-aws-containerd.yaml",
+			oscName:         "ubuntu-20.04-aws-osc-provisioning",
+			mdName:          "ubuntu-20.04-aws",
+			secretFile:      "secret-ubuntu-20.04-aws-containerd.yaml",
 			config: testConfig{
 				namespace:         "kube-system",
 				clusterAddress:    "http://127.0.0.1/configs",
@@ -111,17 +113,39 @@ func TestReconciler_Reconcile(t *testing.T) {
 			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"cloud-config-key": "cloud-config-value"}`)},
 		},
 		{
-			name:       "Ubuntu OS in AWS with Docker",
-			ospFile:    "osp-ubuntu-20.04.yaml",
-			ospName:    "osp-ubuntu-aws",
-			oscFile:    "osc-ubuntu-20.04-aws-docker.yaml",
-			oscName:    "ubuntu-20.04-aws-osc-provisioning",
-			mdName:     "ubuntu-20.04-aws",
-			secretFile: "secret-ubuntu-20.04-aws-docker.yaml",
+			name:            "Ubuntu OS in AWS with Docker",
+			ospFile:         "osp-ubuntu-20.04.yaml",
+			ospName:         "osp-ubuntu-aws",
+			operatingSystem: providerconfigtypes.OperatingSystemUbuntu,
+			oscFile:         "osc-ubuntu-20.04-aws-docker.yaml",
+			oscName:         "ubuntu-20.04-aws-osc-provisioning",
+			mdName:          "ubuntu-20.04-aws",
+			secretFile:      "secret-ubuntu-20.04-aws-docker.yaml",
 			config: testConfig{
 				namespace:         "kube-system",
 				clusterAddress:    "http://127.0.0.1/configs",
 				containerRuntime:  "docker",
+				cniVersion:        "v0.8.7",
+				containerdVersion: "1.4",
+				kubeVersion:       "1.22.1",
+				clusterDNSIPs:     []net.IP{net.IPv4(10, 0, 0, 0)},
+			},
+			cloudProvider:     "aws",
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"cloud-config-key": "cloud-config-value"}`)},
+		},
+		{
+			name:            "Flatcar OS in AWS with Containerd",
+			ospFile:         "osp-flatcar-2605.22.1.yaml",
+			ospName:         "osp-flatcar-aws",
+			operatingSystem: providerconfigtypes.OperatingSystemFlatcar,
+			oscFile:         "osc-flatcar-2605.22.1-aws-containerd.yaml",
+			oscName:         "flatcar-2605.22.1-aws-osc-provisioning",
+			mdName:          "flatcar-2605.22.1-aws",
+			secretFile:      "secret-flatcar-2605.22.1-aws-containerd.yaml",
+			config: testConfig{
+				namespace:         "kube-system",
+				clusterAddress:    "http://127.0.0.1/configs",
+				containerRuntime:  "containerd",
 				cniVersion:        "v0.8.7",
 				containerdVersion: "1.4",
 				kubeVersion:       "1.22.1",
@@ -159,7 +183,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 
 		t.Run(testCase.name, func(t *testing.T) {
 			ctx := context.Background()
-			md := generateMachineDeployment(testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.cloudProvider, testCase.cloudProviderSpec)
+			md := generateMachineDeployment(testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec)
 
 			if err := reconciler.reconcile(ctx, md); err != nil {
 				t.Fatalf("failed to reconcile: %v", err)
@@ -211,6 +235,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 		name              string
 		ospFile           string
 		ospName           string
+		operatingSystem   providerconfigtypes.OperatingSystem
 		oscFile           string
 		oscName           string
 		mdName            string
@@ -220,13 +245,15 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 		cloudProviderSpec runtime.RawExtension
 	}{
 		{
-			name:       "test the deletion of machineDeployment",
-			ospFile:    "osp-ubuntu-20.04.yaml",
-			ospName:    "osp-ubuntu-aws",
-			oscFile:    "osc-ubuntu-20.04-aws-containerd.yaml",
-			oscName:    "ubuntu-20.04-aws-osc-provisioning",
-			mdName:     "ubuntu-20.04-aws",
-			secretFile: "secret-ubuntu-20.04-aws-containerd.yaml",
+
+			name:            "test the deletion of machineDeployment",
+			ospFile:         "osp-ubuntu-20.04.yaml",
+			ospName:         "osp-ubuntu-aws",
+			operatingSystem: providerconfigtypes.OperatingSystemUbuntu,
+			oscFile:         "osc-ubuntu-20.04-aws-containerd.yaml",
+			oscName:         "ubuntu-20.04-aws-osc-provisioning",
+			mdName:          "ubuntu-20.04-aws",
+			secretFile:      "secret-ubuntu-20.04-aws-containerd.yaml",
 			config: testConfig{
 				namespace:        "kube-system",
 				clusterAddress:   "http://127.0.0.1/configs",
@@ -255,7 +282,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 			},
 		}
 
-		md := generateMachineDeployment(testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.cloudProvider, testCase.cloudProviderSpec)
+		md := generateMachineDeployment(testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec)
 		fakeClient := fakectrlruntimeclient.
 			NewClientBuilder().
 			WithScheme(scheme.Scheme).
@@ -314,7 +341,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 			// Ensure that OperatingSystemConfig was deleted
 			if err := fakeClient.Get(ctx, types.NamespacedName{
 				Namespace: "kube-system",
-				Name:      fmt.Sprintf("ubuntu-20.04-lts-osc-%s", resources.ProvisioningCloudInit)},
+				Name:      fmt.Sprintf("ubuntu-20.04-lts-osc-%s", resources.ProvisioningCloudConfig)},
 				osc); err == nil || !kerrors.IsNotFound(err) {
 				t.Fatalf("failed to delete osc")
 			}
@@ -322,7 +349,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 			// Ensure that corresponding secret was deleted
 			if err := fakeClient.Get(ctx, types.NamespacedName{
 				Namespace: "kube-system",
-				Name:      fmt.Sprintf("ubuntu-20.04-lts-osc-%s", resources.ProvisioningCloudInit)},
+				Name:      fmt.Sprintf("ubuntu-20.04-lts-osc-%s", resources.ProvisioningCloudConfig)},
 				secret); err == nil || !kerrors.IsNotFound(err) {
 				t.Fatalf("failed to delete secret")
 			}
@@ -330,10 +357,10 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 	}
 }
 
-func generateMachineDeployment(name, namespace, osp string, cloudprovider string, cloudProviderSpec runtime.RawExtension) *v1alpha1.MachineDeployment {
+func generateMachineDeployment(name, namespace, osp string, os providerconfigtypes.OperatingSystem, cloudprovider string, cloudProviderSpec runtime.RawExtension) *v1alpha1.MachineDeployment {
 	pconfig := providerconfigtypes.Config{
 		SSHPublicKeys:     []string{"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c"},
-		OperatingSystem:   "Ubuntu",
+		OperatingSystem:   os,
 		CloudProviderSpec: cloudProviderSpec,
 		CloudProvider:     providerconfigtypes.CloudProvider(cloudprovider),
 	}
@@ -389,7 +416,7 @@ func buildReconciler(fakeClient client.Client, config testConfig) Reconciler {
 	return Reconciler{
 		Client:            fakeClient,
 		log:               testUtil.DefaultLogger,
-		generator:         generator.NewDefaultCloudInitGenerator(""),
+		generator:         generator.NewDefaultCloudConfigGenerator(""),
 		namespace:         config.namespace,
 		clusterAddress:    config.clusterAddress,
 		kubeconfig:        kubeconfigPath,

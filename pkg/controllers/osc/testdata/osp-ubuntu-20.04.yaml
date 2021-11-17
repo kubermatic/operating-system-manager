@@ -62,7 +62,7 @@ spec:
 
         systemctl daemon-reload
         systemctl enable --now containerd
-        
+
   - name: docker
     files:
     - path: /etc/docker/daemon.json
@@ -181,7 +181,7 @@ spec:
   units:
     - name: test-unit-1
       enable: true
-      
+
   files:
   - path: "/etc/systemd/journald.conf.d/max_disk_use.conf"
     content:
@@ -190,7 +190,7 @@ spec:
         data: |
           [Journal]
           SystemMaxUse=5G
-  
+
   - path: "/opt/load-kernel-modules.sh"
     permissions: 0755
     content:
@@ -223,7 +223,7 @@ spec:
           net.ipv4.ip_forward = 1
           vm.overcommit_memory = 1
           fs.inotify.max_user_watches = 1048576
-  
+
   - path: "/etc/default/grub.d/60-swap-accounting.cfg"
     content:
       inline:
@@ -275,7 +275,7 @@ spec:
             open-vm-tools \
             {{- end }}
             ipvsadm
-          
+
           {{- template "containerRuntimeInstallation" }}
 
           {{- template "safeDownloadBinariesScript" }}
@@ -288,7 +288,7 @@ spec:
 
   - path: "/opt/bin/supervise.sh"
     permissions: 0755
-    content: 
+    content:
       inline:
         encoding: b64
         data: |
@@ -297,7 +297,7 @@ spec:
           while ! "$@"; do
             sleep 1
           done
-      
+
   - path: "/etc/systemd/system/kubelet.service"
     content:
       inline:
@@ -366,7 +366,7 @@ spec:
         data: |
           [Service]
           Environment="KUBELET_EXTRA_ARGS=--resolv-conf=/run/systemd/resolve/resolv.conf"
-  
+
   - path: "/etc/kubernetes/cloud-config"
     permissions: 0600
     content:
@@ -425,7 +425,7 @@ spec:
         encoding: b64
         data: |
           {{ .KubernetesCACert }}
-  
+
   - path: "/etc/systemd/system/setup.service"
     permissions: 0644
     content:
@@ -491,7 +491,7 @@ spec:
             ephemeral-storage: 1Gi
             memory: 200Mi
           volumePluginDir: /var/lib/kubelet/volumeplugins
-  
+
   - path: /etc/systemd/system/kubelet-healthcheck.service
     permissions: 0644
     content:
@@ -507,4 +507,3 @@ spec:
 
           [Install]
           WantedBy=multi-user.target
-      
