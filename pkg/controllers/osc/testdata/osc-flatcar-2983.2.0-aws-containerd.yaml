@@ -2,7 +2,7 @@ apiVersion: operatingsystemmanager.k8c.io/v1alpha1
 kind: OperatingSystemConfig
 metadata:
   creationTimestamp: null
-  name: flatcar-2605.22.1-aws-osc-provisioning
+  name: flatcar-2983.2.0-aws-osc-provisioning
   namespace: kube-system
   resourceVersion: "1"
 spec:
