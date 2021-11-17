@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path"
 	"strings"
 
 	"go.uber.org/zap"
@@ -31,6 +32,7 @@ import (
 	"k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/generator"
 
+	"k8s.io/client-go/util/homedir"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -81,6 +83,10 @@ func main() {
 	if len(opt.namespace) == 0 {
 		klog.Fatal("-namespace is required")
 	}
+
+	if !(opt.containerRuntime == "docker" || opt.containerRuntime == "containerd") {
+		klog.Fatalf("%s not supported; containerd, docker are the supported container runtimes", opt.containerRuntime)
+	}
 	if len(opt.cniVersion) == 0 {
 		klog.Fatal("-cni-version is required")
 	}
@@ -89,6 +95,12 @@ func main() {
 	}
 
 	opt.kubeconfig = flag.Lookup("kubeconfig").Value.(flag.Getter).Get().(string)
+
+	// out-of-cluster config was not provided using the flag, try to use the in-cluster config.
+	if opt.kubeconfig == "" {
+		opt.kubeconfig = getKubeConfigPath()
+	}
+
 
 	parsedClusterDNSIPs, err := parseClusterDNSIPs(opt.clusterDNSIPs)
 	if err != nil {
@@ -126,7 +138,7 @@ func main() {
 		opt.workerCount,
 		parsedClusterDNSIPs,
 		opt.kubeconfig,
-		generator.NewDefaultCloudInitGenerator(""),
+		generator.NewDefaultCloudConfigGenerator(""),
 		opt.containerRuntime,
 		opt.externalCloudProvider,
 		opt.pauseImage,
@@ -155,4 +167,13 @@ func parseClusterDNSIPs(s string) ([]net.IP, error) {
 		ips = append(ips, ip)
 	}
 	return ips, nil
+}
+
+// getKubeConfigPath returns the path to the kubeconfig file.
+func getKubeConfigPath() string {
+	if os.Getenv("KUBECONFIG") != "" {
+		return os.Getenv("KUBECONFIG")
+	} else {
+		return path.Join(homedir.HomeDir(), ".kube/config")
+	}
 }

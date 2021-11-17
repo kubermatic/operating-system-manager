@@ -17,9 +17,14 @@ blacklist:
 
 whitelist:
   - Apache-2.0
+  - BSD-2-Clause
+  - BSD-3-Clause
   - FreeBSD
   - ISC
   - LGPL-3.0
   - MIT
   - MPL-2.0
   - NewBSD
+
+exceptions:
+  - github.com/ajeddeloh/go-json # Since it's a fork, https://github.com/golang/go/blob/master/LICENSE

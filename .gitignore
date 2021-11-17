@@ -3,3 +3,5 @@
 .kubeconfig
 /vendor
 _build
+.vscode/
+.local

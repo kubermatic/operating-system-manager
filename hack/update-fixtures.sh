@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 # Copyright 2021 The Operating System Manager contributors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,33 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-run:
-  deadline: 20m
-  issues-exit-code: 1
-  skip-dirs:
-    - hack
-    - vendor
+go test ./... -update || go test ./...
 
-  skip-files:
-    - zz_generated.*.go
-
-linters:
-  enable:
-    - revive
-    - govet
-    - gofmt
-    - structcheck
-    - varcheck
-    - unconvert
-    - ineffassign
-    - goconst
-    - gocyclo
-    - misspell
-    - gosimple
-    - unused
-    - errcheck
-  disable-all: true
-
-linters-settings:
-  goimports:
-    local-prefixes: k8c.io/operating-system-manager
+if [[ $? -eq 0 ]]; then echo "Successfully updated fixtures"; else "Failed to update fixtures"; fi

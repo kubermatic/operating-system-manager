@@ -19,24 +19,32 @@ package resources
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"strings"
 	"text/template"
 
 	"github.com/Masterminds/semver/v3"
-
 	"github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
-	"github.com/kubermatic/machine-controller/pkg/providerconfig/types"
+	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
+
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
+	"k8c.io/operating-system-manager/pkg/providerconfig/amzn2"
+	"k8c.io/operating-system-manager/pkg/providerconfig/centos"
+	"k8c.io/operating-system-manager/pkg/providerconfig/flatcar"
+	"k8c.io/operating-system-manager/pkg/providerconfig/rhel"
+	"k8c.io/operating-system-manager/pkg/providerconfig/sles"
+	"k8c.io/operating-system-manager/pkg/providerconfig/ubuntu"
 	"k8c.io/operating-system-manager/pkg/resources"
 	"k8c.io/operating-system-manager/pkg/resources/reconciling"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
-type CloudInitSecret string
+type CloudConfigSecret string
 
 const (
-	ProvisioningCloudInit CloudInitSecret = "provisioning"
+	ProvisioningCloudConfig CloudConfigSecret = "provisioning"
 
 	MachineDeploymentSubresourceNamePattern = "%s-osc-%s"
 	MachineDeploymentOSPAnnotation          = "k8c.io/operating-system-profile"
@@ -58,23 +66,19 @@ func OperatingSystemConfigCreator(
 	cloudConfig string,
 ) reconciling.NamedOperatingSystemConfigCreatorGetter {
 	return func() (string, reconciling.OperatingSystemConfigCreator) {
-		var oscName = fmt.Sprintf(MachineDeploymentSubresourceNamePattern, md.Name, ProvisioningCloudInit)
+		var oscName = fmt.Sprintf(MachineDeploymentSubresourceNamePattern, md.Name, ProvisioningCloudConfig)
 
 		return oscName, func(osc *osmv1alpha1.OperatingSystemConfig) (*osmv1alpha1.OperatingSystemConfig, error) {
-			var (
-				ospOriginal  = osp.DeepCopy()
-				providerSpec = types.Config{}
-			)
+			ospOriginal := osp.DeepCopy()
 
-			if err := json.Unmarshal(md.Spec.Template.Spec.ProviderSpec.Value.Raw, &providerSpec); err != nil {
-				return nil, fmt.Errorf("failed to get user ssh keys: %v", err)
-			}
-
-			cloudProvider, err := GetCloudProviderFromMachineDeployment(md)
+			// Get providerConfig from machineDeployment
+			providerConfig := providerconfigtypes.Config{}
+			err := json.Unmarshal(md.Spec.Template.Spec.ProviderSpec.Value.Raw, &providerConfig)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get cloud provider from machine deployment: %v", err)
+				return nil, fmt.Errorf("failed to decode provider configs: %v", err)
 			}
 
+			cloudProviderName := string(providerConfig.CloudProvider)
 			CACert, err := resources.GetCACert(kubeconfig)
 			if err != nil {
 				return nil, err
@@ -104,7 +108,7 @@ func OperatingSystemConfigCreator(
 				CloudConfig:           cloudConfig,
 				ContainerRuntime:      containerRuntime,
 				ContainerdVersion:     containerdVersion,
-				CloudProviderName:     providerSpec.CloudProvider,
+				CloudProviderName:     providerConfig.CloudProvider,
 				ExternalCloudProvider: externalCloudProvider,
 				PauseImage:            pauseImage,
 				InitialTaints:         initialTaints,
@@ -112,6 +116,16 @@ func OperatingSystemConfigCreator(
 				NoProxy:               nodeNoProxy,
 			}
 
+			if providerConfig.Network != nil {
+				data.NetworkConfig = providerConfig.Network
+			}
+
+			err = setOperatingSystemConfig(providerConfig.OperatingSystem, providerConfig.OperatingSystemSpec, &data)
+			if err != nil {
+				return nil, fmt.Errorf("failed to add operating system spec: %v", err)
+			}
+
+			// Handle files
 			osp.Spec.Files = append(osp.Spec.Files, selectAdditionalFiles(osp, containerRuntime)...)
 			additionalTemplates, err := selectAdditionalTemplates(osp, containerRuntime, data)
 			if err != nil {
@@ -123,12 +137,15 @@ func OperatingSystemConfigCreator(
 			}
 
 			osc.Spec = osmv1alpha1.OperatingSystemConfigSpec{
-				OSName:        ospOriginal.Spec.OSName,
-				OSVersion:     ospOriginal.Spec.OSVersion,
-				Units:         ospOriginal.Spec.Units,
-				Files:         populatedFiles,
-				CloudProvider: *cloudProvider,
-				UserSSHKeys:   providerSpec.SSHPublicKeys,
+				OSName:    ospOriginal.Spec.OSName,
+				OSVersion: ospOriginal.Spec.OSVersion,
+				Units:     ospOriginal.Spec.Units,
+				Files:     populatedFiles,
+				CloudProvider: osmv1alpha1.CloudProviderSpec{
+					Name: cloudProviderName,
+					Spec: providerConfig.CloudProviderSpec,
+				},
+				UserSSHKeys: providerConfig.SSHPublicKeys,
 			}
 
 			return osc, nil
@@ -148,13 +165,72 @@ type filesData struct {
 	CloudConfig           string
 	ContainerRuntime      string
 	ContainerdVersion     string
-	CloudProviderName     types.CloudProvider
+	CloudProviderName     providerconfigtypes.CloudProvider
+	NetworkConfig         *providerconfigtypes.NetworkConfig
 	ExtraKubeletFlags     []string
 	ExternalCloudProvider bool
 	PauseImage            string
 	InitialTaints         string
 	HTTPProxy             string
 	NoProxy               string
+	OperatingSystemConfig
+}
+
+type OperatingSystemConfig struct {
+	AmazonLinuxConfig amzn2.Config
+	CentOSConfig      centos.Config
+	FlatcarConfig     flatcar.Config
+	RhelConfig        rhel.Config
+	SlesConfig        sles.Config
+	UbuntuConfig      ubuntu.Config
+}
+
+func setOperatingSystemConfig(os providerconfigtypes.OperatingSystem, operatingSystemSpec runtime.RawExtension, data *filesData) error {
+	switch os {
+	case providerconfigtypes.OperatingSystemAmazonLinux2:
+		config, err := amzn2.LoadConfig(operatingSystemSpec)
+		if err != nil {
+			return err
+		}
+		data.AmazonLinuxConfig = *config
+		return nil
+	case providerconfigtypes.OperatingSystemCentOS:
+		config, err := centos.LoadConfig(operatingSystemSpec)
+		if err != nil {
+			return err
+		}
+		data.CentOSConfig = *config
+		return nil
+	case providerconfigtypes.OperatingSystemFlatcar:
+		config, err := flatcar.LoadConfig(operatingSystemSpec)
+		if err != nil {
+			return err
+		}
+		data.FlatcarConfig = *config
+		return nil
+	case providerconfigtypes.OperatingSystemRHEL:
+		config, err := rhel.LoadConfig(operatingSystemSpec)
+		if err != nil {
+			return err
+		}
+		data.RhelConfig = *config
+		return nil
+	case providerconfigtypes.OperatingSystemSLES:
+		config, err := sles.LoadConfig(operatingSystemSpec)
+		if err != nil {
+			return err
+		}
+		data.SlesConfig = *config
+		return nil
+	case providerconfigtypes.OperatingSystemUbuntu:
+		config, err := ubuntu.LoadConfig(operatingSystemSpec)
+		if err != nil {
+			return err
+		}
+		data.UbuntuConfig = *config
+		return nil
+	}
+	return errors.New("unknown OperatingSystem")
 }
 
 func populateFilesList(files []osmv1alpha1.File, additionalTemplates []string, d filesData) ([]osmv1alpha1.File, error) {

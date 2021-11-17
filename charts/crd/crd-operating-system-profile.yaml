@@ -120,7 +120,6 @@ spec:
                     required:
                       - files
                       - name
-                      - templates
                     properties:
                       files:
                         description: Files to add to the main files list when the containerRuntime is selected
@@ -199,6 +198,9 @@ spec:
                               type: string
                       enable:
                         description: Enable describes whether the unit is enabled or not.
+                        type: boolean
+                      mask:
+                        description: Mask describes whether the unit is masked or not.
                         type: boolean
                       name:
                         description: Name is the name of a unit.

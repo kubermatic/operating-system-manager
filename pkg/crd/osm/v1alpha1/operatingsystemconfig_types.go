@@ -43,7 +43,7 @@ type OperatingSystemConfig struct {
 // OperatingSystemConfigSpec represents the data in the newly created OperatingSystemConfig
 type OperatingSystemConfigSpec struct {
 	// OSType represent the operating system name e.g: ubuntu
-	OSName string `json:"osName"`
+	OSName OperatingSystem `json:"osName"`
 	// OSVersion the version of the operating system
 	OSVersion string `json:"osVersion"`
 	// CloudProvider represent the cloud provider that support the given operating system version
