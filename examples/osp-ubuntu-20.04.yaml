@@ -194,18 +194,14 @@ spec:
 
     configureProxyScript: |-
       {{- if .HTTPProxy }}
-          cat <<EOF | tee -a /etc/environment
-          HTTP_PROXY={{ .HTTPProxy }}
-          http_proxy={{ .HTTPProxy }}
-          HTTPS_PROXY={{ .HTTPProxy }}
-          https_proxy={{ .HTTPProxy }}
-          EOF
-      {{- end }}
-      {{- if .NoProxy }}
-          cat <<EOF | tee -a /etc/environment
-          NO_PROXY={{ .NoProxy }}
-          no_proxy={{ .NoProxy }}
-          EOF
+      cat <<EOF | tee -a /etc/environment
+      HTTP_PROXY={{ .HTTPProxy }}
+      http_proxy={{ .HTTPProxy }}
+      HTTPS_PROXY={{ .HTTPProxy }}
+      https_proxy={{ .HTTPProxy }}
+      NO_PROXY={{ .NoProxy }}
+      no_proxy={{ .NoProxy }}
+      EOF
       {{- end }}
 
   files:
