@@ -73,7 +73,6 @@ spec:
                             type: object
                             required:
                               - data
-                              - encoding
                             properties:
                               data:
                                 description: Data is the file's data.
@@ -140,7 +139,6 @@ spec:
                                   type: object
                                   required:
                                     - data
-                                    - encoding
                                   properties:
                                     data:
                                       description: Data is the file's data.
