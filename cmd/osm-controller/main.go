@@ -32,7 +32,7 @@ import (
 	"k8c.io/operating-system-manager/pkg/controllers/osp"
 	"k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/generator"
-	"k8c.io/operating-system-manager/pkg/providerconfig/config"
+	providerconfig "k8c.io/operating-system-manager/pkg/providerconfig/config"
 
 	"k8s.io/client-go/util/homedir"
 	"k8s.io/klog"
@@ -128,7 +128,7 @@ func main() {
 	}
 
 	// Instantiate ConfigVarResolver
-	config.SetConfigVarResolver(context.Background(), mgr.GetClient(), opt.namespace)
+	providerconfig.SetConfigVarResolver(context.Background(), mgr.GetClient(), opt.namespace)
 
 	if err := osc.Add(
 		mgr,
@@ -171,7 +171,6 @@ func parseClusterDNSIPs(s string) ([]net.IP, error) {
 func getKubeConfigPath() string {
 	if os.Getenv("KUBECONFIG") != "" {
 		return os.Getenv("KUBECONFIG")
-	} else {
-		return path.Join(homedir.HomeDir(), ".kube/config")
 	}
+	return path.Join(homedir.HomeDir(), ".kube/config")
 }

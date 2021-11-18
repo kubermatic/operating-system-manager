@@ -25,35 +25,34 @@ import (
 	"github.com/kubermatic/machine-controller/pkg/ini"
 )
 
-const (
-	cloudConfigTpl = `[global]
-Zone={{ .Global.Zone | iniEscape }}
-VPC={{ .Global.VPC | iniEscape }}
-SubnetID={{ .Global.SubnetID | iniEscape }}
-RouteTableID={{ .Global.RouteTableID | iniEscape }}
-RoleARN={{ .Global.RoleARN | iniEscape }}
-KubernetesClusterID={{ .Global.KubernetesClusterID | iniEscape }}
-DisableSecurityGroupIngress={{ .Global.DisableSecurityGroupIngress }}
-ElbSecurityGroup={{ .Global.ElbSecurityGroup | iniEscape }}
-DisableStrictZoneCheck={{ .Global.DisableStrictZoneCheck }}
-`
-)
+// cloudConfigTemplate renders the cloud-config in gcfg format. All
+// fields are optional, that's why containing the ifs and the explicit newlines.
+const cloudConfigTemplate = "[global]\n" +
+	"project-id = {{ .Global.ProjectID | iniEscape }}\n" +
+	"local-zone = {{ .Global.LocalZone | iniEscape }}\n" +
+	"network-name = {{ .Global.NetworkName | iniEscape }}\n" +
+	"subnetwork-name = {{ .Global.SubnetworkName | iniEscape }}\n" +
+	"token-url = {{ .Global.TokenURL | iniEscape }}\n" +
+	"multizone = {{ .Global.MultiZone }}\n" +
+	"regional = {{ .Global.Regional }}\n" +
+	"{{ range .Global.NodeTags }}node-tags = {{ . | iniEscape }}\n{{end}}"
 
+// CloudConfig contains only the section global.
 type CloudConfig struct {
 	Global GlobalOpts
 }
 
+// GlobalOpts contains the values of the global section of the cloud configuration.
 type GlobalOpts struct {
-	Zone                        string
-	VPC                         string
-	SubnetID                    string
-	RouteTableID                string
-	RoleARN                     string
-	KubernetesClusterTag        string
-	KubernetesClusterID         string
-	ElbSecurityGroup            string
-	DisableSecurityGroupIngress bool
-	DisableStrictZoneCheck      bool
+	ProjectID        string
+	LocalZone        string
+	NetworkName      string
+	SubnetworkName   string
+	TokenURL         string
+	MultiZone        bool
+	Regional         bool
+	NodeTags         []string
+	RHSMOfflineToken string
 }
 
 // ToString renders the cloud configuration as string.
@@ -61,13 +60,13 @@ func (cc *CloudConfig) ToString() (string, error) {
 	funcMap := sprig.TxtFuncMap()
 	funcMap["iniEscape"] = ini.Escape
 
-	tpl, err := template.New("cloud-config").Funcs(funcMap).Parse(cloudConfigTpl)
+	tmpl, err := template.New("cloud-config").Funcs(funcMap).Parse(cloudConfigTemplate)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse the cloud config template: %v", err)
 	}
 
 	buf := &bytes.Buffer{}
-	if err := tpl.Execute(buf, cc); err != nil {
+	if err := tmpl.Execute(buf, cc); err != nil {
 		return "", fmt.Errorf("failed to execute cloud config template: %v", err)
 	}
 

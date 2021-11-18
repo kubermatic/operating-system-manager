@@ -76,7 +76,7 @@ func OperatingSystemConfigCreator(
 				return nil, fmt.Errorf("failed to decode provider configs: %v", err)
 			}
 
-			cloudConfig, err := cloudprovider.GetCloudConfig(providerConfig)
+			cloudConfig, err := cloudprovider.GetCloudConfig(providerConfig, md.Spec.Template.Spec.Versions.Kubelet)
 			if err != nil {
 				return nil, fmt.Errorf("failed to fetch cloud-config: %v", err)
 			}

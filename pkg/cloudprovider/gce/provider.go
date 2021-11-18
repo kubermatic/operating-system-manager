@@ -14,16 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package aws
+package gce
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 
 	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
 
-	"k8c.io/operating-system-manager/pkg/cloudprovider/aws/types"
+	"k8c.io/operating-system-manager/pkg/cloudprovider/gce/types"
 	"k8c.io/operating-system-manager/pkg/providerconfig/config"
 )
 
@@ -55,21 +56,57 @@ func getConfig(pconfig providerconfigtypes.Config) (*types.CloudConfig, error) {
 		err  error
 	)
 
-	opts.Zone, err = config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.AvailabilityZone)
+	opts.NodeTags = rawConfig.Tags
+	opts.ProjectID, err = getProjectID(rawConfig)
 	if err != nil {
 		return nil, err
 	}
-	opts.VPC, err = config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.VpcID)
+	opts.LocalZone, err = config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.Zone)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot retrieve zone: %v", err)
 	}
-	opts.SubnetID, err = config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.SubnetID)
+
+	opts.MultiZone, err = config.GetConfigVarResolver().GetConfigVarBoolValue(rawConfig.MultiZone)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to retrieve multizone: %v", err)
 	}
+
+	opts.Regional, err = config.GetConfigVarResolver().GetConfigVarBoolValue(rawConfig.Regional)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve regional: %v", err)
+	}
+
+	opts.NetworkName, err = config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.Network)
+	if err != nil {
+		return nil, fmt.Errorf("cannot retrieve network: %v", err)
+	}
+
+	opts.SubnetworkName, err = config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.Subnetwork)
+	if err != nil {
+		return nil, fmt.Errorf("cannot retrieve subnetwork: %v", err)
+	}
+
 	cloudConfig := &types.CloudConfig{
 		Global: opts,
 	}
 
 	return cloudConfig, nil
+}
+
+func getProjectID(rawConfig types.RawConfig) (string, error) {
+	serviceAccount, err := config.GetConfigVarResolver().GetConfigVarStringValueOrEnv(rawConfig.ServiceAccount, "GOOGLE_SERVICE_ACCOUNT")
+	if err != nil {
+		return "", fmt.Errorf("cannot retrieve service account: %v", err)
+	}
+
+	sa, err := base64.StdEncoding.DecodeString(serviceAccount)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode base64 service account: %v", err)
+	}
+	sam := map[string]string{}
+	err = json.Unmarshal(sa, &sam)
+	if err != nil {
+		return "", fmt.Errorf("failed unmarshalling service account: %v", err)
+	}
+	return sam["project_id"], nil
 }

@@ -46,7 +46,6 @@ const (
 	ControllerName = "operating-system-config-controller"
 	// MachineDeploymentCleanupFinalizer indicates that sub-resources created by OSC controller against a MachineDeployment should be deleted
 	MachineDeploymentCleanupFinalizer = "kubermatic.io/cleanup-operating-system-configs"
-	cloudConfigSecretName             = "cloud-config"
 )
 
 type Reconciler struct {

@@ -23,11 +23,15 @@ import (
 
 	"k8c.io/operating-system-manager/pkg/cloudprovider/aws"
 	"k8c.io/operating-system-manager/pkg/cloudprovider/azure"
+	"k8c.io/operating-system-manager/pkg/cloudprovider/gce"
+	"k8c.io/operating-system-manager/pkg/cloudprovider/kubevirt"
+	"k8c.io/operating-system-manager/pkg/cloudprovider/openstack"
+	"k8c.io/operating-system-manager/pkg/cloudprovider/vsphere"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 )
 
 // GetCloudConfig will return the cloud-config for machine
-func GetCloudConfig(pconfig providerconfigtypes.Config) (string, error) {
+func GetCloudConfig(pconfig providerconfigtypes.Config, kubeletVersion string) (string, error) {
 	cloudProvider := osmv1alpha1.CloudProvider(pconfig.CloudProvider)
 	switch cloudProvider {
 
@@ -35,6 +39,15 @@ func GetCloudConfig(pconfig providerconfigtypes.Config) (string, error) {
 		return aws.GetCloudConfig(pconfig)
 	case osmv1alpha1.CloudProviderAzure:
 		return azure.GetCloudConfig(pconfig)
+	case osmv1alpha1.CloudProviderGoogle:
+		return gce.GetCloudConfig(pconfig)
+	case osmv1alpha1.CloudProviderKubeVirt:
+		return kubevirt.GetCloudConfig(pconfig)
+	case osmv1alpha1.CloudProviderOpenstack:
+		return openstack.GetCloudConfig(pconfig, kubeletVersion)
+	case osmv1alpha1.CloudProviderVsphere:
+		return vsphere.GetCloudConfig(pconfig)
+
 	// cloud-config is not required for these cloud providers
 	case osmv1alpha1.CloudProviderAlibaba:
 	case osmv1alpha1.CloudProviderAnexia:

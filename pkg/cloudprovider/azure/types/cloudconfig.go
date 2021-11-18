@@ -16,6 +16,11 @@ limitations under the License.
 
 package types
 
+import (
+	"encoding/json"
+	"fmt"
+)
+
 type CloudConfig struct {
 	Cloud           string `json:"cloud"`
 	TenantID        string `json:"tenantId"`
@@ -33,4 +38,14 @@ type CloudConfig struct {
 	VnetResourceGroup          string `json:"vnetResourceGroup"`
 	UseInstanceMetadata        bool   `json:"useInstanceMetadata"`
 	LoadBalancerSku            string `json:"loadBalancerSku"`
+}
+
+// ToString renders the cloud configuration as string.
+func (cc *CloudConfig) ToString() (string, error) {
+	b, err := json.Marshal(cc)
+	if err != nil {
+		return "", fmt.Errorf("failed to unmarshal config: %v", err)
+	}
+
+	return string(b), nil
 }

@@ -17,38 +17,38 @@ limitations under the License.
 package types
 
 import (
-	"k8c.io/operating-system-manager/pkg/providerconfig/config"
+	"k8c.io/operating-system-manager/pkg/providerconfig/config/types"
 )
 
 const AzureCloudProvider = "AZUREPUBLICCLOUD"
 
 // RawConfig is a direct representation of an Azure machine object's configuration
 type RawConfig struct {
-	SubscriptionID config.ConfigVarString `json:"subscriptionID,omitempty"`
-	TenantID       config.ConfigVarString `json:"tenantID,omitempty"`
-	ClientID       config.ConfigVarString `json:"clientID,omitempty"`
-	ClientSecret   config.ConfigVarString `json:"clientSecret,omitempty"`
+	SubscriptionID types.ConfigVarString `json:"subscriptionID,omitempty"`
+	TenantID       types.ConfigVarString `json:"tenantID,omitempty"`
+	ClientID       types.ConfigVarString `json:"clientID,omitempty"`
+	ClientSecret   types.ConfigVarString `json:"clientSecret,omitempty"`
 
-	Location              config.ConfigVarString `json:"location"`
-	ResourceGroup         config.ConfigVarString `json:"resourceGroup"`
-	VNetResourceGroup     config.ConfigVarString `json:"vnetResourceGroup"`
-	VMSize                config.ConfigVarString `json:"vmSize"`
-	VNetName              config.ConfigVarString `json:"vnetName"`
-	SubnetName            config.ConfigVarString `json:"subnetName"`
-	LoadBalancerSku       config.ConfigVarString `json:"loadBalancerSku"`
-	RouteTableName        config.ConfigVarString `json:"routeTableName"`
-	AvailabilitySet       config.ConfigVarString `json:"availabilitySet"`
-	AssignAvailabilitySet *bool                               `json:"assignAvailabilitySet"`
-	SecurityGroupName     config.ConfigVarString `json:"securityGroupName"`
-	Zones                 []string                            `json:"zones"`
-	ImagePlan             *ImagePlan                          `json:"imagePlan,omitempty"`
-	ImageReference        *ImageReference                     `json:"imageReference,omitempty"`
+	Location              types.ConfigVarString `json:"location"`
+	ResourceGroup         types.ConfigVarString `json:"resourceGroup"`
+	VNetResourceGroup     types.ConfigVarString `json:"vnetResourceGroup"`
+	VMSize                types.ConfigVarString `json:"vmSize"`
+	VNetName              types.ConfigVarString `json:"vnetName"`
+	SubnetName            types.ConfigVarString `json:"subnetName"`
+	LoadBalancerSku       types.ConfigVarString `json:"loadBalancerSku"`
+	RouteTableName        types.ConfigVarString `json:"routeTableName"`
+	AvailabilitySet       types.ConfigVarString `json:"availabilitySet"`
+	AssignAvailabilitySet *bool                 `json:"assignAvailabilitySet"`
+	SecurityGroupName     types.ConfigVarString `json:"securityGroupName"`
+	Zones                 []string              `json:"zones"`
+	ImagePlan             *ImagePlan            `json:"imagePlan,omitempty"`
+	ImageReference        *ImageReference       `json:"imageReference,omitempty"`
 
-	ImageID        config.ConfigVarString `json:"imageID"`
-	OSDiskSize     int32                               `json:"osDiskSize"`
-	DataDiskSize   int32                               `json:"dataDiskSize"`
-	AssignPublicIP config.ConfigVarBool   `json:"assignPublicIP"`
-	Tags           map[string]string                   `json:"tags,omitempty"`
+	ImageID        types.ConfigVarString `json:"imageID"`
+	OSDiskSize     int32                 `json:"osDiskSize"`
+	DataDiskSize   int32                 `json:"dataDiskSize"`
+	AssignPublicIP types.ConfigVarBool   `json:"assignPublicIP"`
+	Tags           map[string]string     `json:"tags,omitempty"`
 }
 
 // ImagePlan contains azure OS Plan fields for the marketplace images

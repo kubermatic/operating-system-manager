@@ -14,13 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package config
+package types
 
 import (
-	"context"
-
 	corev1 "k8s.io/api/core/v1"
-	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // GlobalObjectKeySelector is needed as we can not use v1.SecretKeySelector
@@ -43,10 +40,4 @@ type ConfigVarBool struct {
 	Value           bool                       `json:"value,omitempty"`
 	SecretKeyRef    GlobalSecretKeySelector    `json:"secretKeyRef,omitempty"`
 	ConfigMapKeyRef GlobalConfigMapKeySelector `json:"configMapKeyRef,omitempty"`
-}
-
-type ConfigVarResolver struct {
-	ctx       context.Context
-	client    ctrlruntimeclient.Client
-	namespace string
 }

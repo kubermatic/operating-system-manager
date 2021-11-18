@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package aws
+package kubevirt
 
 import (
 	"encoding/json"
@@ -23,8 +23,12 @@ import (
 
 	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
 
-	"k8c.io/operating-system-manager/pkg/cloudprovider/aws/types"
+	"k8c.io/operating-system-manager/pkg/cloudprovider/kubevirt/types"
 	"k8c.io/operating-system-manager/pkg/providerconfig/config"
+)
+
+const (
+	envKubevirtKubeconfig = "KUBEVIRT_KUBECONFIG"
 )
 
 func GetCloudConfig(pconfig providerconfigtypes.Config) (string, error) {
@@ -55,18 +59,11 @@ func getConfig(pconfig providerconfigtypes.Config) (*types.CloudConfig, error) {
 		err  error
 	)
 
-	opts.Zone, err = config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.AvailabilityZone)
+	opts.Kubeconfig, err = config.GetConfigVarResolver().GetConfigVarStringValueOrEnv(rawConfig.Kubeconfig, envKubevirtKubeconfig)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf(`failed to get value of "kubeconfig" field: %v`, err)
 	}
-	opts.VPC, err = config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.VpcID)
-	if err != nil {
-		return nil, err
-	}
-	opts.SubnetID, err = config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.SubnetID)
-	if err != nil {
-		return nil, err
-	}
+
 	cloudConfig := &types.CloudConfig{
 		Global: opts,
 	}
