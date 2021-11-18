@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"net"
@@ -31,6 +32,7 @@ import (
 	"k8c.io/operating-system-manager/pkg/controllers/osp"
 	"k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/generator"
+	"k8c.io/operating-system-manager/pkg/providerconfig/config"
 
 	"k8s.io/client-go/util/homedir"
 	"k8s.io/klog"
@@ -124,6 +126,9 @@ func main() {
 	if err := osp.Add(mgr, log, opt.namespace, opt.workerCount); err != nil {
 		klog.Fatal(err)
 	}
+
+	// Instantiate ConfigVarResolver
+	config.SetConfigVarResolver(context.Background(), mgr.GetClient(), opt.namespace)
 
 	if err := osc.Add(
 		mgr,

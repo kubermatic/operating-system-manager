@@ -81,7 +81,7 @@ func OperatingSystemConfigCreator(
 				return nil, fmt.Errorf("failed to fetch cloud-config: %v", err)
 			}
 
- 			CACert, err := resources.GetCACert(kubeconfig)
+			CACert, err := resources.GetCACert(kubeconfig)
 			if err != nil {
 				return nil, err
 			}
@@ -142,7 +142,7 @@ func OperatingSystemConfigCreator(
 				Units:     ospOriginal.Spec.Units,
 				Files:     populatedFiles,
 				CloudProvider: osmv1alpha1.CloudProviderSpec{
-					Name: osmv1alpha1.CloudProvider(providerConfig.CloudProvider) ,
+					Name: osmv1alpha1.CloudProvider(providerConfig.CloudProvider),
 					Spec: providerConfig.CloudProviderSpec,
 				},
 				UserSSHKeys: providerConfig.SSHPublicKeys,
@@ -262,7 +262,6 @@ func selectAdditionalTemplates(osp *osmv1alpha1.OperatingSystemProfile, containe
 func addTemplatingSequence(templateName, template string) string {
 	return fmt.Sprintf("\n{{- define \"%s\" }}\n%s\n{{- end }}", templateName, template)
 }
-
 
 func setOperatingSystemConfig(os providerconfigtypes.OperatingSystem, operatingSystemSpec runtime.RawExtension, data *filesData) error {
 	switch os {

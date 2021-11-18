@@ -21,13 +21,17 @@ import (
 
 	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
 
+	"k8c.io/operating-system-manager/pkg/cloudprovider/aws"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 )
 
 // GetCloudConfig will return the cloud-config for machine
-func GetCloudConfig(config providerconfigtypes.Config) (string, error) {
-	cloudProvider := osmv1alpha1.CloudProvider(config.CloudProvider)
+func GetCloudConfig(pconfig providerconfigtypes.Config) (string, error) {
+	cloudProvider := osmv1alpha1.CloudProvider(pconfig.CloudProvider)
 	switch cloudProvider {
+
+	case osmv1alpha1.CloudProviderAWS:
+		return aws.GetCloudConfig(pconfig)
 
 	// cloud-config is not required for these cloud providers
 	case osmv1alpha1.CloudProviderAlibaba:
