@@ -22,6 +22,7 @@ import (
 	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
 
 	"k8c.io/operating-system-manager/pkg/cloudprovider/aws"
+	"k8c.io/operating-system-manager/pkg/cloudprovider/azure"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 )
 
@@ -32,7 +33,8 @@ func GetCloudConfig(pconfig providerconfigtypes.Config) (string, error) {
 
 	case osmv1alpha1.CloudProviderAWS:
 		return aws.GetCloudConfig(pconfig)
-
+	case osmv1alpha1.CloudProviderAzure:
+		return azure.GetCloudConfig(pconfig)
 	// cloud-config is not required for these cloud providers
 	case osmv1alpha1.CloudProviderAlibaba:
 	case osmv1alpha1.CloudProviderAnexia:
