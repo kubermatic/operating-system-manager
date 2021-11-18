@@ -18,12 +18,13 @@ package osc
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"go.uber.org/zap"
 	"net"
 
-	"go.uber.org/zap"
-
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
+	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
 	kuberneteshelper "k8c.io/kubermatic/v2/pkg/kubernetes"
 	"k8c.io/operating-system-manager/pkg/controllers/osc/resources"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
@@ -170,7 +171,7 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 		return fmt.Errorf("failed to get OperatingSystemProfile: %v", err)
 	}
 
-	cloudConfig, err := fetchCloudConfigForProvider(ctx, r.Client)
+	cloudConfig, err := fetchCloudConfigForProvider(ctx, r.Client, md.Spec.Template.Spec.ProviderSpec)
 	if err != nil {
 		return fmt.Errorf("failed to fetch cloud-config: %v", err)
 	}
@@ -219,10 +220,19 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.M
 	return nil
 }
 
-func fetchCloudConfigForProvider(ctx context.Context, c client.Client) (string, error) {
+func fetchCloudConfigForProvider(ctx context.Context, c client.Client, spec clusterv1alpha1.ProviderSpec) (string, error) {
+	config, err := providerconfigtypes.GetConfig(spec)
+	if err != nil {
+		return "", fmt.Errorf("failed to get machine provider spec: %v", err)
+	}
+
 	cloudConfigSecret := &corev1.Secret{}
 	if err := c.Get(ctx, types.NamespacedName{Name: cloudConfigSecretName, Namespace: "kube-system"}, cloudConfigSecret); err != nil {
 		return "", fmt.Errorf("failed to get cloud-config secret: %v", err)
+	}
+
+	if config.CloudProvider == providerconfigtypes.CloudProviderAWS {
+		return transformAWSCloudConfig(config)
 	}
 
 	if cloudConfigSecret.Data != nil && cloudConfigSecret.Data["config"] != nil {
@@ -287,4 +297,22 @@ func (r *Reconciler) deleteGeneratedSecrets(ctx context.Context, md *clusterv1al
 		return fmt.Errorf("failed to delete secret %s against MachineDeployment %s: %v", secret, md.Name, err)
 	}
 	return nil
+}
+
+func transformAWSCloudConfig(provider *providerconfigtypes.Config) (string, error) {
+	data := struct {
+		Zone     string
+		VPC      string
+		SubnetID string
+	}{}
+
+	if err := json.Unmarshal(provider.CloudProviderSpec.Raw, &data); err != nil {
+		return "", fmt.Errorf("failed to unmarshal cloud provider spec:%v", err)
+	}
+
+	return fmt.Sprintf(`[global]
+Zone=%v
+VPC=%v
+SubnetID=%v
+`, data.Zone, data.VPC, data.SubnetID), nil
 }
