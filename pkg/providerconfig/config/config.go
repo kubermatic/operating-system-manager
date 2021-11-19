@@ -42,36 +42,6 @@ var (
 	ConfigVarResolverInstance ConfigVarResolver
 )
 
-func (cvr *ConfigVarResolver) GetConfigVarDurationValue(configVar types.ConfigVarString) (time.Duration, error) {
-	durStr, err := cvr.GetConfigVarStringValue(configVar)
-	if err != nil {
-		return 0, err
-	}
-
-	return time.ParseDuration(durStr)
-}
-
-func (cvr *ConfigVarResolver) GetConfigVarDurationValueOrDefault(configVar types.ConfigVarString, defaultDuration time.Duration) (time.Duration, error) {
-	durStr, err := cvr.GetConfigVarStringValue(configVar)
-	if err != nil {
-		return 0, err
-	}
-
-	if durStr == "" {
-		return defaultDuration, nil
-	}
-
-	duration, err := time.ParseDuration(durStr)
-	if err != nil {
-		return 0, err
-	}
-
-	if duration <= 0 {
-		return defaultDuration, nil
-	}
-
-	return duration, nil
-}
 func (cvr *ConfigVarResolver) GetConfigVarStringValue(configVar types.ConfigVarString) (string, error) {
 	// We need all three of these to fetch and use a secret
 	if configVar.SecretKeyRef.Name != "" && configVar.SecretKeyRef.Namespace != "" && configVar.SecretKeyRef.Key != "" {
@@ -112,19 +82,6 @@ func (cvr *ConfigVarResolver) GetConfigVarStringValueOrEnv(configVar types.Confi
 
 	envVal, _ := os.LookupEnv(envVarName)
 	return envVal, nil
-}
-
-func (cvr *ConfigVarResolver) GetConfigVarBoolValue(configVar types.ConfigVarBool) (bool, error) {
-	cvs := types.ConfigVarString{Value: strconv.FormatBool(configVar.Value), SecretKeyRef: configVar.SecretKeyRef}
-	stringVal, err := cvr.GetConfigVarStringValue(cvs)
-	if err != nil {
-		return false, err
-	}
-	boolVal, err := strconv.ParseBool(stringVal)
-	if err != nil {
-		return false, err
-	}
-	return boolVal, nil
 }
 
 func (cvr *ConfigVarResolver) GetConfigVarBoolValueOrEnv(configVar types.ConfigVarBool, envVarName string) (bool, error) {
