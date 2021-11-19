@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"time"
 
 	"k8c.io/operating-system-manager/pkg/providerconfig/config/types"
 
