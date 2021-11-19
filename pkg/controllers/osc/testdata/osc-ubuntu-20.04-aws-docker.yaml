@@ -232,8 +232,12 @@ spec:
     path: /etc/systemd/system/kubelet.service.d/extras.conf
   - content:
       inline:
-        data: |
-          {"cloud-config-key":"cloud-config-value"}
+        data: |+
+          [global]
+          Zone=""
+          VPC=""
+          SubnetID=""
+
         encoding: b64
     path: /etc/kubernetes/cloud-config
     permissions: 384

@@ -43,8 +43,8 @@ func GetCloudConfig(pconfig providerconfigtypes.Config, kubeletVersion string) (
 	return s, nil
 }
 func getConfig(pconfig providerconfigtypes.Config, kubeletVersion string) (*types.CloudConfig, error) {
-	if pconfig.OperatingSystemSpec.Raw == nil {
-		return nil, errors.New("operatingSystemSpec in the MachineDeployment cannot be empty")
+	if pconfig.CloudProviderSpec.Raw == nil {
+		return nil, errors.New("CloudProviderSpec in the MachineDeployment cannot be empty")
 	}
 
 	rawConfig := types.RawConfig{}

@@ -253,8 +253,12 @@ spec:
     path: /etc/systemd/system/kubelet.service
   - content:
       inline:
-        data: |
-          {"cloud-config-key":"cloud-config-value"}
+        data: |+
+          [global]
+          Zone=""
+          VPC=""
+          SubnetID=""
+
         encoding: none
     path: /etc/kubernetes/cloud-config
     permissions: 256
