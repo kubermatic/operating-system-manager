@@ -16,8 +16,12 @@ limitations under the License.
 
 package types
 
+import (
+	"k8c.io/operating-system-manager/pkg/providerconfig/config/types"
+)
+
 type RawConfig struct {
-	AvailabilityZone string `json:"availabilityZone,omitempty"`
-	VpcID            string `json:"vpcId"`
-	SubnetID         string `json:"subnetId"`
+	AvailabilityZone types.ConfigVarString `json:"availabilityZone,omitempty"`
+	VpcID            types.ConfigVarString `json:"vpcId"`
+	SubnetID         types.ConfigVarString `json:"subnetId"`
 }

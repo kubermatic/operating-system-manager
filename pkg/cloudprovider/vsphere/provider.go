@@ -83,10 +83,25 @@ func getConfig(pconfig providerconfigtypes.Config) (*types.CloudConfig, error) {
 		return nil, err
 	}
 
-	workingDir := rawConfig.Folder
+	datacenter, err := config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.Datacenter)
+	if err != nil {
+		return nil, err
+	}
+
+	folder, err := config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.Folder)
+	if err != nil {
+		return nil, err
+	}
+
+	datastore, err := config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.Datastore)
+	if err != nil {
+		return nil, err
+	}
+
+	workingDir := folder
 	// Default to basedir
 	if workingDir == "" {
-		workingDir = fmt.Sprintf("/%s/vm", rawConfig.Datacenter)
+		workingDir = fmt.Sprintf("/%s/vm", datacenter)
 	}
 
 	cloudConfig := &types.CloudConfig{
@@ -95,15 +110,15 @@ func getConfig(pconfig providerconfigtypes.Config) (*types.CloudConfig, error) {
 			SCSIControllerType: "pvscsi",
 		},
 		Workspace: types.WorkspaceOpts{
-			Datacenter:       rawConfig.Datacenter,
+			Datacenter:       datacenter,
 			VCenterIP:        vsphereURL.Hostname(),
-			DefaultDatastore: rawConfig.Datastore,
+			DefaultDatastore: datastore,
 			Folder:           workingDir,
 		},
 		VirtualCenter: map[string]*types.VirtualCenterConfig{
 			vsphereURL.Hostname(): {
 				VCenterPort: vsphereURL.Port(),
-				Datacenters: rawConfig.Datacenter,
+				Datacenters: datacenter,
 				User:        opts.User,
 				Password:    opts.Password,
 			},

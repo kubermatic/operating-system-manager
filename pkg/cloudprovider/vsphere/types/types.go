@@ -26,17 +26,12 @@ type RawConfig struct {
 	Username       types.ConfigVarString `json:"username"`
 	Password       types.ConfigVarString `json:"password"`
 	VSphereURL     types.ConfigVarString `json:"vsphereURL"`
-	Datacenter     string                `json:"datacenter"`
+	Datacenter     types.ConfigVarString `json:"datacenter"`
 	Cluster        types.ConfigVarString `json:"cluster"`
-	Folder         string                `json:"folder"`
-	ResourcePool   types.ConfigVarString `json:"resourcePool"`
+	Folder         types.ConfigVarString `json:"folder"`
 
 	// Either Datastore or DatastoreCluster have to be provided.
-	DatastoreCluster types.ConfigVarString `json:"datastoreCluster"`
-	Datastore        string                `json:"datastore"`
+	Datastore types.ConfigVarString `json:"datastore"`
 
-	CPUs          int32               `json:"cpus"`
-	MemoryMB      int64               `json:"memoryMB"`
-	DiskSizeGB    *int64              `json:"diskSizeGB,omitempty"`
 	AllowInsecure types.ConfigVarBool `json:"allowInsecure"`
 }

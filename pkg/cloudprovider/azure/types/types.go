@@ -29,14 +29,14 @@ type RawConfig struct {
 	ClientID       types.ConfigVarString `json:"clientID,omitempty"`
 	ClientSecret   types.ConfigVarString `json:"clientSecret,omitempty"`
 
-	Location              string `json:"location"`
-	ResourceGroup         string `json:"resourceGroup"`
-	VNetResourceGroup     string `json:"vnetResourceGroup"`
-	VNetName              string `json:"vnetName"`
-	SubnetName            string `json:"subnetName"`
-	LoadBalancerSku       string `json:"loadBalancerSku"`
-	RouteTableName        string `json:"routeTableName"`
-	AvailabilitySet       string `json:"availabilitySet"`
-	AssignAvailabilitySet *bool  `json:"assignAvailabilitySet"`
-	SecurityGroupName     string `json:"securityGroupName"`
+	Location              types.ConfigVarString `json:"location"`
+	ResourceGroup         types.ConfigVarString `json:"resourceGroup"`
+	VNetResourceGroup     types.ConfigVarString `json:"vnetResourceGroup"`
+	VNetName              types.ConfigVarString `json:"vnetName"`
+	SubnetName            types.ConfigVarString `json:"subnetName"`
+	LoadBalancerSku       types.ConfigVarString `json:"loadBalancerSku"`
+	RouteTableName        types.ConfigVarString `json:"routeTableName"`
+	AvailabilitySet       types.ConfigVarString `json:"availabilitySet"`
+	AssignAvailabilitySet *bool                 `json:"assignAvailabilitySet"`
+	SecurityGroupName     types.ConfigVarString `json:"securityGroupName"`
 }

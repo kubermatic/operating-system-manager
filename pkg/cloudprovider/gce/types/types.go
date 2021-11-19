@@ -21,10 +21,10 @@ import "k8c.io/operating-system-manager/pkg/providerconfig/config/types"
 // RawConfig is a direct representation of an GCE machine object's configuration
 type RawConfig struct {
 	ServiceAccount types.ConfigVarString `json:"serviceAccount,omitempty"`
-	Zone           string                `json:"zone"`
-	Network        string                `json:"network"`
-	Subnetwork     string                `json:"subnetwork"`
+	Zone           types.ConfigVarString `json:"zone"`
+	Network        types.ConfigVarString `json:"network"`
+	Subnetwork     types.ConfigVarString `json:"subnetwork"`
 	Tags           []string              `json:"tags,omitempty"`
-	MultiZone      bool                  `json:"multizone"`
-	Regional       bool                  `json:"regional"`
+	MultiZone      types.ConfigVarBool   `json:"multizone"`
+	Regional       types.ConfigVarBool   `json:"regional"`
 }

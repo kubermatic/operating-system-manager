@@ -71,6 +71,11 @@ func getConfig(pconfig providerconfigtypes.Config, kubeletVersion string) (*type
 		return nil, fmt.Errorf("failed to get the value of \"identityEndpoint\" field, error = %v", err)
 	}
 
+	trustDevicePath, err := config.GetConfigVarResolver().GetConfigVarBoolValue(rawConfig.TrustDevicePath)
+	if err != nil {
+		return nil, err
+	}
+
 	// Retrieve authentication config, username/password or application credentials
 	err = getConfigAuth(&opts, &rawConfig)
 	if err != nil {
@@ -81,7 +86,7 @@ func getConfig(pconfig providerconfigtypes.Config, kubeletVersion string) (*type
 		Global: opts,
 		BlockStorage: types.BlockStorageOpts{
 			BSVersion:       "auto",
-			TrustDevicePath: rawConfig.TrustDevicePath,
+			TrustDevicePath: trustDevicePath,
 			IgnoreVolumeAZ:  true,
 		},
 		LoadBalancer: types.LoadBalancerOpts{

@@ -103,6 +103,19 @@ func (cvr *ConfigVarResolver) GetConfigVarBoolValueOrEnv(configVar types.ConfigV
 	return boolVal, nil
 }
 
+func (cvr *ConfigVarResolver) GetConfigVarBoolValue(configVar types.ConfigVarBool) (bool, error) {
+	cvs := types.ConfigVarString{Value: strconv.FormatBool(configVar.Value), SecretKeyRef: configVar.SecretKeyRef}
+	stringVal, err := cvr.GetConfigVarStringValue(cvs)
+	if err != nil {
+		return false, err
+	}
+	boolVal, err := strconv.ParseBool(stringVal)
+	if err != nil {
+		return false, err
+	}
+	return boolVal, nil
+}
+
 // SetConfigVarResolver will instantiate the global ConfigVarResolver Instance
 func SetConfigVarResolver(ctx context.Context, client ctrlruntimeclient.Client, namespace string) {
 	ConfigVarResolverInstance = ConfigVarResolver{

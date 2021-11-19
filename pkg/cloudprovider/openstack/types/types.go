@@ -35,6 +35,6 @@ type RawConfig struct {
 	TokenID                     types.ConfigVarString `json:"tokenId,omitempty"`
 	Region                      types.ConfigVarString `json:"region,omitempty"`
 
-	TrustDevicePath       bool  `json:"trustDevicePath"`
-	NodeVolumeAttachLimit *uint `json:"nodeVolumeAttachLimit"`
+	TrustDevicePath       types.ConfigVarBool `json:"trustDevicePath"`
+	NodeVolumeAttachLimit *uint               `json:"nodeVolumeAttachLimit"`
 }

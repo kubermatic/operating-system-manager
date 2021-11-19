@@ -24,6 +24,7 @@ import (
 	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
 
 	"k8c.io/operating-system-manager/pkg/cloudprovider/aws/types"
+	"k8c.io/operating-system-manager/pkg/providerconfig/config"
 )
 
 func GetCloudConfig(pconfig providerconfigtypes.Config) (string, error) {
@@ -49,10 +50,22 @@ func getConfig(pconfig providerconfigtypes.Config) (*types.CloudConfig, error) {
 		return nil, fmt.Errorf("failed to unmarshal CloudProviderSpec: %v", err)
 	}
 
-	opts := types.GlobalOpts{
-		Zone:     rawConfig.AvailabilityZone,
-		VPC:      rawConfig.VpcID,
-		SubnetID: rawConfig.SubnetID,
+	var (
+		opts types.GlobalOpts
+		err  error
+	)
+
+	opts.Zone, err = config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.AvailabilityZone)
+	if err != nil {
+		return nil, err
+	}
+	opts.VPC, err = config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.VpcID)
+	if err != nil {
+		return nil, err
+	}
+	opts.SubnetID, err = config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.SubnetID)
+	if err != nil {
+		return nil, err
 	}
 
 	cloudConfig := &types.CloudConfig{

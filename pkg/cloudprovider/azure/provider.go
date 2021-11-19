@@ -56,20 +56,13 @@ func getConfig(pconfig providerconfigtypes.Config) (*types.CloudConfig, error) {
 		return nil, fmt.Errorf("failed to unmarshal CloudProviderSpec: %v", err)
 	}
 
-	var err error
+	var (
+		cloudConfig types.CloudConfig
+		err         error
+	)
 
-	cloudConfig := types.CloudConfig{
-		Cloud:               types.AzureCloudProvider,
-		UseInstanceMetadata: true,
-		ResourceGroup:       rawConfig.ResourceGroup,
-		Location:            rawConfig.Location,
-		VNetName:            rawConfig.VNetName,
-		SubnetName:          rawConfig.SubnetName,
-		RouteTableName:      rawConfig.RouteTableName,
-		SecurityGroupName:   rawConfig.SecurityGroupName,
-		VnetResourceGroup:   rawConfig.VNetResourceGroup,
-		LoadBalancerSku:     rawConfig.LoadBalancerSku,
-	}
+	cloudConfig.Cloud = types.AzureCloudProvider
+	cloudConfig.UseInstanceMetadata = true
 
 	cloudConfig.TenantID, err = config.GetConfigVarResolver().GetConfigVarStringValueOrEnv(rawConfig.TenantID, envTenantID)
 	if err != nil {
@@ -89,9 +82,52 @@ func getConfig(pconfig providerconfigtypes.Config) (*types.CloudConfig, error) {
 		return nil, fmt.Errorf("failed to get the value of \"clientSecret\" field, error = %v", err)
 	}
 
-	if rawConfig.AssignAvailabilitySet == nil && rawConfig.AvailabilitySet != "" ||
-		rawConfig.AssignAvailabilitySet != nil && *rawConfig.AssignAvailabilitySet && rawConfig.AvailabilitySet != "" {
-		cloudConfig.PrimaryAvailabilitySetName = rawConfig.AvailabilitySet
+	cloudConfig.ResourceGroup, err = config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.ResourceGroup)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the value of \"resourceGroup\" field, error = %v", err)
+	}
+
+	cloudConfig.Location, err = config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.Location)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the value of \"location\" field, error = %v", err)
+	}
+
+	cloudConfig.VNetName, err = config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.VNetName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the value of \"vnetName\" field, error = %v", err)
+	}
+
+	cloudConfig.SubnetName, err = config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.SubnetName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the value of \"subnetName\" field, error = %v", err)
+	}
+	cloudConfig.RouteTableName, err = config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.RouteTableName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the value of \"routeTableName\" field, error = %v", err)
+	}
+	cloudConfig.SecurityGroupName, err = config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.SecurityGroupName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the value of \"securityGroupName\" field, error = %v", err)
+	}
+
+	cloudConfig.VnetResourceGroup, err = config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.VNetResourceGroup)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the value of \"vnetResourceGroup\" field, error = %v", err)
+	}
+
+	cloudConfig.LoadBalancerSku, err = config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.LoadBalancerSku)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the value of \"loadBalancerSku\" field, error = %v", err)
+	}
+
+	availabilitySet, err := config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.AvailabilitySet)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the value of \"availabilitySet\" field, error = %v", err)
+	}
+
+	if rawConfig.AssignAvailabilitySet == nil && availabilitySet != "" ||
+		rawConfig.AssignAvailabilitySet != nil && *rawConfig.AssignAvailabilitySet && availabilitySet != "" {
+		cloudConfig.PrimaryAvailabilitySetName = availabilitySet
 	}
 
 	return &cloudConfig, nil
