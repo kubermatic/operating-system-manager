@@ -313,6 +313,5 @@ func transformAWSCloudConfig(provider *providerconfigtypes.Config) (string, erro
 	return fmt.Sprintf(`[global]
 Zone=%v
 VPC=%v
-SubnetID=%v
-`, data.Zone, data.VPC, data.SubnetID), nil
+SubnetID=%v`, data.Zone, data.VPC, data.SubnetID), nil
 }

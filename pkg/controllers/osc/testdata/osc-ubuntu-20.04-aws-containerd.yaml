@@ -9,7 +9,9 @@ spec:
   cloudProvider:
     name: aws
     spec:
-      cloud-config-key: cloud-config-value
+      subnetID: test-subnet
+      vpc: e-123f
+      zone: eu-central-1b
   files:
   - content:
       inline:
@@ -233,7 +235,10 @@ spec:
   - content:
       inline:
         data: |
-          {"cloud-config-key":"cloud-config-value"}
+          [global]
+          Zone=eu-central-1b
+          VPC=e-123f
+          SubnetID=test-subnet
         encoding: b64
     path: /etc/kubernetes/cloud-config
     permissions: 384
