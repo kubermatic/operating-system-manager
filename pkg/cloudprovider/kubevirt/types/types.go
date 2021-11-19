@@ -18,19 +18,9 @@ package types
 
 import (
 	"k8c.io/operating-system-manager/pkg/providerconfig/config/types"
-
-	corev1 "k8s.io/api/core/v1"
 )
 
 // RawConfig is a direct representation of an Kubevirt machine object's configuration
 type RawConfig struct {
-	Kubeconfig       types.ConfigVarString `json:"kubeconfig,omitempty"`
-	CPUs             types.ConfigVarString `json:"cpus,omitempty"`
-	Memory           types.ConfigVarString `json:"memory,omitempty"`
-	Namespace        types.ConfigVarString `json:"namespace,omitempty"`
-	SourceURL        types.ConfigVarString `json:"sourceURL,omitempty"`
-	PVCSize          types.ConfigVarString `json:"pvcSize,omitempty"`
-	StorageClassName types.ConfigVarString `json:"storageClassName,omitempty"`
-	DNSPolicy        types.ConfigVarString `json:"dnsPolicy,omitempty"`
-	DNSConfig        *corev1.PodDNSConfig  `json:"dnsConfig,omitempty"`
+	Kubeconfig types.ConfigVarString `json:"kubeconfig,omitempty"`
 }

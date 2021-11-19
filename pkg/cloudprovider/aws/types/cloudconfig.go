@@ -30,12 +30,6 @@ const (
 Zone={{ .Global.Zone | iniEscape }}
 VPC={{ .Global.VPC | iniEscape }}
 SubnetID={{ .Global.SubnetID | iniEscape }}
-RouteTableID={{ .Global.RouteTableID | iniEscape }}
-RoleARN={{ .Global.RoleARN | iniEscape }}
-KubernetesClusterID={{ .Global.KubernetesClusterID | iniEscape }}
-DisableSecurityGroupIngress={{ .Global.DisableSecurityGroupIngress }}
-ElbSecurityGroup={{ .Global.ElbSecurityGroup | iniEscape }}
-DisableStrictZoneCheck={{ .Global.DisableStrictZoneCheck }}
 `
 )
 
@@ -44,16 +38,9 @@ type CloudConfig struct {
 }
 
 type GlobalOpts struct {
-	Zone                        string
-	VPC                         string
-	SubnetID                    string
-	RouteTableID                string
-	RoleARN                     string
-	KubernetesClusterTag        string
-	KubernetesClusterID         string
-	ElbSecurityGroup            string
-	DisableSecurityGroupIngress bool
-	DisableStrictZoneCheck      bool
+	Zone     string
+	VPC      string
+	SubnetID string
 }
 
 // ToString renders the cloud configuration as string.

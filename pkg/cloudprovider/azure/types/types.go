@@ -29,39 +29,14 @@ type RawConfig struct {
 	ClientID       types.ConfigVarString `json:"clientID,omitempty"`
 	ClientSecret   types.ConfigVarString `json:"clientSecret,omitempty"`
 
-	Location              types.ConfigVarString `json:"location"`
-	ResourceGroup         types.ConfigVarString `json:"resourceGroup"`
-	VNetResourceGroup     types.ConfigVarString `json:"vnetResourceGroup"`
-	VMSize                types.ConfigVarString `json:"vmSize"`
-	VNetName              types.ConfigVarString `json:"vnetName"`
-	SubnetName            types.ConfigVarString `json:"subnetName"`
-	LoadBalancerSku       types.ConfigVarString `json:"loadBalancerSku"`
-	RouteTableName        types.ConfigVarString `json:"routeTableName"`
-	AvailabilitySet       types.ConfigVarString `json:"availabilitySet"`
-	AssignAvailabilitySet *bool                 `json:"assignAvailabilitySet"`
-	SecurityGroupName     types.ConfigVarString `json:"securityGroupName"`
-	Zones                 []string              `json:"zones"`
-	ImagePlan             *ImagePlan            `json:"imagePlan,omitempty"`
-	ImageReference        *ImageReference       `json:"imageReference,omitempty"`
-
-	ImageID        types.ConfigVarString `json:"imageID"`
-	OSDiskSize     int32                 `json:"osDiskSize"`
-	DataDiskSize   int32                 `json:"dataDiskSize"`
-	AssignPublicIP types.ConfigVarBool   `json:"assignPublicIP"`
-	Tags           map[string]string     `json:"tags,omitempty"`
-}
-
-// ImagePlan contains azure OS Plan fields for the marketplace images
-type ImagePlan struct {
-	Name      string `json:"name,omitempty"`
-	Publisher string `json:"publisher,omitempty"`
-	Product   string `json:"product,omitempty"`
-}
-
-// ImageReference specifies information about the image to use.
-type ImageReference struct {
-	Publisher string `json:"publisher,omitempty"`
-	Offer     string `json:"offer,omitempty"`
-	Sku       string `json:"sku,omitempty"`
-	Version   string `json:"version,omitempty"`
+	Location              string `json:"location"`
+	ResourceGroup         string `json:"resourceGroup"`
+	VNetResourceGroup     string `json:"vnetResourceGroup"`
+	VNetName              string `json:"vnetName"`
+	SubnetName            string `json:"subnetName"`
+	LoadBalancerSku       string `json:"loadBalancerSku"`
+	RouteTableName        string `json:"routeTableName"`
+	AvailabilitySet       string `json:"availabilitySet"`
+	AssignAvailabilitySet *bool  `json:"assignAvailabilitySet"`
+	SecurityGroupName     string `json:"securityGroupName"`
 }

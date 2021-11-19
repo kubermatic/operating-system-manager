@@ -44,15 +44,13 @@ type CloudConfig struct {
 
 // GlobalOpts contains the values of the global section of the cloud configuration.
 type GlobalOpts struct {
-	ProjectID        string
-	LocalZone        string
-	NetworkName      string
-	SubnetworkName   string
-	TokenURL         string
-	MultiZone        bool
-	Regional         bool
-	NodeTags         []string
-	RHSMOfflineToken string
+	ProjectID      string
+	LocalZone      string
+	NetworkName    string
+	SubnetworkName string
+	MultiZone      bool
+	Regional       bool
+	NodeTags       []string
 }
 
 // ToString renders the cloud configuration as string.

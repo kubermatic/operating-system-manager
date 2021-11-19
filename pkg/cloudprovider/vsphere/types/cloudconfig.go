@@ -61,7 +61,6 @@ type WorkspaceOpts struct {
 	Datacenter       string `gcfg:"datacenter"`
 	Folder           string `gcfg:"folder"`
 	DefaultDatastore string `gcfg:"default-datastore"`
-	ResourcePoolPath string `gcfg:"resourcepool-path"`
 }
 
 type DiskOpts struct {
@@ -69,15 +68,11 @@ type DiskOpts struct {
 }
 
 type GlobalOpts struct {
-	User             string `gcfg:"user"`
-	Password         string `gcfg:"password"`
-	InsecureFlag     bool   `gcfg:"insecure-flag"`
-	VCenterPort      string `gcfg:"port"`
-	WorkingDir       string `gcfg:"working-dir"`
-	Datacenter       string `gcfg:"datacenter"`
-	DefaultDatastore string `gcfg:"datastore"`
-	VCenterIP        string `gcfg:"server"`
-	ClusterID        string `gcfg:"cluster-id"`
+	User         string `gcfg:"user"`
+	Password     string `gcfg:"password"`
+	InsecureFlag bool   `gcfg:"insecure-flag"`
+	VCenterPort  string `gcfg:"port"`
+	ClusterID    string `gcfg:"cluster-id"`
 }
 
 type VirtualCenterConfig struct {

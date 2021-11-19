@@ -34,22 +34,7 @@ type RawConfig struct {
 	TenantID                    types.ConfigVarString `json:"tenantID,omitempty"`
 	TokenID                     types.ConfigVarString `json:"tokenId,omitempty"`
 	Region                      types.ConfigVarString `json:"region,omitempty"`
-	InstanceReadyCheckPeriod    types.ConfigVarString `json:"instanceReadyCheckPeriod,omitempty"`
-	InstanceReadyCheckTimeout   types.ConfigVarString `json:"instanceReadyCheckTimeout,omitempty"`
-	ComputeAPIVersion           types.ConfigVarString `json:"computeAPIVersion,omitempty"`
 
-	// Machine details
-	Image                 types.ConfigVarString   `json:"image"`
-	Flavor                types.ConfigVarString   `json:"flavor"`
-	SecurityGroups        []types.ConfigVarString `json:"securityGroups,omitempty"`
-	Network               types.ConfigVarString   `json:"network,omitempty"`
-	Subnet                types.ConfigVarString   `json:"subnet,omitempty"`
-	FloatingIPPool        types.ConfigVarString   `json:"floatingIpPool,omitempty"`
-	AvailabilityZone      types.ConfigVarString   `json:"availabilityZone,omitempty"`
-	TrustDevicePath       types.ConfigVarBool     `json:"trustDevicePath"`
-	RootDiskSizeGB        *int                    `json:"rootDiskSizeGB"`
-	RootDiskVolumeType    types.ConfigVarString   `json:"rootDiskVolumeType,omitempty"`
-	NodeVolumeAttachLimit *uint                   `json:"nodeVolumeAttachLimit"`
-	// This tag is related to server metadata, not compute server's tag
-	Tags map[string]string `json:"tags,omitempty"`
+	TrustDevicePath       bool  `json:"trustDevicePath"`
+	NodeVolumeAttachLimit *uint `json:"nodeVolumeAttachLimit"`
 }

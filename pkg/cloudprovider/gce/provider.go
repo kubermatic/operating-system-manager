@@ -52,38 +52,21 @@ func getConfig(pconfig providerconfigtypes.Config) (*types.CloudConfig, error) {
 	}
 
 	var (
-		opts types.GlobalOpts
-		err  error
+		err error
 	)
 
-	opts.NodeTags = rawConfig.Tags
+	opts := types.GlobalOpts{
+		NodeTags:       rawConfig.Tags,
+		LocalZone:      rawConfig.Zone,
+		MultiZone:      rawConfig.MultiZone,
+		Regional:       rawConfig.Regional,
+		NetworkName:    rawConfig.Network,
+		SubnetworkName: rawConfig.Subnetwork,
+	}
+
 	opts.ProjectID, err = getProjectID(rawConfig)
 	if err != nil {
 		return nil, err
-	}
-	opts.LocalZone, err = config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.Zone)
-	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve zone: %v", err)
-	}
-
-	opts.MultiZone, err = config.GetConfigVarResolver().GetConfigVarBoolValue(rawConfig.MultiZone)
-	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve multizone: %v", err)
-	}
-
-	opts.Regional, err = config.GetConfigVarResolver().GetConfigVarBoolValue(rawConfig.Regional)
-	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve regional: %v", err)
-	}
-
-	opts.NetworkName, err = config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.Network)
-	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve network: %v", err)
-	}
-
-	opts.SubnetworkName, err = config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.Subnetwork)
-	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve subnetwork: %v", err)
 	}
 
 	cloudConfig := &types.CloudConfig{
