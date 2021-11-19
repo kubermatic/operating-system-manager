@@ -32,7 +32,6 @@ const cloudConfigTemplate = "[global]\n" +
 	"local-zone = {{ .Global.LocalZone | iniEscape }}\n" +
 	"network-name = {{ .Global.NetworkName | iniEscape }}\n" +
 	"subnetwork-name = {{ .Global.SubnetworkName | iniEscape }}\n" +
-	"token-url = {{ .Global.TokenURL | iniEscape }}\n" +
 	"multizone = {{ .Global.MultiZone }}\n" +
 	"regional = {{ .Global.Regional }}\n" +
 	"{{ range .Global.NodeTags }}node-tags = {{ . | iniEscape }}\n{{end}}"

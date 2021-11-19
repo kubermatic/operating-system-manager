@@ -31,10 +31,6 @@ user              = {{ .Global.User | iniEscape }}
 password          = {{ .Global.Password | iniEscape }}
 port              = {{ .Global.VCenterPort | iniEscape }}
 insecure-flag     = {{ .Global.InsecureFlag }}
-working-dir       = {{ .Global.WorkingDir | iniEscape }}
-datacenter        = {{ .Global.Datacenter | iniEscape }}
-datastore         = {{ .Global.DefaultDatastore | iniEscape }}
-server            = {{ .Global.VCenterIP | iniEscape }}
 
 [Disk]
 scsicontrollertype = {{ .Disk.SCSIControllerType | iniEscape }}
@@ -44,7 +40,6 @@ server            = {{ .Workspace.VCenterIP | iniEscape }}
 datacenter        = {{ .Workspace.Datacenter | iniEscape }}
 folder            = {{ .Workspace.Folder | iniEscape }}
 default-datastore = {{ .Workspace.DefaultDatastore | iniEscape }}
-resourcepool-path = {{ .Workspace.ResourcePoolPath | iniEscape }}
 
 {{ range $name, $vc := .VirtualCenter }}
 [VirtualCenter {{ $name | iniEscape }}]
