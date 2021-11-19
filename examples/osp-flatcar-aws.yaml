@@ -22,8 +22,12 @@ spec:
   ## Flatcar Stable (09/11/2021)
   osVersion: "2983.2.0"
   supportedCloudProviders:
-    - name: aws
-    - name: azure
+    - name: "aws"
+      spec:
+        region: "eu-central-1"
+    - name: "azure"
+      spec:
+        location: "westeurope"
   supportedContainerRuntimes:
     - name: containerd
       files:
@@ -193,7 +197,9 @@ spec:
 
         [Unit]
         Requires=download-script.service
+        Requires=nodeip.service
         After=download-script.service
+        After=nodeip.service
 
         [Service]
         Type=oneshot
