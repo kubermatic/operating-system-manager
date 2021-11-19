@@ -133,7 +133,7 @@ func main() {
 	if err := osc.Add(
 		mgr,
 		log,
-		opt.namespace,
+		osc.CloudInitSettingsNamespace,
 		opt.clusterName,
 		opt.workerCount,
 		parsedClusterDNSIPs,
