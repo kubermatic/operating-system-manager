@@ -50,6 +50,7 @@ const (
 	MachineDeploymentOSPAnnotation          = "k8c.io/operating-system-profile"
 	cloudProviderExternal                   = "external"
 )
+
 func OperatingSystemConfigCreator(
 	md *v1alpha1.MachineDeployment,
 	osp *osmv1alpha1.OperatingSystemProfile,
