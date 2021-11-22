@@ -20,7 +20,7 @@ set -e
 OSM_KUBECONFIG=${MC_KUBECONFIG:-$(dirname $0)/../.kubeconfig}
 # If you want to use the default kubeconfig `export MC_KUBECONFIG=$KUBECONFIG`
 
-rm -r $(dirname $0)/../_build/
+rm -rf $(dirname $0)/../_build/
 make -C $(dirname $0)/.. build
 $(dirname $0)/../_build/osm-controller \
   -kubeconfig=$OSM_KUBECONFIG \
