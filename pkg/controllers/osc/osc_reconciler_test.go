@@ -110,7 +110,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 				clusterDNSIPs:     []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
 			cloudProvider:     "aws",
-			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"cloud-config-key": "cloud-config-value"}`)},
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"zone": "eu-central-1b", "vpc": "e-123f", "subnetID": "test-subnet"}`)},
 		},
 		{
 			name:            "Ubuntu OS in AWS with Docker",
@@ -131,7 +131,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 				clusterDNSIPs:     []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
 			cloudProvider:     "aws",
-			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"cloud-config-key": "cloud-config-value"}`)},
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"zone": "eu-central-1b", "vpc": "e-123f", "subnetID": "test-subnet"}`)},
 		},
 		{
 			name:            "Flatcar OS in AWS with Containerd",
@@ -152,7 +152,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 				clusterDNSIPs:     []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
 			cloudProvider:     "aws",
-			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"cloud-config-key": "cloud-config-value"}`)},
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"zone": "eu-central-1b", "vpc": "e-123f", "subnetID": "test-subnet"}`)},
 		},
 	}
 
@@ -183,7 +183,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 
 		t.Run(testCase.name, func(t *testing.T) {
 			ctx := context.Background()
-			md := generateMachineDeployment(testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec)
+			md := generateMachineDeployment(t, testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec)
 
 			if err := reconciler.reconcile(ctx, md); err != nil {
 				t.Fatalf("failed to reconcile: %v", err)
@@ -282,7 +282,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 			},
 		}
 
-		md := generateMachineDeployment(testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec)
+		md := generateMachineDeployment(t, testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec)
 		fakeClient := fakectrlruntimeclient.
 			NewClientBuilder().
 			WithScheme(scheme.Scheme).
@@ -357,7 +357,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 	}
 }
 
-func generateMachineDeployment(name, namespace, osp string, os providerconfigtypes.OperatingSystem, cloudprovider string, cloudProviderSpec runtime.RawExtension) *v1alpha1.MachineDeployment {
+func generateMachineDeployment(t *testing.T, name, namespace, osp string, os providerconfigtypes.OperatingSystem, cloudprovider string, cloudProviderSpec runtime.RawExtension) *v1alpha1.MachineDeployment {
 	pconfig := providerconfigtypes.Config{
 		SSHPublicKeys:     []string{"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c"},
 		OperatingSystem:   os,
@@ -366,7 +366,7 @@ func generateMachineDeployment(name, namespace, osp string, os providerconfigtyp
 	}
 	mdConfig, err := json.Marshal(pconfig)
 	if err != nil {
-		return &v1alpha1.MachineDeployment{}
+		t.Fatalf("failed to generate machine deployment: %v", err)
 	}
 
 	md := &v1alpha1.MachineDeployment{
