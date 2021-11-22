@@ -184,6 +184,18 @@ spec:
       EOF
       {{- end }}
 
+    configureProxyScript: |-
+      {{- if .HTTPProxy }}
+      cat <<EOF | tee -a /etc/environment
+      HTTP_PROXY={{ .HTTPProxy }}
+      http_proxy={{ .HTTPProxy }}
+      HTTPS_PROXY={{ .HTTPProxy }}
+      https_proxy={{ .HTTPProxy }}
+      NO_PROXY={{ .NoProxy }}
+      no_proxy={{ .NoProxy }}
+      EOF
+      {{- end }}
+
   units:
     - name: setup.service
       enable: true
@@ -369,6 +381,14 @@ spec:
             {{- if or .FlatcarConfig.DisableUpdateEngine .FlatcarConfig.DisableAutoUpdate }}
             systemctl stop update-engine.service
             systemctl mask update-engine.service
+            {{ else if .HTTPProxy }}
+            mkdir -p /etc/systemd/system/update-engine.service.d/
+            cat <<EOF | tee -a /etc/systemd/system/update-engine.service.d/50-proxy.conf
+            [Service]
+            Environment=ALL_PROXY={{ .HTTPProxy }}
+            EOF
+            systemctl daemon-reload
+            systemctl restart update-engine.service
             {{- end }}
 
             {{- if or .FlatcarConfig.DisableLocksmithD .FlatcarConfig.DisableAutoUpdate }}
@@ -383,6 +403,8 @@ spec:
             {{- if eq .ContainerRuntime "docker" }}
             systemctl disable containerd
             {{- end }}
+
+            {{- template "configureProxyScript" }}
 
             systemctl enable --now kubelet
             systemctl enable --now --no-block kubelet-healthcheck.service

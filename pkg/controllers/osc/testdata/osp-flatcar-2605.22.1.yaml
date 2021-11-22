@@ -1,4 +1,4 @@
-# Copyright 2021 The Kubermatic Kubernetes Platform contributors.
+# Copyright 2021 The Operating System Manager contributors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,47 +16,76 @@ apiVersion: operatingsystemmanager.k8c.io/v1alpha1
 kind: OperatingSystemProfile
 metadata:
   name: osp-flatcar-aws
-  namespace: kube-system
+  namespace: cloud-init-settings
 spec:
   osName: flatcar
-  ## Flatcar Stable (2021-10-27)
-  osVersion: "2605.22.1"
+  ## Flatcar Stable (09/11/2021)
+  osVersion: "2983.2.0"
   supportedCloudProviders:
     - name: aws
       spec:
         region: us-west-1a
   supportedContainerRuntimes:
-  - name: containerd 
-    files:
-      - path: "/etc/containerd/config.toml"
-        permissions: 0644
-        content:
-          inline:
-            encoding: none
-            data: |
-              version = 2
+    - name: containerd
+      files:
+        - path: /etc/containerd/config.toml
+          permissions: 0644
+          content:
+            inline:
+              encoding: none
+              data: |
+                version = 2
 
-              [metrics]
-              address = "127.0.0.1:1338"
+                [metrics]
+                address = "127.0.0.1:1338"
 
-              [plugins]
-              [plugins."io.containerd.grpc.v1.cri"]
-              [plugins."io.containerd.grpc.v1.cri".containerd]
-              [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
-              [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-              runtime_type = "io.containerd.runc.v2"
-              [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
-              SystemdCgroup = true
-              [plugins."io.containerd.grpc.v1.cri".registry]
-              [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
-              [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
-              endpoint = ["https://registry-1.docker.io"]
-      - path: /etc/crictl.yaml
-        content:
-          inline:
-            encoding: none
-            data: |
-              runtime-endpoint: unix:///run/containerd/containerd.sock
+                [plugins]
+                [plugins."io.containerd.grpc.v1.cri"]
+                [plugins."io.containerd.grpc.v1.cri".containerd]
+                [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
+                [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+                runtime_type = "io.containerd.runc.v2"
+                [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+                SystemdCgroup = true
+                [plugins."io.containerd.grpc.v1.cri".registry]
+                [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
+                [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
+                endpoint = ["https://registry-1.docker.io"]
+        - path: /etc/systemd/system/containerd.service.d/10-custom.conf
+          content:
+            inline:
+              encoding: none
+              data: |
+                [Service]
+                Restart=always
+                EnvironmentFile=-/etc/environment
+                Environment=CONTAINERD_CONFIG=/etc/containerd/config.toml
+                ExecStart=
+                ExecStart=/usr/bin/env PATH=${TORCX_BINDIR}:${PATH} ${TORCX_BINDIR}/containerd --config ${CONTAINERD_CONFIG}
+        - path: /etc/crictl.yaml
+          content:
+            inline:
+              encoding: none
+              data: |
+                runtime-endpoint: unix:///run/containerd/containerd.sock
+
+    - name: docker
+      files:
+        - path: /etc/docker/daemon.json
+          permissions: 0644
+          content:
+            inline:
+              encoding: none
+              data: |-
+                {"exec-opts":["native.cgroupdriver=systemd"],"storage-driver":"overlay2","log-driver":"json-file","log-opts":{"max-file":"5","max-size":"10m"}}
+        - path: /etc/systemd/system/docker.service.d/10-custom.conf
+          permissions: 0644
+          content:
+            inline:
+              encoding: none
+              data: |-
+                [Service]
+                EnvironmentFile=-/etc/environment
 
   templates:
     safeDownloadBinariesScript: |-
@@ -141,20 +170,59 @@ spec:
           chmod +x /opt/bin/health-monitor.sh
       fi
 
-  units:
-    - name: containerd.service
-      enable: true
-      dropIns:
-      - name: 10-custom.conf
-        content: |
-          [Service]
-          Restart=always
-          EnvironmentFile=-/etc/environment
-          Environment=CONTAINERD_CONFIG=/etc/containerd/config.toml
-          ExecStart=
-          ExecStart=/usr/bin/env PATH=${TORCX_BINDIR}:${PATH} ${TORCX_BINDIR}/containerd --config ${CONTAINERD_CONFIG}
+    configureStaticNetwork: |-
+      {{- if .NetworkConfig }}
+      mkdir -p /etc/systemd/system/systemd-networkd.service.d/
+      cat << EOF | tee /etc/systemd/system/systemd-networkd.service.d/10-static-network.conf
+      [Match]
+      # Because of difficulty predicting specific NIC names on different cloud providers,
+      # we only support static addressing on VSphere. There should be a single NIC attached
+      # that we will match by name prefix 'en' which denotes ethernet devices.
+      Name=en*
 
-    - name: setup-script.service
+      [Network]
+      DHCP=no
+      Address={{ .NetworkConfig.CIDR }}
+      Gateway={{ .NetworkConfig.Gateway }}
+      {{range .NetworkConfig.DNS.Servers}}DNS={{.}}
+      {{end}}
+      EOF
+      {{- end }}
+
+    configureProxyScript: |-
+      {{- if .HTTPProxy }}
+          cat <<EOF | tee -a /etc/environment
+          HTTP_PROXY={{ .HTTPProxy }}
+          http_proxy={{ .HTTPProxy }}
+          HTTPS_PROXY={{ .HTTPProxy }}
+          https_proxy={{ .HTTPProxy }}
+          EOF
+      {{- end }}
+      {{- if .NoProxy }}
+          cat <<EOF | tee -a /etc/environment
+          NO_PROXY={{ .NoProxy }}
+          no_proxy={{ .NoProxy }}
+          EOF
+      {{- end }}
+
+  units:
+    - name: setup.service
+      enable: true
+      content: |
+        [Install]
+        WantedBy=multi-user.target
+
+        [Unit]
+        Requires=download-script.service
+        After=download-script.service
+
+        [Service]
+        Type=oneshot
+        RemainAfterExit=true
+        EnvironmentFile=-/etc/environment
+        ExecStart=/opt/bin/setup
+
+    - name: download-script.service
       enable: true
       content: |
         [Install]
@@ -168,7 +236,37 @@ spec:
         Type=oneshot
         RemainAfterExit=true
         EnvironmentFile=-/etc/environment
-        ExecStart=/opt/bin/setup
+        ExecStart=/opt/bin/download.sh
+
+    - name: nodeip.service
+      enable: true
+      content: |
+        [Unit]
+        Description=Setup Kubelet Node IP Env
+        Requires=network-online.target
+        After=network-online.target
+
+        [Service]
+        ExecStart=/opt/bin/setup_net_env.sh
+        RemainAfterExit=yes
+        Type=oneshot
+        [Install]
+        WantedBy=multi-user.target
+
+    - name: static-network-script.service
+      enable: true
+      content: |
+        [Unit]
+        Description=Setup Static Networking
+        Requires=network-online.target
+        After=network-online.target
+
+        [Service]
+        ExecStart=/opt/bin/configure_static_network.sh
+        RemainAfterExit=yes
+        Type=oneshot
+        [Install]
+        WantedBy=multi-user.target
 
   files:
     - path: /etc/systemd/journald.conf.d/max_disk_use.conf
@@ -248,7 +346,31 @@ spec:
               echo -e "[Service]\nEnvironment=\"KUBELET_NODE_IP=${DEFAULT_IFC_IP}\"\nEnvironment=\"KUBELET_HOSTNAME=${FULL_HOSTNAME}\"" > /etc/systemd/system/kubelet.service.d/nodeip.conf
             fi
 
-    - path: "/opt/bin/setup"
+    - path: /opt/bin/configure_static_network.sh
+      permissions: 0755
+      content:
+        inline:
+          encoding: none
+          data: |
+            #!/usr/bin/env bash
+            set -xeuo pipefail
+
+            {{- template "configureStaticNetwork" }}
+
+    - path: /opt/bin/download.sh
+      permissions: 0755
+      content:
+        inline:
+          encoding: none
+          data: |
+            #!/usr/bin/env bash
+            set -xeuo pipefail
+
+            {{- template "safeDownloadBinariesScript" }}
+
+            systemctl disable download-script.service
+
+    - path: /opt/bin/setup
       permissions: 0755
       content:
         inline:
@@ -256,24 +378,45 @@ spec:
           data: |
             #!/bin/bash
             set -xeuo pipefail
-            if systemctl is-active ufw; then systemctl stop ufw; fi
-            systemctl mask ufw
 
-            {{- /* As we added some modules and don't want to reboot, restart the service */}}
-            systemctl restart systemd-modules-load.service
-            sysctl --system
+            {{- if not .FlatcarConfig.DisableAutoUpdate }}
+            cat << EOF | tee /etc/polkit-1/rules.d/60-noreboot_norestart.rules
+            polkit.addRule(function(action, subject) {
+              if (action.id == "org.freedesktop.login1.reboot" ||
+                  action.id == "org.freedesktop.login1.reboot-multiple-sessions") {
+                  if (subject.user == "core") {
+                      return polkit.Result.YES;
+                  } else {
+                      return polkit.Result.AUTH_ADMIN;
+                  }
+              }
+            });
+            EOF
+            {{- end }}
 
-            {{- /* Make sure we always disable swap - Otherwise the kubelet won't start'. */}}
-            swapoff -a
+            {{- if or .FlatcarConfig.DisableUpdateEngine .FlatcarConfig.DisableAutoUpdate }}
+            systemctl stop update-engine.service
+            systemctl mask update-engine.service
+            {{- end }}
 
-            {{- template "safeDownloadBinariesScript" }}
+            {{- if or .FlatcarConfig.DisableLocksmithD .FlatcarConfig.DisableAutoUpdate }}
+            systemctl stop locksmithd.service
+            systemctl mask locksmithd.service
+            {{- end }}
 
-            # set kubelet nodeip environment variable
-            /opt/bin/setup_net_env.sh
+            {{- /* Since both container runtimes are enabled/started by default in flatcar, disable the one that is not required */}}
+            {{- if eq .ContainerRuntime "containerd" }}
+            systemctl disable docker
+            {{- end }}
+            {{- if eq .ContainerRuntime "docker" }}
+            systemctl disable containerd
+            {{- end }}
+
+            {{- template "configureProxyScript" }}
 
             systemctl enable --now kubelet
             systemctl enable --now --no-block kubelet-healthcheck.service
-            systemctl disable setup-script.service
+            systemctl disable setup.service
 
     - path: /etc/kubernetes/bootstrap-kubelet.conf
       permissions: 0600
@@ -290,7 +433,7 @@ spec:
           data: |
             {{ .KubernetesCACert }}
 
-    - path: "/etc/systemd/system/kubelet.service"
+    - path: /etc/systemd/system/kubelet.service
       content:
         inline:
           encoding: none
@@ -360,10 +503,10 @@ spec:
           data: |
             {{ .CloudConfig }}
 
-    - path: "/etc/kubernetes/kubelet.conf"
+    - path: /etc/kubernetes/kubelet.conf
       content:
         inline:
-          encoding: "none"
+          encoding: none
           data: |
             apiVersion: kubelet.config.k8s.io/v1beta1
             kind: KubeletConfiguration
@@ -410,7 +553,23 @@ spec:
             - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
             volumePluginDir: /var/lib/kubelet/volumeplugins
 
-## Flatcar specific configuration
+    - path: /etc/systemd/system/kubelet-healthcheck.service
+      permissions: 0644
+      content:
+        inline:
+          encoding: none
+          data: |
+            [Unit]
+            Requires=kubelet.service
+            After=kubelet.service
+
+            [Service]
+            ExecStart=/opt/bin/health-monitor.sh kubelet
+
+            [Install]
+            WantedBy=multi-user.target
+
+    ## Flatcar specific configuration
     - path: /proc/sys/kernel/panic_on_oops
       permissions: 0644
       content:
@@ -439,7 +598,7 @@ spec:
       permissions: 0600
       content:
         inline:
-          encoding: "none"
+          encoding: none
           data: |
             # Use most defaults for sshd configuration.
             Subsystem sftp internal-sftp
@@ -450,19 +609,3 @@ spec:
             PrintMotd no # handled by PAM
             PasswordAuthentication no
             ChallengeResponseAuthentication no
-
-    - path: /etc/systemd/system/kubelet-healthcheck.service
-      permissions: 0644
-      content:
-        inline:
-          encoding: none
-          data: |
-            [Unit]
-            Requires=kubelet.service
-            After=kubelet.service
-
-            [Service]
-            ExecStart=/opt/bin/health-monitor.sh kubelet
-
-            [Install]
-            WantedBy=multi-user.target

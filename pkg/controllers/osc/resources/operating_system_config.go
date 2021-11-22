@@ -61,6 +61,8 @@ func OperatingSystemConfigCreator(
 	initialTaints string,
 	cniVersion string,
 	containerdVersion string,
+	nodeHTTPProxy string,
+	nodeNoProxy string,
 	cloudConfig string,
 ) reconciling.NamedOperatingSystemConfigCreatorGetter {
 	return func() (string, reconciling.OperatingSystemConfigCreator) {
@@ -112,6 +114,12 @@ func OperatingSystemConfigCreator(
 				InitialTaints:         initialTaints,
 			}
 
+			if len(nodeHTTPProxy) > 0 {
+				data.HTTPProxy = &nodeHTTPProxy
+			}
+			if len(nodeNoProxy) > 0 {
+				data.NoProxy = &nodeNoProxy
+			}
 			if providerConfig.Network != nil {
 				data.NetworkConfig = providerConfig.Network
 			}
@@ -167,6 +175,8 @@ type filesData struct {
 	ExternalCloudProvider bool
 	PauseImage            string
 	InitialTaints         string
+	HTTPProxy             *string
+	NoProxy               *string
 	OperatingSystemConfig
 }
 
