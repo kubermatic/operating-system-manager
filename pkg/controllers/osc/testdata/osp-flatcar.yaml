@@ -16,7 +16,7 @@ apiVersion: operatingsystemmanager.k8c.io/v1alpha1
 kind: OperatingSystemProfile
 metadata:
   name: osp-flatcar
-  namespace: cloud-init-settings
+  namespace: kube-system
 spec:
   osName: flatcar
   ## Flatcar Stable (09/11/2021)

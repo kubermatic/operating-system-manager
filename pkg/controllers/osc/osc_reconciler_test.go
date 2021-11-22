@@ -139,7 +139,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 			ospName:         "osp-flatcar",
 			operatingSystem: providerconfigtypes.OperatingSystemFlatcar,
 			oscFile:         "osc-flatcar-aws-containerd.yaml",
-			oscName:         "flatcar-aws-osc-provisioning",
+			oscName:         "flatcar-aws-containerd-osc-provisioning",
 			mdName:          "flatcar-aws-containerd",
 			secretFile:      "secret-flatcar-aws-containerd.yaml",
 			config: testConfig{
