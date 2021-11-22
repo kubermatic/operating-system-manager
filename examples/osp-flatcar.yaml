@@ -22,11 +22,11 @@ spec:
   ## Flatcar Stable (09/11/2021)
   osVersion: "2983.2.0"
   supportedCloudProviders:
-    - name: "aws"
-    - name: "azure"
-    - name: "kubevirt"
-    - name: "openstack"
-    - name: "vsphere"
+    - name: aws
+    - name: azure
+    - name: kubevirt
+    - name: openstack
+    - name: vsphere
   supportedContainerRuntimes:
     - name: containerd
       files:
