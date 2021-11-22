@@ -38,7 +38,7 @@ type CloudProviderSpec struct {
 	Name string `json:"name"`
 	// Spec represents the os/image reference in the supported cloud provider
 	// +kubebuilder:pruning:PreserveUnknownFields
-	Spec runtime.RawExtension `json:"spec"`
+	Spec runtime.RawExtension `json:"spec,omitempty"`
 }
 
 // Unit is a systemd unit used for the operating system config.
@@ -94,7 +94,7 @@ type FileContent struct {
 // FileContentInline contains keys for inlining a file content's data and encoding.
 type FileContentInline struct {
 	// Encoding is the file's encoding (e.g. base64).
-	Encoding string `json:"encoding"`
+	Encoding string `json:"encoding,omitempty"`
 	// Data is the file's data.
 	Data string `json:"data"`
 }
