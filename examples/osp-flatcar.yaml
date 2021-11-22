@@ -15,7 +15,7 @@
 apiVersion: operatingsystemmanager.k8c.io/v1alpha1
 kind: OperatingSystemProfile
 metadata:
-  name: osp-flatcar-aws
+  name: osp-flatcar
   namespace: cloud-init-settings
 spec:
   osName: flatcar
@@ -23,11 +23,10 @@ spec:
   osVersion: "2983.2.0"
   supportedCloudProviders:
     - name: "aws"
-      spec:
-        region: "eu-central-1"
     - name: "azure"
-      spec:
-        location: "westeurope"
+    - name: "kubevirt"
+    - name: "openstack"
+    - name: "vsphere"
   supportedContainerRuntimes:
     - name: containerd
       files:
@@ -388,9 +387,11 @@ spec:
 
             {{- /* Since both container runtimes are enabled/started by default in flatcar, disable the one that is not required */}}
             {{- if eq .ContainerRuntime "containerd" }}
+            systemctl stop docker
             systemctl disable docker
             {{- end }}
             {{- if eq .ContainerRuntime "docker" }}
+            systemctl stop containerd
             systemctl disable containerd
             {{- end }}
 

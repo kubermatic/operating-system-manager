@@ -48,6 +48,7 @@ const (
 
 	MachineDeploymentSubresourceNamePattern = "%s-osc-%s"
 	MachineDeploymentOSPAnnotation          = "k8c.io/operating-system-profile"
+	cloudProviderExternal                   = "external"
 )
 
 func OperatingSystemConfigCreator(
@@ -77,6 +78,10 @@ func OperatingSystemConfigCreator(
 			}
 
 			cloudProviderName := string(providerConfig.CloudProvider)
+			if providerConfig.CloudProvider == providerconfigtypes.CloudProviderKubeVirt {
+				cloudProviderName = cloudProviderExternal
+			}
+
 			CACert, err := resources.GetCACert(kubeconfig)
 			if err != nil {
 				return nil, err
@@ -106,7 +111,7 @@ func OperatingSystemConfigCreator(
 				CloudConfig:           cloudConfig,
 				ContainerRuntime:      containerRuntime,
 				ContainerdVersion:     containerdVersion,
-				CloudProviderName:     providerConfig.CloudProvider,
+				CloudProviderName:     cloudProviderName,
 				ExternalCloudProvider: externalCloudProvider,
 				PauseImage:            pauseImage,
 				InitialTaints:         initialTaints,
@@ -161,7 +166,7 @@ type filesData struct {
 	CloudConfig           string
 	ContainerRuntime      string
 	ContainerdVersion     string
-	CloudProviderName     providerconfigtypes.CloudProvider
+	CloudProviderName     string
 	NetworkConfig         *providerconfigtypes.NetworkConfig
 	ExtraKubeletFlags     []string
 	ExternalCloudProvider bool
