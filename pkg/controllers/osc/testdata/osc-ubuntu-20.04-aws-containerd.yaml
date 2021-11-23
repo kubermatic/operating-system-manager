@@ -3,13 +3,15 @@ kind: OperatingSystemConfig
 metadata:
   creationTimestamp: null
   name: ubuntu-20.04-aws-osc-provisioning
-  namespace: kube-system
+  namespace: cloud-init-settings
   resourceVersion: "1"
 spec:
   cloudProvider:
     name: aws
     spec:
-      cloud-config-key: cloud-config-value
+      subnetID: test-subnet
+      vpc: e-123f
+      zone: eu-central-1b
   files:
   - content:
       inline:
@@ -148,7 +150,7 @@ spec:
 
           for bin in kubelet kubeadm kubectl; do
               curl -Lfo "$kube_dir/$bin" "$kube_base_url/$bin"
-              chmod +x "$kube_dir/$binKubeletVersion"
+              chmod +x "$kube_dir/$bin"
               sum=$(curl -Lf "$kube_base_url/$bin.sha256")
               echo "$sum  $kube_dir/$bin" >>"$kube_sum_file"
           done
@@ -213,9 +215,10 @@ spec:
             --cloud-provider=aws \
             --cloud-config=/etc/kubernetes/cloud-config \
             --dynamic-config-dir=/etc/kubernetes/dynamic-config-dir \
+            --feature-gates=DynamicKubeletConfig=true \
             --exit-on-lock-contention \
             --lock-file=/tmp/kubelet.lock \
-            --container-runtime=containerd \
+            --container-runtime=remote \
             --container-runtime-endpoint=unix:///run/containerd/containerd.sock \
             --node-ip ${KUBELET_NODE_IP}
 
@@ -236,7 +239,7 @@ spec:
           [global]
           Zone=""
           VPC=""
-          SubnetID=""
+          SubnetID="test-subnet"
 
         encoding: b64
     path: /etc/kubernetes/cloud-config
@@ -369,7 +372,7 @@ spec:
             mode: Webhook
           cgroupDriver: systemd
           clusterDNS:
-          - 10.0.0.0
+          - "10.0.0.0"
           clusterDomain: cluster.local
           featureGates:
             RotateKubeletServerCertificate: true
@@ -429,8 +432,5 @@ spec:
     permissions: 420
   osName: ubuntu
   osVersion: "20.04"
-  units:
-  - enable: true
-    name: test-unit-1
   userSSHKeys:
   - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c

@@ -51,6 +51,8 @@ type options struct {
 	initialTaints         string
 	cniVersion            string
 	containerdVersion     string
+	nodeHTTPProxy         string
+	nodeNoProxy           string
 
 	clusterDNSIPs string
 	kubeconfig    string
@@ -75,6 +77,8 @@ func main() {
 	flag.StringVar(&opt.initialTaints, "initial-taints", "", "taints to use when creating the node.")
 	flag.StringVar(&opt.cniVersion, "cni-version", "", "CNI version to use in the cluster.")
 	flag.StringVar(&opt.containerdVersion, "containerd-version", "", "Containerd version to use in the cluster.")
+	flag.StringVar(&opt.nodeHTTPProxy, "node-http-proxy", "", "If set, it configures the 'HTTP_PROXY' & 'HTTPS_PROXY' environment variable on the nodes.")
+	flag.StringVar(&opt.nodeNoProxy, "node-no-proxy", ".svc,.cluster.local,localhost,127.0.0.1", "If set, it configures the 'NO_PROXY' environment variable on the nodes.")
 
 	flag.Parse()
 
@@ -145,6 +149,8 @@ func main() {
 		opt.initialTaints,
 		opt.cniVersion,
 		opt.containerdVersion,
+		opt.nodeHTTPProxy,
+		opt.nodeNoProxy,
 	); err != nil {
 		klog.Fatal(err)
 	}

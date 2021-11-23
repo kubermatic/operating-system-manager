@@ -60,7 +60,7 @@ type CloudProviderSpec struct {
 	Name CloudProvider `json:"name"`
 	// Spec represents the os/image reference in the supported cloud provider
 	// +kubebuilder:pruning:PreserveUnknownFields
-	Spec runtime.RawExtension `json:"spec"`
+	Spec runtime.RawExtension `json:"spec,omitempty"`
 }
 
 // Unit is a systemd unit used for the operating system config.

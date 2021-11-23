@@ -101,7 +101,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 			mdName:          "ubuntu-20.04-aws",
 			secretFile:      "secret-ubuntu-20.04-aws-containerd.yaml",
 			config: testConfig{
-				namespace:         "kube-system",
+				namespace:         "cloud-init-settings",
 				clusterAddress:    "http://127.0.0.1/configs",
 				containerRuntime:  "containerd",
 				cniVersion:        "v0.8.7",
@@ -110,7 +110,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 				clusterDNSIPs:     []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
 			cloudProvider:     "aws",
-			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"cloud-config-key": "cloud-config-value"}`)},
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"zone": "eu-central-1b", "vpc": "e-123f", "subnetID": "test-subnet"}`)},
 		},
 		{
 			name:            "Ubuntu OS in AWS with Docker",
@@ -122,7 +122,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 			mdName:          "ubuntu-20.04-aws",
 			secretFile:      "secret-ubuntu-20.04-aws-docker.yaml",
 			config: testConfig{
-				namespace:         "kube-system",
+				namespace:         "cloud-init-settings",
 				clusterAddress:    "http://127.0.0.1/configs",
 				containerRuntime:  "docker",
 				cniVersion:        "v0.8.7",
@@ -131,19 +131,19 @@ func TestReconciler_Reconcile(t *testing.T) {
 				clusterDNSIPs:     []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
 			cloudProvider:     "aws",
-			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"cloud-config-key": "cloud-config-value"}`)},
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"zone": "eu-central-1b", "vpc": "e-123f", "subnetID": "test-subnet"}`)},
 		},
 		{
 			name:            "Flatcar OS in AWS with Containerd",
-			ospFile:         "osp-flatcar-2983.2.0.yaml",
-			ospName:         "osp-flatcar-aws",
+			ospFile:         "osp-flatcar.yaml",
+			ospName:         "osp-flatcar",
 			operatingSystem: providerconfigtypes.OperatingSystemFlatcar,
-			oscFile:         "osc-flatcar-2983.2.0-aws-containerd.yaml",
-			oscName:         "flatcar-2983.2.0-aws-osc-provisioning",
-			mdName:          "flatcar-2983.2.0-aws",
-			secretFile:      "secret-flatcar-2983.2.0-aws-containerd.yaml",
+			oscFile:         "osc-flatcar-aws-containerd.yaml",
+			oscName:         "flatcar-aws-containerd-osc-provisioning",
+			mdName:          "flatcar-aws-containerd",
+			secretFile:      "secret-flatcar-aws-containerd.yaml",
 			config: testConfig{
-				namespace:         "kube-system",
+				namespace:         "cloud-init-settings",
 				clusterAddress:    "http://127.0.0.1/configs",
 				containerRuntime:  "containerd",
 				cniVersion:        "v0.8.7",
@@ -152,19 +152,19 @@ func TestReconciler_Reconcile(t *testing.T) {
 				clusterDNSIPs:     []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
 			cloudProvider:     "aws",
-			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"cloud-config-key": "cloud-config-value"}`)},
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"zone": "eu-central-1b", "vpc": "e-123f", "subnetID": "test-subnet"}`)},
 		},
 		{
 			name:            "Flatcar OS in AWS with docker",
-			ospFile:         "osp-flatcar-2983.2.0.yaml",
-			ospName:         "osp-flatcar-aws",
+			ospFile:         "osp-flatcar.yaml",
+			ospName:         "osp-flatcar",
 			operatingSystem: providerconfigtypes.OperatingSystemFlatcar,
-			oscFile:         "osc-flatcar-2983.2.0-aws-docker.yaml",
-			oscName:         "flatcar-2983.2.0-aws-osc-provisioning",
-			mdName:          "flatcar-2983.2.0-aws",
-			secretFile:      "secret-flatcar-2983.2.0-aws-docker.yaml",
+			oscFile:         "osc-flatcar-aws-docker.yaml",
+			oscName:         "flatcar-aws-docker-osc-provisioning",
+			mdName:          "flatcar-aws-docker",
+			secretFile:      "secret-flatcar-aws-docker.yaml",
 			config: testConfig{
-				namespace:         "kube-system",
+				namespace:         "cloud-init-settings",
 				clusterAddress:    "http://127.0.0.1/configs",
 				containerRuntime:  "docker",
 				cniVersion:        "v0.8.7",
@@ -185,26 +185,17 @@ func TestReconciler_Reconcile(t *testing.T) {
 			t.Fatalf("failed loading osp %s from testdata: %v", testCase.name, err)
 		}
 
-		cloudConfigSecret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "cloud-config",
-				Namespace: "kube-system",
-			},
-			Data: map[string][]byte{
-				"config": []byte("{\"cloud-config-key\":\"cloud-config-value\"}"),
-			},
-		}
 		fakeClient := fakectrlruntimeclient.
 			NewClientBuilder().
 			WithScheme(scheme.Scheme).
-			WithObjects(osp, cloudConfigSecret).
+			WithObjects(osp).
 			Build()
 
 		reconciler := buildReconciler(fakeClient, testCase.config)
 
 		t.Run(testCase.name, func(t *testing.T) {
 			ctx := context.Background()
-			md := generateMachineDeployment(testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec)
+			md := generateMachineDeployment(t, testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec)
 
 			if err := reconciler.reconcile(ctx, md); err != nil {
 				t.Fatalf("failed to reconcile: %v", err)
@@ -231,7 +222,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 
 			secret := &corev1.Secret{}
 			if err := fakeClient.Get(ctx, types.NamespacedName{
-				Namespace: "kube-system",
+				Namespace: "cloud-init-settings",
 				Name:      testCase.oscName},
 				secret); err != nil {
 				t.Fatalf("failed to get secret: %v", err)
@@ -276,7 +267,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 			mdName:          "ubuntu-20.04-aws",
 			secretFile:      "secret-ubuntu-20.04-aws-containerd.yaml",
 			config: testConfig{
-				namespace:        "kube-system",
+				namespace:        "cloud-init-settings",
 				clusterAddress:   "http://127.0.0.1/configs",
 				containerRuntime: "containerd",
 			},
@@ -293,21 +284,11 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 			t.Fatalf("failed loading osp %s from testdata: %v", testCase.name, err)
 		}
 
-		cloudConfigSecret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "cloud-config",
-				Namespace: "kube-system",
-			},
-			Data: map[string][]byte{
-				"config": []byte("{\"cloud-config-key\":\"cloud-config-value\"}"),
-			},
-		}
-
-		md := generateMachineDeployment(testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec)
+		md := generateMachineDeployment(t, testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec)
 		fakeClient := fakectrlruntimeclient.
 			NewClientBuilder().
 			WithScheme(scheme.Scheme).
-			WithObjects(osp, md, cloudConfigSecret).
+			WithObjects(osp, md).
 			Build()
 
 		reconciler := buildReconciler(fakeClient, testCase.config)
@@ -361,7 +342,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 
 			// Ensure that OperatingSystemConfig was deleted
 			if err := fakeClient.Get(ctx, types.NamespacedName{
-				Namespace: "kube-system",
+				Namespace: "cloud-init-settings",
 				Name:      fmt.Sprintf("ubuntu-20.04-lts-osc-%s", resources.ProvisioningCloudConfig)},
 				osc); err == nil || !kerrors.IsNotFound(err) {
 				t.Fatalf("failed to delete osc")
@@ -369,7 +350,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 
 			// Ensure that corresponding secret was deleted
 			if err := fakeClient.Get(ctx, types.NamespacedName{
-				Namespace: "kube-system",
+				Namespace: "cloud-init-settings",
 				Name:      fmt.Sprintf("ubuntu-20.04-lts-osc-%s", resources.ProvisioningCloudConfig)},
 				secret); err == nil || !kerrors.IsNotFound(err) {
 				t.Fatalf("failed to delete secret")
@@ -378,7 +359,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 	}
 }
 
-func generateMachineDeployment(name, namespace, osp string, os providerconfigtypes.OperatingSystem, cloudprovider string, cloudProviderSpec runtime.RawExtension) *v1alpha1.MachineDeployment {
+func generateMachineDeployment(t *testing.T, name, namespace, osp string, os providerconfigtypes.OperatingSystem, cloudprovider string, cloudProviderSpec runtime.RawExtension) *v1alpha1.MachineDeployment {
 	pconfig := providerconfigtypes.Config{
 		SSHPublicKeys:     []string{"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c"},
 		OperatingSystem:   os,
@@ -387,7 +368,7 @@ func generateMachineDeployment(name, namespace, osp string, os providerconfigtyp
 	}
 	mdConfig, err := json.Marshal(pconfig)
 	if err != nil {
-		return &v1alpha1.MachineDeployment{}
+		t.Fatalf("failed to generate machine deployment: %v", err)
 	}
 
 	md := &v1alpha1.MachineDeployment{

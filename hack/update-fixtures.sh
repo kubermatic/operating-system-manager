@@ -14,17 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -e
+go test ./... -update || go test ./...
 
-# Use a special env variable for machine-controller only
-OSM_KUBECONFIG=${MC_KUBECONFIG:-$(dirname $0)/../.kubeconfig}
-# If you want to use the default kubeconfig `export MC_KUBECONFIG=$KUBECONFIG`
-
-rm -rf $(dirname $0)/../_build/
-make -C $(dirname $0)/.. build
-$(dirname $0)/../_build/osm-controller \
-  -kubeconfig=$OSM_KUBECONFIG \
-  -namespace=cloud-init-settings \
-  -worker-count=50 \
-  -cni-version=v0.8.7 \
-  -containerd-version=1.4
+if [[ $? -eq 0 ]]; then echo "Successfully updated fixtures"; else "Failed to update fixtures"; fi

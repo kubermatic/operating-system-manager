@@ -101,7 +101,6 @@ spec:
                     type: object
                     required:
                       - name
-                      - spec
                     properties:
                       name:
                         description: Name represents the name of the supported cloud provider

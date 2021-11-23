@@ -64,6 +64,8 @@ type Reconciler struct {
 	kubeconfig            string
 	cniVersion            string
 	containerdVersion     string
+	nodeHTTPProxy         string
+	nodeNoProxy           string
 }
 
 func Add(
@@ -80,7 +82,9 @@ func Add(
 	pauseImage string,
 	initialTaints string,
 	cniVersion string,
-	containerdVersion string) error {
+	containerdVersion string,
+	nodeHTTPProxy string,
+	nodeNoProxy string) error {
 	reconciler := &Reconciler{
 		Client:                mgr.GetClient(),
 		log:                   log,
@@ -95,6 +99,8 @@ func Add(
 		externalCloudProvider: externalCloudProvider,
 		cniVersion:            cniVersion,
 		containerdVersion:     containerdVersion,
+		nodeHTTPProxy:         nodeHTTPProxy,
+		nodeNoProxy:           nodeNoProxy,
 	}
 	log.Info("Reconciling OSC resource..")
 	c, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: reconciler, MaxConcurrentReconciles: workerCount})
@@ -183,6 +189,8 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 			r.initialTaints,
 			r.cniVersion,
 			r.containerdVersion,
+			r.nodeHTTPProxy,
+			r.nodeNoProxy,
 		),
 	}, r.namespace, r.Client); err != nil {
 		return fmt.Errorf("failed to reconcile provisioning operating system config: %v", err)
