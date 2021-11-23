@@ -11,6 +11,7 @@ require (
 	github.com/onsi/ginkgo v1.14.2
 	github.com/pmezard/go-difflib v1.0.0
 	go.uber.org/zap v1.16.0
+	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776
 	k8c.io/kubermatic/v2 v2.16.2
 	k8s.io/api v0.20.2
 	k8s.io/apimachinery v0.20.2

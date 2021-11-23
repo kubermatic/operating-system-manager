@@ -2,23 +2,21 @@ apiVersion: operatingsystemmanager.k8c.io/v1alpha1
 kind: OperatingSystemConfig
 metadata:
   creationTimestamp: null
-  name: ubuntu-20.04-aws-osc-provisioning
+  name: flatcar-aws-docker-osc-provisioning
   namespace: cloud-init-settings
   resourceVersion: "1"
 spec:
   cloudProvider:
     name: aws
     spec:
-      subnetID: test-subnet
-      vpc: e-123f
-      zone: eu-central-1b
+      cloud-config-key: cloud-config-value
   files:
   - content:
       inline:
         data: |
           [Journal]
           SystemMaxUse=5G
-        encoding: b64
+        encoding: none
     path: /etc/systemd/journald.conf.d/max_disk_use.conf
   - content:
       inline:
@@ -36,7 +34,7 @@ spec:
           else
             modprobe nf_conntrack
           fi
-        encoding: b64
+        encoding: none
     path: /opt/load-kernel-modules.sh
     permissions: 493
   - content:
@@ -49,70 +47,58 @@ spec:
           net.ipv4.ip_forward = 1
           vm.overcommit_memory = 1
           fs.inotify.max_user_watches = 1048576
-        encoding: b64
+        encoding: none
     path: /etc/sysctl.d/k8s.conf
   - content:
       inline:
         data: |
-          # Added by kubermatic machine-controller
-          # Enable cgroups memory and swap accounting
-          GRUB_CMDLINE_LINUX="cgroup_enable=memory swapaccount=1"
-        encoding: b64
-    path: /etc/default/grub.d/60-swap-accounting.cfg
+          #!/usr/bin/env bash
+          echodate() {
+            echo "[$(date -Is)]" "$@"
+          }
+
+          # get the default interface IP address
+          DEFAULT_IFC_IP=$(ip -o  route get 1 | grep -oP "src \K\S+")
+
+          if [ -z "${DEFAULT_IFC_IP}" ]
+          then
+            echodate "Failed to get IP address for the default route interface"
+            exit 1
+          fi
+
+          # get the full hostname
+          FULL_HOSTNAME=$(hostname -f)
+
+          # write the nodeip_env file
+          # we need the line below because flatcar has the same string "coreos" in that file
+          if grep -q coreos /etc/os-release
+          then
+            echo -e "KUBELET_NODE_IP=${DEFAULT_IFC_IP}\nKUBELET_HOSTNAME=${FULL_HOSTNAME}" > /etc/kubernetes/nodeip.conf
+          elif [ ! -d /etc/systemd/system/kubelet.service.d ]
+          then
+            echodate "Can't find kubelet service extras directory"
+            exit 1
+          else
+            echo -e "[Service]\nEnvironment=\"KUBELET_NODE_IP=${DEFAULT_IFC_IP}\"\nEnvironment=\"KUBELET_HOSTNAME=${FULL_HOSTNAME}\"" > /etc/systemd/system/kubelet.service.d/nodeip.conf
+          fi
+        encoding: none
+    path: /opt/bin/setup_net_env.sh
+    permissions: 493
   - content:
       inline:
         data: |
-          #!/bin/bash
+          #!/usr/bin/env bash
           set -xeuo pipefail
-          if systemctl is-active ufw; then systemctl stop ufw; fi
-          systemctl mask ufw
-          systemctl restart systemd-modules-load.service
-          sysctl --system
-          sed -i.orig '/.*swap.*/d' /etc/fstab
-          swapoff -a
-
-          apt-get update
-
-          DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y \
-            curl \
-            ca-certificates \
-            ceph-common \
-            cifs-utils \
-            conntrack \
-            e2fsprogs \
-            ebtables \
-            ethtool \
-            glusterfs-client \
-            iptables \
-            jq \
-            kmod \
-            openssh-client \
-            nfs-common \
-            socat \
-            util-linux \
-            ipvsadm
-          apt-get update
-          apt-get install -y apt-transport-https ca-certificates curl software-properties-common lsb-release
-          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
-          add-apt-repository "deb https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-
-          mkdir -p /etc/systemd/system/containerd.service.d /etc/systemd/system/docker.service.d
-
-          cat <<EOF | tee /etc/systemd/system/containerd.service.d/environment.conf /etc/systemd/system/docker.service.d/environment.conf
-          [Service]
-          Restart=always
-          EnvironmentFile=-/etc/environment
-          EOF
-
-          apt-get install -y \
-              containerd.io=1.4.3* \
-              docker-ce=5:19.03.13* \
-              docker-ce-cli=5:19.03.13*
-          apt-mark hold docker-ce docker-ce-cli containerd.io
-
-          systemctl daemon-reload
-          systemctl enable --now docker
+        encoding: none
+    path: /opt/bin/configure_static_network.sh
+    permissions: 493
+  - content:
+      inline:
+        data: |
+          #!/usr/bin/env bash
+          set -xeuo pipefail
           opt_bin=/opt/bin
+          usr_local_bin=/usr/local/bin
           cni_bin_dir=/opt/cni/bin
           mkdir -p /etc/cni/net.d /etc/kubernetes/dynamic-config-dir /etc/kubernetes/manifests "$opt_bin" "$cni_bin_dir"
           arch=${HOST_ARCH-}
@@ -165,25 +151,87 @@ spec:
               chmod +x /opt/bin/health-monitor.sh
           fi
 
-          # set kubelet nodeip environment variable
-          /opt/bin/setup_net_env.sh
-
-          systemctl enable --now kubelet
-          systemctl enable --now --no-block kubelet-healthcheck.service
-        encoding: b64
-    path: /opt/bin/setup
+          systemctl disable download-script.service
+        encoding: none
+    path: /opt/bin/download.sh
     permissions: 493
   - content:
       inline:
         data: |
           #!/bin/bash
           set -xeuo pipefail
-          while ! "$@"; do
-            sleep 1
-          done
-        encoding: b64
-    path: /opt/bin/supervise.sh
+          cat << EOF | tee /etc/polkit-1/rules.d/60-noreboot_norestart.rules
+          polkit.addRule(function(action, subject) {
+            if (action.id == "org.freedesktop.login1.reboot" ||
+                action.id == "org.freedesktop.login1.reboot-multiple-sessions") {
+                if (subject.user == "core") {
+                    return polkit.Result.YES;
+                } else {
+                    return polkit.Result.AUTH_ADMIN;
+                }
+            }
+          });
+          EOF
+          systemctl disable containerd
+
+          systemctl enable --now kubelet
+          systemctl enable --now --no-block kubelet-healthcheck.service
+          systemctl disable setup.service
+        encoding: none
+    path: /opt/bin/setup
     permissions: 493
+  - content:
+      inline:
+        data: |+
+          apiVersion: v1
+          clusters:
+          - cluster:
+              certificate-authority-data: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUVXakNDQTBLZ0F3SUJBZ0lKQUxmUmxXc0k4WVFITUEwR0NTcUdTSWIzRFFFQkJRVUFNSHN4Q3pBSkJnTlYKQkFZVEFsVlRNUXN3Q1FZRFZRUUlFd0pEUVRFV01CUUdBMVVFQnhNTlUyRnVJRVp5WVc1amFYTmpiekVVTUJJRwpBMVVFQ2hNTFFuSmhaR1pwZEhwcGJtTXhFakFRQmdOVkJBTVRDV3h2WTJGc2FHOXpkREVkTUJzR0NTcUdTSWIzCkRRRUpBUllPWW5KaFpFQmtZVzVuWVM1amIyMHdIaGNOTVRRd056RTFNakEwTmpBMVdoY05NVGN3TlRBME1qQTAKTmpBMVdqQjdNUXN3Q1FZRFZRUUdFd0pWVXpFTE1Ba0dBMVVFQ0JNQ1EwRXhGakFVQmdOVkJBY1REVk5oYmlCRwpjbUZ1WTJselkyOHhGREFTQmdOVkJBb1RDMEp5WVdSbWFYUjZhVzVqTVJJd0VBWURWUVFERXdsc2IyTmhiR2h2CmMzUXhIVEFiQmdrcWhraUc5dzBCQ1FFV0RtSnlZV1JBWkdGdVoyRXVZMjl0TUlJQklqQU5CZ2txaGtpRzl3MEIKQVFFRkFBT0NBUThBTUlJQkNnS0NBUUVBdDVmQWpwNGZUY2VrV1VUZnpzcDBreWloMU9ZYnNHTDBLWDFlUmJTUwpSOE9kMCs5UTYySHlueStHRndNVGI0QS9LVThtc3NvSHZjY2VTQUFid2ZieEZLLytzNTFUb2JxVW5PUlpyT29UClpqa1V5Z2J5WERTSzk5WUJiY1IxUGlwOHZ3TVRtNFhLdUx0Q2lnZUJCZGpqQVFkZ1VPMjhMRU5HbHNNbm1lWWsKSmZPRFZHblZtcjVMdGI5QU5BOElLeVRmc25ISjRpT0NTL1BsUGJVajJxN1lub1ZMcG9zVUJNbGdVYi9DeWtYMwptT29MYjR5SkpReUEvaVNUNlp4aUlFajM2RDR5V1o1bGc3WUpsK1VpaUJRSEdDblBkR3lpcHFWMDZleDBoZVlXCmNhaVc4TFdaU1VROTNqUStXVkNIOGhUN0RRTzFkbXN2VW1YbHEvSmVBbHdRL1FJREFRQUJvNEhnTUlIZE1CMEcKQTFVZERnUVdCQlJjQVJPdGhTNFA0VTd2VGZqQnlDNTY5UjdFNkRDQnJRWURWUjBqQklHbE1JR2lnQlJjQVJPdApoUzRQNFU3dlRmakJ5QzU2OVI3RTZLRi9wSDB3ZXpFTE1Ba0dBMVVFQmhNQ1ZWTXhDekFKQmdOVkJBZ1RBa05CCk1SWXdGQVlEVlFRSEV3MVRZVzRnUm5KaGJtTnBjMk52TVJRd0VnWURWUVFLRXd0Q2NtRmtabWwwZW1sdVl6RVMKTUJBR0ExVUVBeE1KYkc5allXeG9iM04wTVIwd0d3WUpLb1pJaHZjTkFRa0JGZzVpY21Ga1FHUmhibWRoTG1OdgpiWUlKQUxmUmxXc0k4WVFITUF3R0ExVWRFd1FGTUFNQkFmOHdEUVlKS29aSWh2Y05BUUVGQlFBRGdnRUJBRzZoClU5ZjlzTkgwLzZvQmJHR3kyRVZVMFVnSVRVUUlyRldvOXJGa3JXNWsvWGtEalFtKzNsempUMGlHUjRJeEUvQW8KZVU2c1FodWE3d3JXZUZFbjQ3R0w5OGxuQ3NKZEQ3b1pOaEZtUTk1VGIvTG5EVWpzNVlqOWJyUDBOV3pYZllVNApVSzJabklOSlJjSnBCOGlSQ2FDeEU4RGRjVUYwWHFJRXE2cEEyNzJzbm9MbWlYTE12Tmwza1lFZG0ramU2dm9ECjU4U05WRVVzenR6UXlYbUpFaENwd1ZJMEE2UUNqelhqK3F2cG13M1paSGk4SndYZWk4WlpCTFRTRkJraThaN24Kc0g5QkJIMzgvU3pVbUFONFFIU1B5MWdqcW0wME9BRThOYVlEa2gvYnpFNGQ3bUxHR01XcC9XRTNLUFN1ODJIRgprUGU2WG9TYmlMbS9reGszMlQwPQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0t
+              server: https://server:443
+            name: ""
+          contexts: null
+          current-context: ""
+          kind: Config
+          preferences: {}
+          users:
+          - name: ""
+            user:
+              token: my-token
+
+        encoding: none
+    path: /etc/kubernetes/bootstrap-kubelet.conf
+    permissions: 384
+  - content:
+      inline:
+        data: |
+          -----BEGIN CERTIFICATE-----
+          MIIEWjCCA0KgAwIBAgIJALfRlWsI8YQHMA0GCSqGSIb3DQEBBQUAMHsxCzAJBgNV
+          BAYTAlVTMQswCQYDVQQIEwJDQTEWMBQGA1UEBxMNU2FuIEZyYW5jaXNjbzEUMBIG
+          A1UEChMLQnJhZGZpdHppbmMxEjAQBgNVBAMTCWxvY2FsaG9zdDEdMBsGCSqGSIb3
+          DQEJARYOYnJhZEBkYW5nYS5jb20wHhcNMTQwNzE1MjA0NjA1WhcNMTcwNTA0MjA0
+          NjA1WjB7MQswCQYDVQQGEwJVUzELMAkGA1UECBMCQ0ExFjAUBgNVBAcTDVNhbiBG
+          cmFuY2lzY28xFDASBgNVBAoTC0JyYWRmaXR6aW5jMRIwEAYDVQQDEwlsb2NhbGhv
+          c3QxHTAbBgkqhkiG9w0BCQEWDmJyYWRAZGFuZ2EuY29tMIIBIjANBgkqhkiG9w0B
+          AQEFAAOCAQ8AMIIBCgKCAQEAt5fAjp4fTcekWUTfzsp0kyih1OYbsGL0KX1eRbSS
+          R8Od0+9Q62Hyny+GFwMTb4A/KU8mssoHvcceSAAbwfbxFK/+s51TobqUnORZrOoT
+          ZjkUygbyXDSK99YBbcR1Pip8vwMTm4XKuLtCigeBBdjjAQdgUO28LENGlsMnmeYk
+          JfODVGnVmr5Ltb9ANA8IKyTfsnHJ4iOCS/PlPbUj2q7YnoVLposUBMlgUb/CykX3
+          mOoLb4yJJQyA/iST6ZxiIEj36D4yWZ5lg7YJl+UiiBQHGCnPdGyipqV06ex0heYW
+          caiW8LWZSUQ93jQ+WVCH8hT7DQO1dmsvUmXlq/JeAlwQ/QIDAQABo4HgMIHdMB0G
+          A1UdDgQWBBRcAROthS4P4U7vTfjByC569R7E6DCBrQYDVR0jBIGlMIGigBRcAROt
+          hS4P4U7vTfjByC569R7E6KF/pH0wezELMAkGA1UEBhMCVVMxCzAJBgNVBAgTAkNB
+          MRYwFAYDVQQHEw1TYW4gRnJhbmNpc2NvMRQwEgYDVQQKEwtCcmFkZml0emluYzES
+          MBAGA1UEAxMJbG9jYWxob3N0MR0wGwYJKoZIhvcNAQkBFg5icmFkQGRhbmdhLmNv
+          bYIJALfRlWsI8YQHMAwGA1UdEwQFMAMBAf8wDQYJKoZIhvcNAQEFBQADggEBAG6h
+          U9f9sNH0/6oBbGGy2EVU0UgITUQIrFWo9rFkrW5k/XkDjQm+3lzjT0iGR4IxE/Ao
+          eU6sQhua7wrWeFEn47GL98lnCsJdD7oZNhFmQ95Tb/LnDUjs5Yj9brP0NWzXfYU4
+          UK2ZnINJRcJpB8iRCaCxE8DdcUF0XqIEq6pA272snoLmiXLMvNl3kYEdm+je6voD
+          58SNVEUsztzQyXmJEhCpwVI0A6QCjzXj+qvpmw3ZZHi8JwXei8ZZBLTSFBki8Z7n
+          sH9BBH38/SzUmAN4QHSPy1gjqm00OAE8NaYDkh/bzE4d7mLGGMWp/WE3KPSu82HF
+          kPe6XoSbiLm/kxk32T0=
+          -----END CERTIFICATE-----
+        encoding: none
+    path: /etc/kubernetes/pki/ca.crt
   - content:
       inline:
         data: |
@@ -224,138 +272,19 @@ spec:
 
           [Install]
           WantedBy=multi-user.target
-        encoding: b64
+        encoding: none
     path: /etc/systemd/system/kubelet.service
-  - content:
-      inline:
-        data: |
-          [Service]
-          Environment="KUBELET_EXTRA_ARGS=--resolv-conf=/run/systemd/resolve/resolv.conf"
-        encoding: b64
-    path: /etc/systemd/system/kubelet.service.d/extras.conf
   - content:
       inline:
         data: |+
           [global]
           Zone=""
           VPC=""
-          SubnetID="test-subnet"
+          SubnetID=""
 
-        encoding: b64
+        encoding: none
     path: /etc/kubernetes/cloud-config
-    permissions: 384
-  - content:
-      inline:
-        data: |
-          #!/usr/bin/env bash
-          echodate() {
-            echo "[$(date -Is)]" "$@"
-          }
-
-          # get the default interface IP address
-          DEFAULT_IFC_IP=$(ip -o  route get 1 | grep -oP "src \K\S+")
-
-          if [ -z "${DEFAULT_IFC_IP}" ]
-          then
-            echodate "Failed to get IP address for the default route interface"
-            exit 1
-          fi
-
-           # get the full hostname
-          FULL_HOSTNAME=$(hostname -f)
-
-          # write the nodeip_env file
-          # we need the line below because flatcar has the same string "coreos" in that file
-          if grep -q coreos /etc/os-release
-          then
-            echo "KUBELET_NODE_IP=${DEFAULT_IFC_IP}\nKUBELET_HOSTNAME=${FULL_HOSTNAME}" > /etc/kubernetes/nodeip.conf
-          elif [ ! -d /etc/systemd/system/kubelet.service.d ]
-          then
-            echodate "Can't find kubelet service extras directory"
-            exit 1
-          else
-            echo -e "[Service]\nEnvironment=\"KUBELET_NODE_IP=${DEFAULT_IFC_IP}\"\nEnvironment=\"KUBELET_HOSTNAME=${FULL_HOSTNAME}\"" > /etc/systemd/system/kubelet.service.d/nodeip.conf
-          fi
-        encoding: b64
-    path: /opt/bin/setup_net_env.sh
-    permissions: 493
-  - content:
-      inline:
-        data: |+
-          apiVersion: v1
-          clusters:
-          - cluster:
-              certificate-authority-data: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUVXakNDQTBLZ0F3SUJBZ0lKQUxmUmxXc0k4WVFITUEwR0NTcUdTSWIzRFFFQkJRVUFNSHN4Q3pBSkJnTlYKQkFZVEFsVlRNUXN3Q1FZRFZRUUlFd0pEUVRFV01CUUdBMVVFQnhNTlUyRnVJRVp5WVc1amFYTmpiekVVTUJJRwpBMVVFQ2hNTFFuSmhaR1pwZEhwcGJtTXhFakFRQmdOVkJBTVRDV3h2WTJGc2FHOXpkREVkTUJzR0NTcUdTSWIzCkRRRUpBUllPWW5KaFpFQmtZVzVuWVM1amIyMHdIaGNOTVRRd056RTFNakEwTmpBMVdoY05NVGN3TlRBME1qQTAKTmpBMVdqQjdNUXN3Q1FZRFZRUUdFd0pWVXpFTE1Ba0dBMVVFQ0JNQ1EwRXhGakFVQmdOVkJBY1REVk5oYmlCRwpjbUZ1WTJselkyOHhGREFTQmdOVkJBb1RDMEp5WVdSbWFYUjZhVzVqTVJJd0VBWURWUVFERXdsc2IyTmhiR2h2CmMzUXhIVEFiQmdrcWhraUc5dzBCQ1FFV0RtSnlZV1JBWkdGdVoyRXVZMjl0TUlJQklqQU5CZ2txaGtpRzl3MEIKQVFFRkFBT0NBUThBTUlJQkNnS0NBUUVBdDVmQWpwNGZUY2VrV1VUZnpzcDBreWloMU9ZYnNHTDBLWDFlUmJTUwpSOE9kMCs5UTYySHlueStHRndNVGI0QS9LVThtc3NvSHZjY2VTQUFid2ZieEZLLytzNTFUb2JxVW5PUlpyT29UClpqa1V5Z2J5WERTSzk5WUJiY1IxUGlwOHZ3TVRtNFhLdUx0Q2lnZUJCZGpqQVFkZ1VPMjhMRU5HbHNNbm1lWWsKSmZPRFZHblZtcjVMdGI5QU5BOElLeVRmc25ISjRpT0NTL1BsUGJVajJxN1lub1ZMcG9zVUJNbGdVYi9DeWtYMwptT29MYjR5SkpReUEvaVNUNlp4aUlFajM2RDR5V1o1bGc3WUpsK1VpaUJRSEdDblBkR3lpcHFWMDZleDBoZVlXCmNhaVc4TFdaU1VROTNqUStXVkNIOGhUN0RRTzFkbXN2VW1YbHEvSmVBbHdRL1FJREFRQUJvNEhnTUlIZE1CMEcKQTFVZERnUVdCQlJjQVJPdGhTNFA0VTd2VGZqQnlDNTY5UjdFNkRDQnJRWURWUjBqQklHbE1JR2lnQlJjQVJPdApoUzRQNFU3dlRmakJ5QzU2OVI3RTZLRi9wSDB3ZXpFTE1Ba0dBMVVFQmhNQ1ZWTXhDekFKQmdOVkJBZ1RBa05CCk1SWXdGQVlEVlFRSEV3MVRZVzRnUm5KaGJtTnBjMk52TVJRd0VnWURWUVFLRXd0Q2NtRmtabWwwZW1sdVl6RVMKTUJBR0ExVUVBeE1KYkc5allXeG9iM04wTVIwd0d3WUpLb1pJaHZjTkFRa0JGZzVpY21Ga1FHUmhibWRoTG1OdgpiWUlKQUxmUmxXc0k4WVFITUF3R0ExVWRFd1FGTUFNQkFmOHdEUVlKS29aSWh2Y05BUUVGQlFBRGdnRUJBRzZoClU5ZjlzTkgwLzZvQmJHR3kyRVZVMFVnSVRVUUlyRldvOXJGa3JXNWsvWGtEalFtKzNsempUMGlHUjRJeEUvQW8KZVU2c1FodWE3d3JXZUZFbjQ3R0w5OGxuQ3NKZEQ3b1pOaEZtUTk1VGIvTG5EVWpzNVlqOWJyUDBOV3pYZllVNApVSzJabklOSlJjSnBCOGlSQ2FDeEU4RGRjVUYwWHFJRXE2cEEyNzJzbm9MbWlYTE12Tmwza1lFZG0ramU2dm9ECjU4U05WRVVzenR6UXlYbUpFaENwd1ZJMEE2UUNqelhqK3F2cG13M1paSGk4SndYZWk4WlpCTFRTRkJraThaN24Kc0g5QkJIMzgvU3pVbUFONFFIU1B5MWdqcW0wME9BRThOYVlEa2gvYnpFNGQ3bUxHR01XcC9XRTNLUFN1ODJIRgprUGU2WG9TYmlMbS9reGszMlQwPQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0t
-              server: https://server:443
-            name: ""
-          contexts: null
-          current-context: ""
-          kind: Config
-          preferences: {}
-          users:
-          - name: ""
-            user:
-              token: my-token
-
-        encoding: b64
-    path: /etc/kubernetes/bootstrap-kubelet.conf
-    permissions: 384
-  - content:
-      inline:
-        data: |
-          -----BEGIN CERTIFICATE-----
-          MIIEWjCCA0KgAwIBAgIJALfRlWsI8YQHMA0GCSqGSIb3DQEBBQUAMHsxCzAJBgNV
-          BAYTAlVTMQswCQYDVQQIEwJDQTEWMBQGA1UEBxMNU2FuIEZyYW5jaXNjbzEUMBIG
-          A1UEChMLQnJhZGZpdHppbmMxEjAQBgNVBAMTCWxvY2FsaG9zdDEdMBsGCSqGSIb3
-          DQEJARYOYnJhZEBkYW5nYS5jb20wHhcNMTQwNzE1MjA0NjA1WhcNMTcwNTA0MjA0
-          NjA1WjB7MQswCQYDVQQGEwJVUzELMAkGA1UECBMCQ0ExFjAUBgNVBAcTDVNhbiBG
-          cmFuY2lzY28xFDASBgNVBAoTC0JyYWRmaXR6aW5jMRIwEAYDVQQDEwlsb2NhbGhv
-          c3QxHTAbBgkqhkiG9w0BCQEWDmJyYWRAZGFuZ2EuY29tMIIBIjANBgkqhkiG9w0B
-          AQEFAAOCAQ8AMIIBCgKCAQEAt5fAjp4fTcekWUTfzsp0kyih1OYbsGL0KX1eRbSS
-          R8Od0+9Q62Hyny+GFwMTb4A/KU8mssoHvcceSAAbwfbxFK/+s51TobqUnORZrOoT
-          ZjkUygbyXDSK99YBbcR1Pip8vwMTm4XKuLtCigeBBdjjAQdgUO28LENGlsMnmeYk
-          JfODVGnVmr5Ltb9ANA8IKyTfsnHJ4iOCS/PlPbUj2q7YnoVLposUBMlgUb/CykX3
-          mOoLb4yJJQyA/iST6ZxiIEj36D4yWZ5lg7YJl+UiiBQHGCnPdGyipqV06ex0heYW
-          caiW8LWZSUQ93jQ+WVCH8hT7DQO1dmsvUmXlq/JeAlwQ/QIDAQABo4HgMIHdMB0G
-          A1UdDgQWBBRcAROthS4P4U7vTfjByC569R7E6DCBrQYDVR0jBIGlMIGigBRcAROt
-          hS4P4U7vTfjByC569R7E6KF/pH0wezELMAkGA1UEBhMCVVMxCzAJBgNVBAgTAkNB
-          MRYwFAYDVQQHEw1TYW4gRnJhbmNpc2NvMRQwEgYDVQQKEwtCcmFkZml0emluYzES
-          MBAGA1UEAxMJbG9jYWxob3N0MR0wGwYJKoZIhvcNAQkBFg5icmFkQGRhbmdhLmNv
-          bYIJALfRlWsI8YQHMAwGA1UdEwQFMAMBAf8wDQYJKoZIhvcNAQEFBQADggEBAG6h
-          U9f9sNH0/6oBbGGy2EVU0UgITUQIrFWo9rFkrW5k/XkDjQm+3lzjT0iGR4IxE/Ao
-          eU6sQhua7wrWeFEn47GL98lnCsJdD7oZNhFmQ95Tb/LnDUjs5Yj9brP0NWzXfYU4
-          UK2ZnINJRcJpB8iRCaCxE8DdcUF0XqIEq6pA272snoLmiXLMvNl3kYEdm+je6voD
-          58SNVEUsztzQyXmJEhCpwVI0A6QCjzXj+qvpmw3ZZHi8JwXei8ZZBLTSFBki8Z7n
-          sH9BBH38/SzUmAN4QHSPy1gjqm00OAE8NaYDkh/bzE4d7mLGGMWp/WE3KPSu82HF
-          kPe6XoSbiLm/kxk32T0=
-          -----END CERTIFICATE-----
-        encoding: b64
-    path: /etc/kubernetes/pki/ca.crt
-  - content:
-      inline:
-        data: |
-          [Install]
-          WantedBy=multi-user.target
-
-          [Unit]
-          Requires=network-online.target
-          After=network-online.target
-
-          [Service]
-          Type=oneshot
-          RemainAfterExit=true
-          EnvironmentFile=-/etc/environment
-          ExecStart=/opt/bin/supervise.sh /opt/bin/setup
-        encoding: b64
-    path: /etc/systemd/system/setup.service
-    permissions: 420
-  - content:
-      inline:
-        data: |
-          export PATH="/opt/bin:$PATH"
-        encoding: b64
-    path: /etc/profile.d/opt-bin-path.sh
-    permissions: 420
+    permissions: 256
   - content:
       inline:
         data: |
@@ -372,7 +301,7 @@ spec:
             mode: Webhook
           cgroupDriver: systemd
           clusterDNS:
-          - "10.0.0.0"
+          - 10.0.0.0
           clusterDomain: cluster.local
           featureGates:
             RotateKubeletServerCertificate: true
@@ -389,8 +318,18 @@ spec:
             cpu: 200m
             ephemeral-storage: 1Gi
             memory: 200Mi
+          tlsCipherSuites:
+          - TLS_AES_128_GCM_SHA256
+          - TLS_AES_256_GCM_SHA384
+          - TLS_CHACHA20_POLY1305_SHA256
+          - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+          - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+          - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
+          - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+          - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+          - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
           volumePluginDir: /var/lib/kubelet/volumeplugins
-        encoding: b64
+        encoding: none
     path: /etc/kubernetes/kubelet.conf
   - content:
       inline:
@@ -404,16 +343,119 @@ spec:
 
           [Install]
           WantedBy=multi-user.target
-        encoding: b64
+        encoding: none
     path: /etc/systemd/system/kubelet-healthcheck.service
     permissions: 420
   - content:
       inline:
+        data: |
+          1
+        encoding: none
+    path: /proc/sys/kernel/panic_on_oops
+    permissions: 420
+  - content:
+      inline:
+        data: |
+          10
+        encoding: none
+    path: /proc/sys/kernel/panic
+    permissions: 420
+  - content:
+      inline:
+        data: |
+          1
+        encoding: none
+    path: /proc/sys/vm/overcommit_memory
+    permissions: 420
+  - content:
+      inline:
+        data: |
+          # Use most defaults for sshd configuration.
+          Subsystem sftp internal-sftp
+          ClientAliveInterval 180
+          UseDNS no
+          UsePAM yes
+          PrintLastLog no # handled by PAM
+          PrintMotd no # handled by PAM
+          PasswordAuthentication no
+          ChallengeResponseAuthentication no
+        encoding: none
+    path: /etc/ssh/sshd_config
+    permissions: 384
+  - content:
+      inline:
         data: '{"exec-opts":["native.cgroupdriver=systemd"],"storage-driver":"overlay2","log-driver":"json-file","log-opts":{"max-file":"5","max-size":"10m"}}'
-        encoding: b64
+        encoding: none
     path: /etc/docker/daemon.json
     permissions: 420
-  osName: ubuntu
-  osVersion: "20.04"
+  - content:
+      inline:
+        data: |-
+          [Service]
+          EnvironmentFile=-/etc/environment
+        encoding: none
+    path: /etc/systemd/system/docker.service.d/10-custom.conf
+    permissions: 420
+  osName: flatcar
+  osVersion: 2983.2.0
+  units:
+  - content: |
+      [Install]
+      WantedBy=multi-user.target
+
+      [Unit]
+      Requires=download-script.service
+      After=download-script.service
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=true
+      EnvironmentFile=-/etc/environment
+      ExecStart=/opt/bin/setup
+    enable: true
+    name: setup.service
+  - content: |
+      [Install]
+      WantedBy=multi-user.target
+
+      [Unit]
+      Requires=network-online.target
+      After=network-online.target
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=true
+      EnvironmentFile=-/etc/environment
+      ExecStart=/opt/bin/download.sh
+    enable: true
+    name: download-script.service
+  - content: |
+      [Unit]
+      Description=Setup Kubelet Node IP Env
+      Requires=network-online.target
+      After=network-online.target
+
+      [Service]
+      ExecStart=/opt/bin/setup_net_env.sh
+      RemainAfterExit=yes
+      Type=oneshot
+      [Install]
+      WantedBy=multi-user.target
+    enable: true
+    name: nodeip.service
+  - content: |
+      [Unit]
+      Description=Setup Static Networking
+      Requires=network-online.target
+      After=network-online.target
+
+      [Service]
+      ExecStart=/opt/bin/configure_static_network.sh
+      RemainAfterExit=yes
+      Type=oneshot
+      [Install]
+      WantedBy=multi-user.target
+    enable: true
+    name: static-network-script.service
   userSSHKeys:
   - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c
