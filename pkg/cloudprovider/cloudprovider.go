@@ -49,13 +49,9 @@ func GetCloudConfig(pconfig providerconfigtypes.Config, kubeletVersion string) (
 		return vsphere.GetCloudConfig(pconfig)
 
 	// cloud-config is not required for these cloud providers
-	case osmv1alpha1.CloudProviderAlibaba:
-	case osmv1alpha1.CloudProviderAnexia:
-	case osmv1alpha1.CloudProviderDigitalocean:
-	case osmv1alpha1.CloudProviderHetzner:
-	case osmv1alpha1.CloudProviderLinode:
-	case osmv1alpha1.CloudProviderPacket:
-	case osmv1alpha1.CloudProviderScaleway:
+	case osmv1alpha1.CloudProviderAlibaba, osmv1alpha1.CloudProviderAnexia, osmv1alpha1.CloudProviderDigitalocean,
+		osmv1alpha1.CloudProviderHetzner, osmv1alpha1.CloudProviderLinode, osmv1alpha1.CloudProviderPacket,
+		osmv1alpha1.CloudProviderScaleway:
 		return "", nil
 	}
 
