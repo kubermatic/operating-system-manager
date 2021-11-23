@@ -432,8 +432,8 @@ spec:
     permissions: 420
   modules:
     bootcmd:
-      - echo hello
-      - echo world
+    - echo hello
+    - echo world
     rh_subscription:
       password: password
       username: username

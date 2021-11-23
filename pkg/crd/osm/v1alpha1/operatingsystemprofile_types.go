@@ -57,7 +57,7 @@ type OperatingSystemProfileSpec struct {
 	// Files is a list of files that should exist in the instance
 	Files []File `json:"files,omitempty"`
 	// CloudInitModules field contains the optional cloud-init modules which are supported by OSM
-	CloudInitModules CloudInitModule `json:"modules"`
+	CloudInitModules *CloudInitModule `json:"modules,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

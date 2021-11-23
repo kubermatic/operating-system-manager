@@ -60,7 +60,7 @@ func TestDefaultCloudConfigGenerator_Generate(t *testing.T) {
 						"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3",
 						"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4",
 					},
-					CloudInitModules: osmv1alpha1.CloudInitModule{
+					CloudInitModules: &osmv1alpha1.CloudInitModule{
 						BootCMD:        []string{"echo hello-world", "echo hello-osm"},
 						RHSubscription: map[string]string{"username": "test_username", "password": "test_password"},
 					},

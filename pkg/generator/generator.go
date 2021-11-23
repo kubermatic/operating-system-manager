@@ -106,7 +106,7 @@ func (d *DefaultCloudConfigGenerator) Generate(osc *osmv1alpha1.OperatingSystemC
 		Files            []*fileSpec
 		Units            []*unitSpec
 		UserSSHKeys      []string
-		CloudInitModules osmv1alpha1.CloudInitModule
+		CloudInitModules *osmv1alpha1.CloudInitModule
 	}{
 		Files:            files,
 		Units:            units,
