@@ -3,8 +3,8 @@ kind: OperatingSystemConfig
 metadata:
   creationTimestamp: null
   labels:
-    k8c.io/machine-deployment: cloud-init-settings-flatcar-aws-containerd
-  name: flatcar-aws-containerd-osc-provisioning
+    k8c.io/machine-deployment: cloud-init-settings-flatcar-2605.22.1-aws
+  name: flatcar-2605.22.1-aws-osc-provisioning
   namespace: cloud-init-settings
   resourceVersion: "1"
 spec:
@@ -280,12 +280,11 @@ spec:
     path: /etc/systemd/system/kubelet.service
   - content:
       inline:
-        data: |+
+        data: |
           [global]
-          Zone=""
-          VPC=""
-          SubnetID="test-subnet"
-
+          Zone=eu-central-1b
+          VPC=e-123f
+          SubnetID=test-subnet
         encoding: none
     path: /etc/kubernetes/cloud-config
     permissions: 256

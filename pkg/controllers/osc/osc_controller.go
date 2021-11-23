@@ -192,14 +192,9 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 			r.nodeHTTPProxy,
 			r.nodeNoProxy,
 		),
-	}, r.namespace, r.Client, func(create reconciling.ObjectCreator) reconciling.ObjectCreator {
-		return func(existing client.Object) (client.Object, error) {
-			existing.SetLabels(map[string]string{
-				resources.MachineDeploymentSelector: fmt.Sprintf("%s-%s", md.Namespace, md.Name),
-			})
-			return existing, nil
-		}
-	}); err != nil {
+	}, r.namespace, r.Client, reconciling.LabelModifierFactory(map[string]string{
+		resources.MachineDeploymentSelector: fmt.Sprintf("%s-%s", md.Namespace, md.Name),
+	})); err != nil {
 		return fmt.Errorf("failed to reconcile provisioning operating system config: %v", err)
 	}
 
