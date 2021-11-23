@@ -192,7 +192,14 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 			r.nodeHTTPProxy,
 			r.nodeNoProxy,
 		),
-	}, r.namespace, r.Client); err != nil {
+	}, r.namespace, r.Client, func(create reconciling.ObjectCreator) reconciling.ObjectCreator {
+		return func(existing client.Object) (client.Object, error) {
+			existing.SetLabels(map[string]string{
+				resources.MachineDeploymentSelector: fmt.Sprintf("%s-%s", md.Namespace, md.Name),
+			})
+			return existing, nil
+		}
+	}); err != nil {
 		return fmt.Errorf("failed to reconcile provisioning operating system config: %v", err)
 	}
 
@@ -201,7 +208,9 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 
 func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
 	oscList := &osmv1alpha1.OperatingSystemConfigList{}
-	if err := r.List(ctx, oscList, &client.ListOptions{Namespace: r.namespace}); err != nil {
+	if err := r.List(ctx, oscList, &client.ListOptions{Namespace: r.namespace}, client.MatchingLabels{
+		resources.MachineDeploymentSelector: fmt.Sprintf("%s-%s", md.Namespace, md.Name),
+	}); err != nil {
 		return fmt.Errorf("failed to list OperatingSystemConfigs: %v", err)
 	}
 

@@ -2,11 +2,14 @@ apiVersion: operatingsystemmanager.k8c.io/v1alpha1
 kind: OperatingSystemConfig
 metadata:
   creationTimestamp: null
+  labels:
+    k8c.io/machine-deployment: cloud-init-settings-ubuntu-20.04-aws
   name: ubuntu-20.04-aws-osc-provisioning
   namespace: cloud-init-settings
   resourceVersion: "1"
 spec:
   cloudProvider:
+<<<<<<< HEAD
     name: aws
     spec:
       subnetID: test-subnet
@@ -417,3 +420,9 @@ spec:
   osVersion: "20.04"
   userSSHKeys:
   - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c
+=======
+    name: ""
+    spec: null
+  osName: ""
+  osVersion: ""
+>>>>>>> Only md related OSC fetching

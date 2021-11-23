@@ -2,11 +2,18 @@ apiVersion: operatingsystemmanager.k8c.io/v1alpha1
 kind: OperatingSystemConfig
 metadata:
   creationTimestamp: null
+<<<<<<< HEAD:pkg/controllers/osc/testdata/osc-flatcar-aws-containerd.yaml
   name: flatcar-aws-containerd-osc-provisioning
+=======
+  labels:
+    k8c.io/machine-deployment: cloud-init-settings-flatcar-2605.22.1-aws
+  name: flatcar-2605.22.1-aws-osc-provisioning
+>>>>>>> Only md related OSC fetching:pkg/controllers/osc/testdata/osc-flatcar-2605.22.1-aws-containerd.yaml
   namespace: cloud-init-settings
   resourceVersion: "1"
 spec:
   cloudProvider:
+<<<<<<< HEAD:pkg/controllers/osc/testdata/osc-flatcar-aws-containerd.yaml
     name: aws
     spec:
       subnetID: test-subnet
@@ -487,3 +494,9 @@ spec:
     name: static-network-script.service
   userSSHKeys:
   - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c
+=======
+    name: ""
+    spec: null
+  osName: ""
+  osVersion: ""
+>>>>>>> Only md related OSC fetching:pkg/controllers/osc/testdata/osc-flatcar-2605.22.1-aws-containerd.yaml
