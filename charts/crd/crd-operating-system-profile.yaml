@@ -87,6 +87,21 @@ spec:
                         description: Permissions describes with which permissions the file should get written to the file system. Should be defaulted to octal 0644.
                         type: integer
                         format: int32
+                modules:
+                  description: CloudInitModules field contains the optional cloud-init modules which are supported by OSM
+                  type: object
+                  required:
+                    - bootcmd
+                    - rh_subscription
+                  properties:
+                    bootcmd:
+                      type: array
+                      items:
+                        type: string
+                    rh_subscription:
+                      type: object
+                      additionalProperties:
+                        type: string
                 osName:
                   description: 'OSType represent the operating system name e.g: ubuntu'
                   type: string
