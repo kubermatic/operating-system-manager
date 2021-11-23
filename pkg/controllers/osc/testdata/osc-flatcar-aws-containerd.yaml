@@ -3,7 +3,7 @@ kind: OperatingSystemConfig
 metadata:
   creationTimestamp: null
   name: flatcar-aws-containerd-osc-provisioning
-  namespace: kube-system
+  namespace: cloud-init-settings
   resourceVersion: "1"
 spec:
   cloudProvider:

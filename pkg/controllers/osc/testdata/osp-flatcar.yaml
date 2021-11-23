@@ -16,7 +16,7 @@ apiVersion: operatingsystemmanager.k8c.io/v1alpha1
 kind: OperatingSystemProfile
 metadata:
   name: osp-flatcar
-  namespace: kube-system
+  namespace: cloud-init-settings
 spec:
   osName: flatcar
   ## Flatcar Stable (09/11/2021)
@@ -184,6 +184,18 @@ spec:
       Gateway={{ .NetworkConfig.Gateway }}
       {{range .NetworkConfig.DNS.Servers}}DNS={{.}}
       {{end}}
+      EOF
+      {{- end }}
+
+    configureProxyScript: |-
+      {{- if .HTTPProxy }}
+      cat <<EOF | tee -a /etc/environment
+      HTTP_PROXY={{ .HTTPProxy }}
+      http_proxy={{ .HTTPProxy }}
+      HTTPS_PROXY={{ .HTTPProxy }}
+      https_proxy={{ .HTTPProxy }}
+      NO_PROXY={{ .NoProxy }}
+      no_proxy={{ .NoProxy }}
       EOF
       {{- end }}
 
@@ -378,6 +390,14 @@ spec:
             {{- if or .FlatcarConfig.DisableUpdateEngine .FlatcarConfig.DisableAutoUpdate }}
             systemctl stop update-engine.service
             systemctl mask update-engine.service
+            {{ else if .HTTPProxy }}
+            mkdir -p /etc/systemd/system/update-engine.service.d/
+            cat <<EOF | tee -a /etc/systemd/system/update-engine.service.d/50-proxy.conf
+            [Service]
+            Environment=ALL_PROXY={{ .HTTPProxy }}
+            EOF
+            systemctl daemon-reload
+            systemctl restart update-engine.service
             {{- end }}
 
             {{- if or .FlatcarConfig.DisableLocksmithD .FlatcarConfig.DisableAutoUpdate }}
@@ -394,6 +414,8 @@ spec:
             systemctl stop containerd
             systemctl disable containerd
             {{- end }}
+
+            {{- template "configureProxyScript" }}
 
             systemctl enable --now kubelet
             systemctl enable --now --no-block kubelet-healthcheck.service

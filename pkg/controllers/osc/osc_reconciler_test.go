@@ -101,7 +101,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 			mdName:          "ubuntu-20.04-aws",
 			secretFile:      "secret-ubuntu-20.04-aws-containerd.yaml",
 			config: testConfig{
-				namespace:         "kube-system",
+				namespace:         "cloud-init-settings",
 				clusterAddress:    "http://127.0.0.1/configs",
 				containerRuntime:  "containerd",
 				cniVersion:        "v0.8.7",
@@ -122,7 +122,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 			mdName:          "ubuntu-20.04-aws",
 			secretFile:      "secret-ubuntu-20.04-aws-docker.yaml",
 			config: testConfig{
-				namespace:         "kube-system",
+				namespace:         "cloud-init-settings",
 				clusterAddress:    "http://127.0.0.1/configs",
 				containerRuntime:  "docker",
 				cniVersion:        "v0.8.7",
@@ -143,7 +143,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 			mdName:          "flatcar-aws-containerd",
 			secretFile:      "secret-flatcar-aws-containerd.yaml",
 			config: testConfig{
-				namespace:         "kube-system",
+				namespace:         "cloud-init-settings",
 				clusterAddress:    "http://127.0.0.1/configs",
 				containerRuntime:  "containerd",
 				cniVersion:        "v0.8.7",
@@ -210,7 +210,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 
 			secret := &corev1.Secret{}
 			if err := fakeClient.Get(ctx, types.NamespacedName{
-				Namespace: "kube-system",
+				Namespace: "cloud-init-settings",
 				Name:      testCase.oscName},
 				secret); err != nil {
 				t.Fatalf("failed to get secret: %v", err)
@@ -255,7 +255,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 			mdName:          "ubuntu-20.04-aws",
 			secretFile:      "secret-ubuntu-20.04-aws-containerd.yaml",
 			config: testConfig{
-				namespace:        "kube-system",
+				namespace:        "cloud-init-settings",
 				clusterAddress:   "http://127.0.0.1/configs",
 				containerRuntime: "containerd",
 			},
@@ -340,7 +340,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 
 			// Ensure that OperatingSystemConfig was deleted
 			if err := fakeClient.Get(ctx, types.NamespacedName{
-				Namespace: "kube-system",
+				Namespace: "cloud-init-settings",
 				Name:      fmt.Sprintf("ubuntu-20.04-lts-osc-%s", resources.ProvisioningCloudConfig)},
 				osc); err == nil || !kerrors.IsNotFound(err) {
 				t.Fatalf("failed to delete osc")
@@ -348,7 +348,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 
 			// Ensure that corresponding secret was deleted
 			if err := fakeClient.Get(ctx, types.NamespacedName{
-				Namespace: "kube-system",
+				Namespace: "cloud-init-settings",
 				Name:      fmt.Sprintf("ubuntu-20.04-lts-osc-%s", resources.ProvisioningCloudConfig)},
 				secret); err == nil || !kerrors.IsNotFound(err) {
 				t.Fatalf("failed to delete secret")
