@@ -20,7 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// OperatingSystem represents a supported operating system.
+// OperatingSystem represents supported operating system.
 type OperatingSystem string
 
 const (
@@ -32,10 +32,32 @@ const (
 	OperatingSystemAmazonLinux2 OperatingSystem = "amzn2"
 )
 
+// CloudProvider represents supported cloud provider.
+type CloudProvider string
+
+const (
+	CloudProviderAWS          CloudProvider = "aws"
+	CloudProviderAzure        CloudProvider = "azure"
+	CloudProviderDigitalocean CloudProvider = "digitalocean"
+	CloudProviderGoogle       CloudProvider = "gce"
+	CloudProviderHetzner      CloudProvider = "hetzner"
+	CloudProviderKubeVirt     CloudProvider = "kubevirt"
+	CloudProviderLinode       CloudProvider = "linode"
+	CloudProviderOpenstack    CloudProvider = "openstack"
+	CloudProviderPacket       CloudProvider = "packet"
+	CloudProviderVsphere      CloudProvider = "vsphere"
+	CloudProviderFake         CloudProvider = "fake"
+	CloudProviderAlibaba      CloudProvider = "alibaba"
+	CloudProviderAnexia       CloudProvider = "anexia"
+	CloudProviderScaleway     CloudProvider = "scaleway"
+	CloudProviderBaremetal    CloudProvider = "baremetal"
+	CloudProviderExternal     CloudProvider = "external"
+)
+
 // CloudProviderSpec contains the os/image reference for a specific supported cloud provider
 type CloudProviderSpec struct {
 	// Name represents the name of the supported cloud provider
-	Name string `json:"name"`
+	Name CloudProvider `json:"name"`
 	// Spec represents the os/image reference in the supported cloud provider
 	// +kubebuilder:pruning:PreserveUnknownFields
 	Spec runtime.RawExtension `json:"spec,omitempty"`

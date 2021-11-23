@@ -29,6 +29,7 @@ import (
 	"github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
 
+	"k8c.io/operating-system-manager/pkg/cloudprovider"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/providerconfig/amzn2"
 	"k8c.io/operating-system-manager/pkg/providerconfig/centos"
@@ -64,7 +65,6 @@ func OperatingSystemConfigCreator(
 	containerdVersion string,
 	nodeHTTPProxy string,
 	nodeNoProxy string,
-	cloudConfig string,
 ) reconciling.NamedOperatingSystemConfigCreatorGetter {
 	return func() (string, reconciling.OperatingSystemConfigCreator) {
 		var oscName = fmt.Sprintf(MachineDeploymentSubresourceNamePattern, md.Name, ProvisioningCloudConfig)
@@ -82,6 +82,11 @@ func OperatingSystemConfigCreator(
 			cloudProviderName := string(providerConfig.CloudProvider)
 			if providerConfig.CloudProvider == providerconfigtypes.CloudProviderKubeVirt {
 				cloudProviderName = cloudProviderExternal
+			}
+
+			cloudConfig, err := cloudprovider.GetCloudConfig(providerConfig, md.Spec.Template.Spec.Versions.Kubelet)
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch cloud-config: %v", err)
 			}
 
 			CACert, err := resources.GetCACert(kubeconfig)
@@ -151,7 +156,7 @@ func OperatingSystemConfigCreator(
 				Units:     ospOriginal.Spec.Units,
 				Files:     populatedFiles,
 				CloudProvider: osmv1alpha1.CloudProviderSpec{
-					Name: cloudProviderName,
+					Name: osmv1alpha1.CloudProvider(providerConfig.CloudProvider),
 					Spec: providerConfig.CloudProviderSpec,
 				},
 				UserSSHKeys: providerConfig.SSHPublicKeys,
@@ -192,54 +197,6 @@ type OperatingSystemConfig struct {
 	RhelConfig        rhel.Config
 	SlesConfig        sles.Config
 	UbuntuConfig      ubuntu.Config
-}
-
-func setOperatingSystemConfig(os providerconfigtypes.OperatingSystem, operatingSystemSpec runtime.RawExtension, data *filesData) error {
-	switch os {
-	case providerconfigtypes.OperatingSystemAmazonLinux2:
-		config, err := amzn2.LoadConfig(operatingSystemSpec)
-		if err != nil {
-			return err
-		}
-		data.AmazonLinuxConfig = *config
-		return nil
-	case providerconfigtypes.OperatingSystemCentOS:
-		config, err := centos.LoadConfig(operatingSystemSpec)
-		if err != nil {
-			return err
-		}
-		data.CentOSConfig = *config
-		return nil
-	case providerconfigtypes.OperatingSystemFlatcar:
-		config, err := flatcar.LoadConfig(operatingSystemSpec)
-		if err != nil {
-			return err
-		}
-		data.FlatcarConfig = *config
-		return nil
-	case providerconfigtypes.OperatingSystemRHEL:
-		config, err := rhel.LoadConfig(operatingSystemSpec)
-		if err != nil {
-			return err
-		}
-		data.RhelConfig = *config
-		return nil
-	case providerconfigtypes.OperatingSystemSLES:
-		config, err := sles.LoadConfig(operatingSystemSpec)
-		if err != nil {
-			return err
-		}
-		data.SlesConfig = *config
-		return nil
-	case providerconfigtypes.OperatingSystemUbuntu:
-		config, err := ubuntu.LoadConfig(operatingSystemSpec)
-		if err != nil {
-			return err
-		}
-		data.UbuntuConfig = *config
-		return nil
-	}
-	return errors.New("unknown OperatingSystem")
 }
 
 func populateFilesList(files []osmv1alpha1.File, additionalTemplates []string, d filesData) ([]osmv1alpha1.File, error) {
@@ -320,4 +277,52 @@ func selectAdditionalTemplates(osp *osmv1alpha1.OperatingSystemProfile, containe
 
 func addTemplatingSequence(templateName, template string) string {
 	return fmt.Sprintf("\n{{- define \"%s\" }}\n%s\n{{- end }}", templateName, template)
+}
+
+func setOperatingSystemConfig(os providerconfigtypes.OperatingSystem, operatingSystemSpec runtime.RawExtension, data *filesData) error {
+	switch os {
+	case providerconfigtypes.OperatingSystemAmazonLinux2:
+		config, err := amzn2.LoadConfig(operatingSystemSpec)
+		if err != nil {
+			return err
+		}
+		data.AmazonLinuxConfig = *config
+		return nil
+	case providerconfigtypes.OperatingSystemCentOS:
+		config, err := centos.LoadConfig(operatingSystemSpec)
+		if err != nil {
+			return err
+		}
+		data.CentOSConfig = *config
+		return nil
+	case providerconfigtypes.OperatingSystemFlatcar:
+		config, err := flatcar.LoadConfig(operatingSystemSpec)
+		if err != nil {
+			return err
+		}
+		data.FlatcarConfig = *config
+		return nil
+	case providerconfigtypes.OperatingSystemRHEL:
+		config, err := rhel.LoadConfig(operatingSystemSpec)
+		if err != nil {
+			return err
+		}
+		data.RhelConfig = *config
+		return nil
+	case providerconfigtypes.OperatingSystemSLES:
+		config, err := sles.LoadConfig(operatingSystemSpec)
+		if err != nil {
+			return err
+		}
+		data.SlesConfig = *config
+		return nil
+	case providerconfigtypes.OperatingSystemUbuntu:
+		config, err := ubuntu.LoadConfig(operatingSystemSpec)
+		if err != nil {
+			return err
+		}
+		data.UbuntuConfig = *config
+		return nil
+	}
+	return errors.New("unknown OperatingSystem")
 }

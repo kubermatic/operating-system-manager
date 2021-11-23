@@ -154,6 +154,27 @@ func TestReconciler_Reconcile(t *testing.T) {
 			cloudProvider:     "aws",
 			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"zone": "eu-central-1b", "vpc": "e-123f", "subnetID": "test-subnet"}`)},
 		},
+		{
+			name:            "Flatcar OS in AWS with docker",
+			ospFile:         "osp-flatcar.yaml",
+			ospName:         "osp-flatcar",
+			operatingSystem: providerconfigtypes.OperatingSystemFlatcar,
+			oscFile:         "osc-flatcar-aws-docker.yaml",
+			oscName:         "flatcar-aws-docker-osc-provisioning",
+			mdName:          "flatcar-aws-docker",
+			secretFile:      "secret-flatcar-aws-docker.yaml",
+			config: testConfig{
+				namespace:         "cloud-init-settings",
+				clusterAddress:    "http://127.0.0.1/configs",
+				containerRuntime:  "docker",
+				cniVersion:        "v0.8.7",
+				containerdVersion: "1.4",
+				kubeVersion:       "1.22.1",
+				clusterDNSIPs:     []net.IP{net.IPv4(10, 0, 0, 0)},
+			},
+			cloudProvider:     "aws",
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"cloud-config-key": "cloud-config-value"}`)},
+		},
 	}
 
 	for _, testCase := range testCases {
@@ -164,19 +185,10 @@ func TestReconciler_Reconcile(t *testing.T) {
 			t.Fatalf("failed loading osp %s from testdata: %v", testCase.name, err)
 		}
 
-		cloudConfigSecret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "cloud-config",
-				Namespace: "kube-system",
-			},
-			Data: map[string][]byte{
-				"config": []byte("{\"cloud-config-key\":\"cloud-config-value\"}"),
-			},
-		}
 		fakeClient := fakectrlruntimeclient.
 			NewClientBuilder().
 			WithScheme(scheme.Scheme).
-			WithObjects(osp, cloudConfigSecret).
+			WithObjects(osp).
 			Build()
 
 		reconciler := buildReconciler(fakeClient, testCase.config)
@@ -272,21 +284,11 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 			t.Fatalf("failed loading osp %s from testdata: %v", testCase.name, err)
 		}
 
-		cloudConfigSecret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "cloud-config",
-				Namespace: "kube-system",
-			},
-			Data: map[string][]byte{
-				"config": []byte("{\"cloud-config-key\":\"cloud-config-value\"}"),
-			},
-		}
-
 		md := generateMachineDeployment(t, testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec)
 		fakeClient := fakectrlruntimeclient.
 			NewClientBuilder().
 			WithScheme(scheme.Scheme).
-			WithObjects(osp, md, cloudConfigSecret).
+			WithObjects(osp, md).
 			Build()
 
 		reconciler := buildReconciler(fakeClient, testCase.config)

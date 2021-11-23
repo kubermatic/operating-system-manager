@@ -274,11 +274,12 @@ spec:
     path: /etc/systemd/system/kubelet.service
   - content:
       inline:
-        data: |
+        data: |+
           [global]
-          Zone=eu-central-1b
-          VPC=e-123f
-          SubnetID=test-subnet
+          Zone=""
+          VPC=""
+          SubnetID="test-subnet"
+
     path: /etc/kubernetes/cloud-config
     permissions: 256
   - content:
