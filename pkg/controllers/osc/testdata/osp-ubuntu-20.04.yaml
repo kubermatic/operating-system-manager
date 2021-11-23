@@ -20,6 +20,13 @@ metadata:
 spec:
   osName: "ubuntu"
   osVersion: "20.04"
+  modules:
+    bootcmd:
+      - "echo hello"
+      - "echo world"
+    rh_subscription:
+      username: username
+      password: password
   supportedCloudProviders:
     - name: "aws"
       spec:

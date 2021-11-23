@@ -103,13 +103,15 @@ func (d *DefaultCloudConfigGenerator) Generate(osc *osmv1alpha1.OperatingSystemC
 
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, &struct {
-		Files       []*fileSpec
-		Units       []*unitSpec
-		UserSSHKeys []string
+		Files            []*fileSpec
+		Units            []*unitSpec
+		UserSSHKeys      []string
+		CloudInitModules osmv1alpha1.CloudInitModule
 	}{
-		Files:       files,
-		Units:       units,
-		UserSSHKeys: osc.Spec.UserSSHKeys,
+		Files:            files,
+		Units:            units,
+		UserSSHKeys:      osc.Spec.UserSSHKeys,
+		CloudInitModules: osc.Spec.CloudInitModules,
 	}); err != nil {
 		return nil, err
 	}
@@ -155,6 +157,14 @@ type dropInSpec struct {
 }
 
 var cloudInitTemplate = `#cloud-config
+
+{{- if .CloudInitModules.BootCMD }}
+bootcmd:
+{{- range $_, $cmd := .CloudInitModules.BootCMD }}
+- {{ $cmd }}
+{{- end -}}
+{{- end }}
+
 ssh_pwauth: no
 ssh_authorized_keys:
 {{ range $_, $key := .UserSSHKeys -}}
@@ -175,6 +185,13 @@ runcmd:
 - systemctl restart {{ $cmd }}
 {{ end -}}
 - systemctl daemon-reload
+{{- if .CloudInitModules.RHSubscription }}
+
+rh_subscription:
+{{- range $key, $val := .CloudInitModules.RHSubscription }}
+    {{ $key }}: {{ $val -}}
+{{- end }}
+{{- end }}
 `
 
 var ignitionTemplate = `passwd:

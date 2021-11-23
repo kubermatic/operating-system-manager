@@ -430,6 +430,13 @@ spec:
         encoding: b64
     path: /etc/containerd/config.toml
     permissions: 420
+  modules:
+    bootcmd:
+      - echo hello
+      - echo world
+    rh_subscription:
+      password: password
+      username: username
   osName: ubuntu
   osVersion: "20.04"
   userSSHKeys:

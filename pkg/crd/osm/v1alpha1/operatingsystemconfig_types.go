@@ -54,6 +54,8 @@ type OperatingSystemConfigSpec struct {
 	Files []File `json:"files,omitempty"`
 	// UserSSHKeys is a list of attached user ssh keys
 	UserSSHKeys []string `json:"userSSHKeys,omitempty"`
+	// CloudInitModules contains the supported cloud-init modules
+	CloudInitModules CloudInitModule `json:"modules,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

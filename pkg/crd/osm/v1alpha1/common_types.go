@@ -120,3 +120,9 @@ type FileContentInline struct {
 	// Data is the file's data.
 	Data string `json:"data"`
 }
+
+// CloudInitModule contains the fields of the cloud init module.
+type CloudInitModule struct {
+	BootCMD        []string          `json:"bootcmd"`
+	RHSubscription map[string]string `json:"rh_subscription"`
+}
