@@ -55,6 +55,7 @@ type OperatingSystemConfigSpec struct {
 	// UserSSHKeys is a list of attached user ssh keys
 	UserSSHKeys []string `json:"userSSHKeys,omitempty"`
 	// CloudInitModules contains the supported cloud-init modules
+	// +optional
 	CloudInitModules *CloudInitModule `json:"modules,omitempty"`
 }
 

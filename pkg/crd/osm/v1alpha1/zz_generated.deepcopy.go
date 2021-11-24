@@ -40,6 +40,11 @@ func (in *CloudInitModule) DeepCopyInto(out *CloudInitModule) {
 			(*out)[key] = val
 		}
 	}
+	if in.RunCMD != nil {
+		in, out := &in.RunCMD, &out.RunCMD
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 
