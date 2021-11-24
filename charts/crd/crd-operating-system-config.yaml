@@ -102,17 +102,21 @@ spec:
                 modules:
                   description: CloudInitModules contains the supported cloud-init modules
                   type: object
-                  required:
-                    - bootcmd
-                    - rh_subscription
                   properties:
                     bootcmd:
+                      description: BootCMD module runs arbitrary commands very early in the boot process, only slightly after a boothook would run.
                       type: array
                       items:
                         type: string
                     rh_subscription:
+                      description: RHSubscription registers a Red Hat system either by username and password or activation and org
                       type: object
                       additionalProperties:
+                        type: string
+                    runcmd:
+                      description: RunCMD Run arbitrary commands at a rc.local like level with output to the console.
+                      type: array
+                      items:
                         type: string
                 osName:
                   description: 'OSType represent the operating system name e.g: ubuntu'
