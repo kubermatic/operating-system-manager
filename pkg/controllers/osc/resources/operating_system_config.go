@@ -116,6 +116,7 @@ func OperatingSystemConfigCreator(
 				ExternalCloudProvider: externalCloudProvider,
 				PauseImage:            pauseImage,
 				InitialTaints:         initialTaints,
+				CAPublicKey:           providerConfig.CAPublicKey,
 			}
 
 			if len(nodeHTTPProxy) > 0 {
@@ -181,6 +182,7 @@ type filesData struct {
 	InitialTaints         string
 	HTTPProxy             *string
 	NoProxy               *string
+	CAPublicKey           string
 	OperatingSystemConfig
 }
 

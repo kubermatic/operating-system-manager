@@ -93,6 +93,8 @@ type File struct {
 	// Permissions describes with which permissions the file should get written to the file system.
 	// Should be defaulted to octal 0644.
 	Permissions *int32 `json:"permissions,omitempty"`
+	// Whether to append content to existing file if path exists
+	Append *bool `json:"append,omitempty"`
 	// Content describe the file's content.
 	Content FileContent `json:"content"`
 }
