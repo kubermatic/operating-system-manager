@@ -49,7 +49,6 @@ const (
 
 	MachineDeploymentSubresourceNamePattern = "%s-osc-%s"
 	MachineDeploymentOSPAnnotation          = "k8c.io/operating-system-profile"
-	MachineDeploymentSelector               = "k8c.io/machine-deployment"
 )
 
 func OperatingSystemConfigCreator(

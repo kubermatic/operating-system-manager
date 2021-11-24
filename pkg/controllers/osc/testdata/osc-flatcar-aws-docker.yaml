@@ -2,8 +2,6 @@ apiVersion: operatingsystemmanager.k8c.io/v1alpha1
 kind: OperatingSystemConfig
 metadata:
   creationTimestamp: null
-  labels:
-    k8c.io/machine-deployment: cloud-init-settings-flatcar-aws-docker
   name: flatcar-aws-docker-osc-provisioning
   namespace: cloud-init-settings
   resourceVersion: "1"
