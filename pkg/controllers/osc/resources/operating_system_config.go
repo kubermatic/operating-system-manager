@@ -120,7 +120,11 @@ func OperatingSystemConfigCreator(
 				CloudConfig:           cloudConfig,
 				ContainerRuntime:      containerRuntime,
 				ContainerdVersion:     containerdVersion,
+<<<<<<< HEAD
 				CloudProviderName:     cloudProviderName,
+=======
+				CloudProviderName:     kubeletCloudProviderName(providerConfig.CloudProvider),
+>>>>>>> KubeletProviderName correctly set
 				ExternalCloudProvider: externalCloudProvider,
 				PauseImage:            pauseImage,
 				InitialTaints:         initialTaints,
@@ -184,7 +188,11 @@ type filesData struct {
 	CloudConfig           string
 	ContainerRuntime      string
 	ContainerdVersion     string
+<<<<<<< HEAD
 	CloudProviderName     string
+=======
+	CloudProviderName     osmv1alpha1.CloudProvider
+>>>>>>> KubeletProviderName correctly set
 	NetworkConfig         *providerconfigtypes.NetworkConfig
 	ExtraKubeletFlags     []string
 	ExternalCloudProvider bool
@@ -332,4 +340,13 @@ func setOperatingSystemConfig(os providerconfigtypes.OperatingSystem, operatingS
 		return nil
 	}
 	return errors.New("unknown OperatingSystem")
+}
+
+func kubeletCloudProviderName(cloudProvider providerconfigtypes.CloudProvider) osmv1alpha1.CloudProvider {
+	switch osmv1alpha1.CloudProvider(cloudProvider) {
+	case osmv1alpha1.CloudProviderDigitalocean, osmv1alpha1.CloudProviderHetzner:
+		return ""
+	}
+
+	return ""
 }

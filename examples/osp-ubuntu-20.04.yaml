@@ -23,8 +23,11 @@ spec:
   supportedCloudProviders:
     - name: "aws"
     - name: "azure"
-    - name: "google"
     - name: "digitalocean"
+    - name: "gce"
+    - name: "hetzner"
+    - name: "openstack"
+    - name: "vsphere"    
   supportedContainerRuntimes:
     - name: containerd
       files:
