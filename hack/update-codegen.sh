@@ -26,19 +26,16 @@ echodate "Creating vendor directory"
 go mod vendor
 chmod +x vendor/k8s.io/code-generator/generate-groups.sh
 
-echodate "Removing old clients"
-rm -rf "pkg/crd/client"
-
 # -trimpath would cause the code generation to fail, so undo the
 # Makefile's value and also force mod=readonly here
 export "GOFLAGS=-mod=readonly"
 
 echodate "Generating osm:v1alpha1"
-./vendor/k8s.io/code-generator/generate-groups.sh all \
+./vendor/k8s.io/code-generator/generate-groups.sh deepcopy \
    k8c.io/operating-system-manager/pkg/crd/client \
    k8c.io/operating-system-manager/pkg/crd \
    osm:v1alpha1 \
   --go-header-file ${SCRIPT_ROOT}/header.txt
 
 echodate "Generating reconciling functions"
-go generate pkg/resources/reconciling/ensure.go
+go generate ./pkg/...
