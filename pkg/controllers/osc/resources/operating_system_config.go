@@ -63,6 +63,7 @@ func OperatingSystemConfigCreator(
 	initialTaints string,
 	cniVersion string,
 	containerdVersion string,
+	criToolsVersion string,
 	nodeHTTPProxy string,
 	nodeNoProxy string,
 	nodePortRange string,
@@ -106,9 +107,15 @@ func OperatingSystemConfigCreator(
 			if err != nil {
 				return nil, fmt.Errorf("invalid kubelet version: %w", err)
 			}
+
 			kubeletVersionStr := kubeletVersion.String()
 			if !strings.HasPrefix(kubeletVersionStr, "v") {
 				kubeletVersionStr = fmt.Sprintf("v%s", kubeletVersionStr)
+			}
+
+			cloudProviderName, err := cloudprovider.KubeletCloudProviderName(providerConfig.CloudProvider)
+			if err != nil {
+				return nil, err
 			}
 
 			data := filesData{
@@ -121,10 +128,15 @@ func OperatingSystemConfigCreator(
 				ContainerRuntime:      containerRuntime,
 				ContainerdVersion:     containerdVersion,
 <<<<<<< HEAD
+<<<<<<< HEAD
 				CloudProviderName:     cloudProviderName,
 =======
 				CloudProviderName:     kubeletCloudProviderName(providerConfig.CloudProvider),
 >>>>>>> KubeletProviderName correctly set
+=======
+				CRIToolsVersion:       criToolsVersion,
+				CloudProviderName:     cloudProviderName,
+>>>>>>> CRI-tools installation section
 				ExternalCloudProvider: externalCloudProvider,
 				PauseImage:            pauseImage,
 				InitialTaints:         initialTaints,
@@ -189,8 +201,12 @@ type filesData struct {
 	ContainerRuntime      string
 	ContainerdVersion     string
 <<<<<<< HEAD
+<<<<<<< HEAD
 	CloudProviderName     string
 =======
+=======
+	CRIToolsVersion       string
+>>>>>>> CRI-tools installation section
 	CloudProviderName     osmv1alpha1.CloudProvider
 >>>>>>> KubeletProviderName correctly set
 	NetworkConfig         *providerconfigtypes.NetworkConfig
@@ -340,13 +356,4 @@ func setOperatingSystemConfig(os providerconfigtypes.OperatingSystem, operatingS
 		return nil
 	}
 	return errors.New("unknown OperatingSystem")
-}
-
-func kubeletCloudProviderName(cloudProvider providerconfigtypes.CloudProvider) osmv1alpha1.CloudProvider {
-	switch osmv1alpha1.CloudProvider(cloudProvider) {
-	case osmv1alpha1.CloudProviderDigitalocean, osmv1alpha1.CloudProviderHetzner:
-		return ""
-	}
-
-	return ""
 }
