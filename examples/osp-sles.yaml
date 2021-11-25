@@ -23,6 +23,46 @@ spec:
   supportedCloudProviders:
     - name: aws
   supportedContainerRuntimes:
+    - name: containerd
+      files:
+        - path: /etc/containerd/config.toml
+          permissions: 0644
+          content:
+            inline:
+              data: |
+                version = 2
+
+                [metrics]
+                address = "127.0.0.1:1338"
+
+                [plugins]
+                [plugins."io.containerd.grpc.v1.cri"]
+                [plugins."io.containerd.grpc.v1.cri".containerd]
+                [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
+                [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+                runtime_type = "io.containerd.runc.v2"
+                [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+                SystemdCgroup = true
+                [plugins."io.containerd.grpc.v1.cri".registry]
+                [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
+                [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
+                endpoint = ["https://registry-1.docker.io"]
+        - path: /etc/systemd/system/containerd.service.d/10-custom.conf
+          content:
+            inline:
+              data: |
+                [Service]
+                Restart=always
+                EnvironmentFile=-/etc/environment
+                Environment=CONTAINERD_CONFIG=/etc/containerd/config.toml
+                ExecStart=
+                ExecStart=/usr/bin/env PATH=${TORCX_BINDIR}:${PATH} ${TORCX_BINDIR}/containerd --config ${CONTAINERD_CONFIG}
+        - path: /etc/crictl.yaml
+          content:
+            inline:
+              data: |
+                runtime-endpoint: unix:///run/containerd/containerd.sock
+
     - name: docker
       files:
         - path: /etc/docker/daemon.json
@@ -32,18 +72,13 @@ spec:
               encoding: b64
               data: |-
                 {"exec-opts":["native.cgroupdriver=systemd"],"storage-driver":"overlay2","log-driver":"json-file","log-opts":{"max-file":"5","max-size":"10m"}}
-      templates:
-        containerRuntimeConfiguration: |-
-          mkdir -p /etc/systemd/system/containerd.service.d /etc/systemd/system/docker.service.d
-
-          cat <<EOF | tee /etc/systemd/system/containerd.service.d/environment.conf /etc/systemd/system/docker.service.d/environment.conf
-          [Service]
-          Restart=always
-          EnvironmentFile=-/etc/environment
-          EOF
-
-          systemctl daemon-reload
-          systemctl enable --now docker
+        - path: /etc/systemd/system/docker.service.d/10-custom.conf
+          permissions: 0644
+          content:
+            inline:
+              data: |-
+                [Service]
+                EnvironmentFile=-/etc/environment
 
   templates:
     safeDownloadBinariesScript: |-
@@ -266,7 +301,6 @@ spec:
 
             Environment="PATH=/opt/bin:/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin/"
             EnvironmentFile=-/etc/environment
-            EnvironmentFile=/etc/kubernetes/nodeip.conf
 
             ExecStartPre=/bin/bash /opt/load-kernel-modules.sh
             ExecStartPre=/bin/bash /opt/bin/setup_net_env.sh
@@ -400,9 +434,7 @@ spec:
 
             [Unit]
             Requires=network-online.target
-            Requires=nodeip.service
             After=network-online.target
-            After=nodeip.service
 
             [Service]
             Type=oneshot
