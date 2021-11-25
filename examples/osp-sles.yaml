@@ -259,14 +259,12 @@ spec:
 
             {{- template "configureSSHCAPublicKeys" }}
 
-            {{- template "containerRuntimeConfiguration" }}
-
             # set kubelet nodeip environment variable
             /opt/bin/setup_net_env.sh
 
+            systemctl enable --now docker
             systemctl enable --now kubelet
             systemctl enable --now --no-block kubelet-healthcheck.service
-            # systemctl enable --now --no-block docker-healthcheck.service
 
     - path: "/opt/bin/supervise.sh"
       permissions: 0755
@@ -350,7 +348,7 @@ spec:
           encoding: b64
           data: |
             [Service]
-            Environment="KUBELET_EXTRA_ARGS=--resolv-conf=/run/systemd/resolve/resolv.conf"
+            Environment="KUBELET_EXTRA_ARGS=--resolv-conf=/var/run/netconfig/resolv.conf"
 
     - path: "/etc/kubernetes/cloud-config"
       permissions: 0600
