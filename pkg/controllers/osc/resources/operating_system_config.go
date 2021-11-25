@@ -153,7 +153,8 @@ func OperatingSystemConfigCreator(
 					Name: osmv1alpha1.CloudProvider(providerConfig.CloudProvider),
 					Spec: providerConfig.CloudProviderSpec,
 				},
-				UserSSHKeys: providerConfig.SSHPublicKeys,
+				UserSSHKeys:      providerConfig.SSHPublicKeys,
+				CloudInitModules: osp.Spec.CloudInitModules,
 			}
 
 			return osc, nil
