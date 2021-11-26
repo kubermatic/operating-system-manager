@@ -104,6 +104,9 @@ func main() {
 	if len(opt.criToolsVersion) == 0 {
 		klog.Fatal("-cri-tools-version is required")
 	}
+	if !strings.HasPrefix(opt.criToolsVersion, "v") {
+		opt.criToolsVersion = fmt.Sprintf("v%s", opt.criToolsVersion)
+	}
 
 	opt.kubeconfig = flag.Lookup("kubeconfig").Value.(flag.Getter).Get().(string)
 

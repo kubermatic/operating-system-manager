@@ -446,11 +446,10 @@ spec:
 
             
             # get the full hostname
+            FULL_HOSTNAME=$(hostname -f)
             # if /etc/hostname is not empty then use the hostname from there
             if [ -s /etc/hostname ]; then
               FULL_HOSTNAME=$(cat /etc/hostname)
-            else
-              FULL_HOSTNAME=$(hostname -f)
             fi
 
             # write the nodeip_env file
