@@ -102,6 +102,25 @@ spec:
                         description: Permissions describes with which permissions the file should get written to the file system. Should be defaulted to octal 0644.
                         type: integer
                         format: int32
+                modules:
+                  description: CloudInitModules contains the supported cloud-init modules
+                  type: object
+                  properties:
+                    bootcmd:
+                      description: BootCMD module runs arbitrary commands very early in the boot process, only slightly after a boothook would run.
+                      type: array
+                      items:
+                        type: string
+                    rh_subscription:
+                      description: RHSubscription registers a Red Hat system either by username and password or activation and org
+                      type: object
+                      additionalProperties:
+                        type: string
+                    runcmd:
+                      description: RunCMD Run arbitrary commands at a rc.local like level with output to the console.
+                      type: array
+                      items:
+                        type: string
                 osName:
                   description: 'OSType represent the operating system name e.g: ubuntu'
                   type: string

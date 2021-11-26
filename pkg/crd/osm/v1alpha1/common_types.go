@@ -122,3 +122,13 @@ type FileContentInline struct {
 	// Data is the file's data.
 	Data string `json:"data"`
 }
+
+// CloudInitModule contains the fields of the cloud init module.
+type CloudInitModule struct {
+	// BootCMD module runs arbitrary commands very early in the boot process, only slightly after a boothook would run.
+	BootCMD []string `json:"bootcmd,omitempty"`
+	// RHSubscription registers a Red Hat system either by username and password or activation and org
+	RHSubscription map[string]string `json:"rh_subscription,omitempty"`
+	// RunCMD Run arbitrary commands at a rc.local like level with output to the console.
+	RunCMD []string `json:"runcmd,omitempty"`
+}

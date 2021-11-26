@@ -49,6 +49,7 @@ const (
 
 	MachineDeploymentSubresourceNamePattern = "%s-osc-%s"
 	MachineDeploymentOSPAnnotation          = "k8c.io/operating-system-profile"
+	cloudProviderExternal                   = "external"
 )
 
 func OperatingSystemConfigCreator(
@@ -76,6 +77,11 @@ func OperatingSystemConfigCreator(
 			err := json.Unmarshal(md.Spec.Template.Spec.ProviderSpec.Value.Raw, &providerConfig)
 			if err != nil {
 				return nil, fmt.Errorf("failed to decode provider configs: %v", err)
+			}
+
+			cloudProviderName := string(providerConfig.CloudProvider)
+			if providerConfig.CloudProvider == providerconfigtypes.CloudProviderKubeVirt {
+				cloudProviderName = cloudProviderExternal
 			}
 
 			cloudConfig, err := cloudprovider.GetCloudConfig(providerConfig, md.Spec.Template.Spec.Versions.Kubelet)
@@ -112,7 +118,7 @@ func OperatingSystemConfigCreator(
 				CloudConfig:           cloudConfig,
 				ContainerRuntime:      containerRuntime,
 				ContainerdVersion:     containerdVersion,
-				CloudProviderName:     providerConfig.CloudProvider,
+				CloudProviderName:     cloudProviderName,
 				ExternalCloudProvider: externalCloudProvider,
 				PauseImage:            pauseImage,
 				InitialTaints:         initialTaints,
@@ -154,7 +160,8 @@ func OperatingSystemConfigCreator(
 					Name: osmv1alpha1.CloudProvider(providerConfig.CloudProvider),
 					Spec: providerConfig.CloudProviderSpec,
 				},
-				UserSSHKeys: providerConfig.SSHPublicKeys,
+				UserSSHKeys:      providerConfig.SSHPublicKeys,
+				CloudInitModules: osp.Spec.CloudInitModules,
 			}
 
 			return osc, nil
@@ -174,7 +181,7 @@ type filesData struct {
 	CloudConfig           string
 	ContainerRuntime      string
 	ContainerdVersion     string
-	CloudProviderName     providerconfigtypes.CloudProvider
+	CloudProviderName     string
 	NetworkConfig         *providerconfigtypes.NetworkConfig
 	ExtraKubeletFlags     []string
 	ExternalCloudProvider bool

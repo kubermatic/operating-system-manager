@@ -23,8 +23,10 @@ spec:
   osVersion: "2983.2.0"
   supportedCloudProviders:
     - name: aws
-      spec:
-        region: us-west-1a
+    - name: azure
+    - name: kubevirt
+    - name: openstack
+    - name: vsphere
   supportedContainerRuntimes:
     - name: containerd
       files:
@@ -32,7 +34,6 @@ spec:
           permissions: 0644
           content:
             inline:
-              encoding: none
               data: |
                 version = 2
 
@@ -54,18 +55,17 @@ spec:
         - path: /etc/systemd/system/containerd.service.d/10-custom.conf
           content:
             inline:
-              encoding: none
               data: |
                 [Service]
                 Restart=always
                 EnvironmentFile=-/etc/environment
+                EnvironmentFile=/run/metadata/torcx
                 Environment=CONTAINERD_CONFIG=/etc/containerd/config.toml
                 ExecStart=
                 ExecStart=/usr/bin/env PATH=${TORCX_BINDIR}:${PATH} ${TORCX_BINDIR}/containerd --config ${CONTAINERD_CONFIG}
         - path: /etc/crictl.yaml
           content:
             inline:
-              encoding: none
               data: |
                 runtime-endpoint: unix:///run/containerd/containerd.sock
 
@@ -75,14 +75,12 @@ spec:
           permissions: 0644
           content:
             inline:
-              encoding: none
               data: |-
                 {"exec-opts":["native.cgroupdriver=systemd"],"storage-driver":"overlay2","log-driver":"json-file","log-opts":{"max-file":"5","max-size":"10m"}}
         - path: /etc/systemd/system/docker.service.d/10-custom.conf
           permissions: 0644
           content:
             inline:
-              encoding: none
               data: |-
                 [Service]
                 EnvironmentFile=-/etc/environment
@@ -191,18 +189,14 @@ spec:
 
     configureProxyScript: |-
       {{- if .HTTPProxy }}
-          cat <<EOF | tee -a /etc/environment
-          HTTP_PROXY={{ .HTTPProxy }}
-          http_proxy={{ .HTTPProxy }}
-          HTTPS_PROXY={{ .HTTPProxy }}
-          https_proxy={{ .HTTPProxy }}
-          EOF
-      {{- end }}
-      {{- if .NoProxy }}
-          cat <<EOF | tee -a /etc/environment
-          NO_PROXY={{ .NoProxy }}
-          no_proxy={{ .NoProxy }}
-          EOF
+      cat <<EOF | tee -a /etc/environment
+      HTTP_PROXY={{ .HTTPProxy }}
+      http_proxy={{ .HTTPProxy }}
+      HTTPS_PROXY={{ .HTTPProxy }}
+      https_proxy={{ .HTTPProxy }}
+      NO_PROXY={{ .NoProxy }}
+      no_proxy={{ .NoProxy }}
+      EOF
       {{- end }}
 
   units:
@@ -214,7 +208,9 @@ spec:
 
         [Unit]
         Requires=download-script.service
+        Requires=nodeip.service
         After=download-script.service
+        After=nodeip.service
 
         [Service]
         Type=oneshot
@@ -272,7 +268,6 @@ spec:
     - path: /etc/systemd/journald.conf.d/max_disk_use.conf
       content:
         inline:
-          encoding: none
           data: |
             [Journal]
             SystemMaxUse=5G
@@ -281,7 +276,6 @@ spec:
       permissions: 0755
       content:
         inline:
-          encoding: none
           data: |
             #!/usr/bin/env bash
             set -euo pipefail
@@ -300,7 +294,6 @@ spec:
     - path: /etc/sysctl.d/k8s.conf
       content:
         inline:
-          encoding: none
           data: |
             net.bridge.bridge-nf-call-ip6tables = 1
             net.bridge.bridge-nf-call-iptables = 1
@@ -314,7 +307,6 @@ spec:
       permissions: 0755
       content:
         inline:
-          encoding: none
           data: |
             #!/usr/bin/env bash
             echodate() {
@@ -332,6 +324,10 @@ spec:
 
             # get the full hostname
             FULL_HOSTNAME=$(hostname -f)
+            # if /etc/hostname is not empty then use the hostname from there
+            if [ -s /etc/hostname ]; then
+                FULL_HOSTNAME=$(cat /etc/hostname)
+            fi
 
             # write the nodeip_env file
             # we need the line below because flatcar has the same string "coreos" in that file
@@ -350,7 +346,6 @@ spec:
       permissions: 0755
       content:
         inline:
-          encoding: none
           data: |
             #!/usr/bin/env bash
             set -xeuo pipefail
@@ -361,7 +356,6 @@ spec:
       permissions: 0755
       content:
         inline:
-          encoding: none
           data: |
             #!/usr/bin/env bash
             set -xeuo pipefail
@@ -374,7 +368,6 @@ spec:
       permissions: 0755
       content:
         inline:
-          encoding: none
           data: |
             #!/bin/bash
             set -xeuo pipefail
@@ -397,6 +390,14 @@ spec:
             {{- if or .FlatcarConfig.DisableUpdateEngine .FlatcarConfig.DisableAutoUpdate }}
             systemctl stop update-engine.service
             systemctl mask update-engine.service
+            {{ else if .HTTPProxy }}
+            mkdir -p /etc/systemd/system/update-engine.service.d/
+            cat <<EOF | tee -a /etc/systemd/system/update-engine.service.d/50-proxy.conf
+            [Service]
+            Environment=ALL_PROXY={{ .HTTPProxy }}
+            EOF
+            systemctl daemon-reload
+            systemctl restart update-engine.service
             {{- end }}
 
             {{- if or .FlatcarConfig.DisableLocksmithD .FlatcarConfig.DisableAutoUpdate }}
@@ -406,9 +407,11 @@ spec:
 
             {{- /* Since both container runtimes are enabled/started by default in flatcar, disable the one that is not required */}}
             {{- if eq .ContainerRuntime "containerd" }}
+            systemctl stop docker
             systemctl disable docker
             {{- end }}
             {{- if eq .ContainerRuntime "docker" }}
+            systemctl stop containerd
             systemctl disable containerd
             {{- end }}
 
@@ -422,21 +425,18 @@ spec:
       permissions: 0600
       content:
         inline:
-          encoding: none
           data: |
             {{ .Kubeconfig }}
 
     - path: /etc/kubernetes/pki/ca.crt
       content:
         inline:
-          encoding: none
           data: |
             {{ .KubernetesCACert }}
 
     - path: /etc/systemd/system/kubelet.service
       content:
         inline:
-          encoding: none
           data: |
             [Unit]
             After={{ .ContainerRuntime }}.service
@@ -454,6 +454,7 @@ spec:
 
             Environment="PATH=/opt/bin:/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin/"
             EnvironmentFile=-/etc/environment
+            EnvironmentFile=/etc/kubernetes/nodeip.conf
 
             ExecStartPre=/bin/bash /opt/load-kernel-modules.sh
             ExecStartPre=/bin/bash /opt/bin/setup_net_env.sh
@@ -470,6 +471,8 @@ spec:
               --cloud-config=/etc/kubernetes/cloud-config \
               {{- end }}
               {{- if ne .CloudProviderName "aws" }}
+              --hostname-override=${KUBELET_HOSTNAME} \
+              {{- else if and (eq .CloudProviderName "aws") (.ExternalCloudProvider) }}
               --hostname-override=${KUBELET_HOSTNAME} \
               {{- end }}
               --dynamic-config-dir=/etc/kubernetes/dynamic-config-dir \
@@ -499,14 +502,12 @@ spec:
       permissions: 0400
       content:
         inline:
-          encoding: none
           data: |
             {{ .CloudConfig }}
 
     - path: /etc/kubernetes/kubelet.conf
       content:
         inline:
-          encoding: none
           data: |
             apiVersion: kubelet.config.k8s.io/v1beta1
             kind: KubeletConfiguration
@@ -557,7 +558,6 @@ spec:
       permissions: 0644
       content:
         inline:
-          encoding: none
           data: |
             [Unit]
             Requires=kubelet.service
@@ -574,7 +574,6 @@ spec:
       permissions: 0644
       content:
         inline:
-          encoding: none
           data: |
             1
 
@@ -582,7 +581,6 @@ spec:
       permissions: 0644
       content:
         inline:
-          encoding: none
           data: |
             10
 
@@ -590,7 +588,6 @@ spec:
       permissions: 0644
       content:
         inline:
-          encoding: none
           data: |
             1
 
@@ -598,7 +595,6 @@ spec:
       permissions: 0600
       content:
         inline:
-          encoding: none
           data: |
             # Use most defaults for sshd configuration.
             Subsystem sftp internal-sftp

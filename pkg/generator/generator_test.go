@@ -60,9 +60,15 @@ func TestDefaultCloudConfigGenerator_Generate(t *testing.T) {
 						"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3",
 						"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4",
 					},
+					CloudInitModules: &osmv1alpha1.CloudInitModule{
+						BootCMD:        []string{"echo hello-world", "echo hello-osm"},
+						RHSubscription: map[string]string{"username": "test_username", "password": "test_password"},
+						RunCMD:         []string{"systemctl restart test.service", "systemctl restart setup.service", "systemctl daemon-reload"},
+					},
 				},
 			},
 			expectedCloudConfig: []byte(`#cloud-config
+
 ssh_pwauth: no
 ssh_authorized_keys:
 - 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3'
@@ -86,11 +92,18 @@ write_files:
         cloud-init init
         systemctl start provision.service
 
+bootcmd:
+- echo hello-world
+- echo hello-osm
+
 runcmd:
 - systemctl restart test.service
 - systemctl restart setup.service
 - systemctl daemon-reload
-`),
+
+rh_subscription:
+    password: test_password
+    username: test_username`),
 		},
 		{
 			name: "generated cloud-init for ubuntu without a service",
@@ -113,9 +126,13 @@ runcmd:
 						"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3",
 						"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4",
 					},
+					CloudInitModules: &osmv1alpha1.CloudInitModule{
+						RunCMD: []string{"systemctl daemon-reload"},
+					},
 				},
 			},
 			expectedCloudConfig: []byte(`#cloud-config
+
 ssh_pwauth: no
 ssh_authorized_keys:
 - 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3'
@@ -151,9 +168,13 @@ runcmd:
 							},
 						},
 					},
+					CloudInitModules: &osmv1alpha1.CloudInitModule{
+						RunCMD: []string{"systemctl daemon-reload"},
+					},
 				},
 			},
 			expectedCloudConfig: []byte(`#cloud-config
+
 ssh_pwauth: no
 ssh_authorized_keys:
 write_files:

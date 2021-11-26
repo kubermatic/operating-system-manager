@@ -137,6 +137,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrlruntime.Request) (re
 		return reconcile.Result{}, nil
 	}
 
+	if machineDeployment.Annotations[resources.MachineDeploymentOSPAnnotation] == "" {
+		r.log.Warnw("Ignoring OSM request: no OperatingSystemProfile found. This could influence the provisioning of the machine")
+		return reconcile.Result{}, nil
+	}
+
 	// Add finalizer if it doesn't exist
 	if !kuberneteshelper.HasFinalizer(machineDeployment, MachineDeploymentCleanupFinalizer) {
 		kuberneteshelper.AddFinalizer(machineDeployment, MachineDeploymentCleanupFinalizer)
@@ -154,11 +159,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrlruntime.Request) (re
 }
 
 func (r *Reconciler) reconcile(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
-	if md.Annotations[resources.MachineDeploymentOSPAnnotation] == "" {
-		r.log.Warnw("Ignoring OSM request: no OperatingSystemProfile found. This could influence the provisioning of the machine")
-		return nil
-	}
-
 	if err := r.reconcileOperatingSystemConfigs(ctx, md); err != nil {
 		return fmt.Errorf("failed to reconcile operating system config: %v", err)
 	}
@@ -200,25 +200,24 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 }
 
 func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
-	oscList := &osmv1alpha1.OperatingSystemConfigList{}
-	if err := r.List(ctx, oscList, &client.ListOptions{Namespace: r.namespace}); err != nil {
+	oscName := fmt.Sprintf(resources.MachineDeploymentSubresourceNamePattern, md.Name, resources.ProvisioningCloudConfig)
+	osc := &osmv1alpha1.OperatingSystemConfig{}
+	if err := r.Get(ctx, types.NamespacedName{Namespace: CloudInitSettingsNamespace, Name: oscName}, osc); err != nil {
 		return fmt.Errorf("failed to list OperatingSystemConfigs: %v", err)
 	}
 
-	oscs := oscList.Items
-	for i := range oscs {
-		provisionData, err := r.generator.Generate(&oscs[i])
-		if err != nil {
-			return fmt.Errorf("failed to generate provisioning data")
-		}
-
-		if err := reconciling.ReconcileSecrets(ctx, []reconciling.NamedSecretCreatorGetter{
-			resources.CloudConfigSecretCreator(md.Name, resources.ProvisioningCloudConfig, provisionData),
-		}, r.namespace, r.Client); err != nil {
-			return fmt.Errorf("failed to reconcile provisioning secrets: %v", err)
-		}
-		r.log.Infof("successfully generated provisioning secret: %v", fmt.Sprintf(resources.MachineDeploymentSubresourceNamePattern, md.Name, resources.ProvisioningCloudConfig))
+	provisionData, err := r.generator.Generate(osc)
+	if err != nil {
+		return fmt.Errorf("failed to generate provisioning data")
 	}
+
+	if err := reconciling.ReconcileSecrets(ctx, []reconciling.NamedSecretCreatorGetter{
+		resources.CloudConfigSecretCreator(md.Name, resources.ProvisioningCloudConfig, provisionData),
+	}, r.namespace, r.Client); err != nil {
+		return fmt.Errorf("failed to reconcile provisioning secrets: %v", err)
+	}
+	r.log.Infof("successfully generated provisioning secret: %v", fmt.Sprintf(resources.MachineDeploymentSubresourceNamePattern, md.Name, resources.ProvisioningCloudConfig))
+
 	return nil
 }
 
