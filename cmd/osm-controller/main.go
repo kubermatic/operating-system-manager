@@ -53,6 +53,8 @@ type options struct {
 	containerdVersion     string
 	nodeHTTPProxy         string
 	nodeNoProxy           string
+	nodePortRange         string
+	podCidr               string
 
 	clusterDNSIPs string
 	kubeconfig    string
@@ -79,6 +81,8 @@ func main() {
 	flag.StringVar(&opt.containerdVersion, "containerd-version", "", "Containerd version to use in the cluster.")
 	flag.StringVar(&opt.nodeHTTPProxy, "node-http-proxy", "", "If set, it configures the 'HTTP_PROXY' & 'HTTPS_PROXY' environment variable on the nodes.")
 	flag.StringVar(&opt.nodeNoProxy, "node-no-proxy", ".svc,.cluster.local,localhost,127.0.0.1", "If set, it configures the 'NO_PROXY' environment variable on the nodes.")
+	flag.StringVar(&opt.podCidr, "pod-cidr", "172.25.0.0/16", "The network ranges from which POD networks are allocated")
+	flag.StringVar(&opt.nodePortRange, "node-port-range", "30000-32767", "A port range to reserve for services with NodePort visibility")
 
 	flag.Parse()
 
@@ -151,6 +155,8 @@ func main() {
 		opt.containerdVersion,
 		opt.nodeHTTPProxy,
 		opt.nodeNoProxy,
+		opt.nodePortRange,
+		opt.podCidr,
 	); err != nil {
 		klog.Fatal(err)
 	}
