@@ -25,38 +25,80 @@ spec:
   supportedContainerRuntimes:
     - name: containerd
       files:
-        - path: /etc/containerd/config.toml
-          permissions: 0644
+        - path: "/lib/systemd/system/containerd.service"
           content:
             inline:
               data: |
-                version = 2
+                # Copyright The containerd Authors.
+                #
+                # Licensed under the Apache License, Version 2.0 (the "License");
+                # you may not use this file except in compliance with the License.
+                # You may obtain a copy of the License at
+                #
+                #     http://www.apache.org/licenses/LICENSE-2.0
+                #
+                # Unless required by applicable law or agreed to in writing, software
+                # distributed under the License is distributed on an "AS IS" BASIS,
+                # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+                # See the License for the specific language governing permissions and
+                # limitations under the License.
 
-                [metrics]
-                address = "127.0.0.1:1338"
+                [Unit]
+                Description=containerd container runtime
+                Documentation=https://containerd.io
+                After=network.target local-fs.target
 
-                [plugins]
-                [plugins."io.containerd.grpc.v1.cri"]
-                [plugins."io.containerd.grpc.v1.cri".containerd]
-                [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
-                [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-                runtime_type = "io.containerd.runc.v2"
-                [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
-                SystemdCgroup = true
-                [plugins."io.containerd.grpc.v1.cri".registry]
-                [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
-                [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
-                endpoint = ["https://registry-1.docker.io"]
-        - path: /etc/systemd/system/containerd.service.d/10-custom.conf
+                [Service]
+                ExecStartPre=-/sbin/modprobe overlay
+                ExecStart=/usr/sbin/containerd
+
+                Type=notify
+                Delegate=yes
+                KillMode=process
+                Restart=always
+                RestartSec=5
+                # Having non-zero Limit*s causes performance problems due to accounting overhead
+                # in the kernel. We recommend using cgroups to do container-local accounting.
+                LimitNPROC=infinity
+                LimitCORE=infinity
+                LimitNOFILE=1048576
+                # Comment TasksMax if your systemd version does not supports it.
+                # Only systemd 226 and above support this version.
+                TasksMax=infinity
+                OOMScoreAdjust=-999
+
+                [Install]
+                WantedBy=multi-user.target
+
+        # - path: /etc/containerd/config.toml
+        #   permissions: 0644
+        #   content:
+        #     inline:
+        #       data: |
+        #         version = 2
+
+        #         [metrics]
+        #         address = "127.0.0.1:1338"
+
+        #         [plugins]
+        #         [plugins."io.containerd.grpc.v1.cri"]
+        #         [plugins."io.containerd.grpc.v1.cri".containerd]
+        #         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
+        #         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+        #         runtime_type = "io.containerd.runc.v2"
+        #         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+        #         SystemdCgroup = true
+        #         [plugins."io.containerd.grpc.v1.cri".registry]
+        #         [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
+        #         [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
+        #         endpoint = ["https://registry-1.docker.io"]
+        - path: /etc/systemd/system/containerd.service.d/environment.conf
           content:
             inline:
               data: |
                 [Service]
                 Restart=always
                 EnvironmentFile=-/etc/environment
-                Environment=CONTAINERD_CONFIG=/etc/containerd/config.toml
-                ExecStart=
-                ExecStart=/usr/bin/env PATH=${TORCX_BINDIR}:${PATH} ${TORCX_BINDIR}/containerd --config ${CONTAINERD_CONFIG}
         - path: /etc/crictl.yaml
           content:
             inline:
@@ -82,8 +124,8 @@ spec:
 
   templates:
     safeDownloadBinariesScript: |-
-      {{- /*setup some common directories */ -}}
       opt_bin=/opt/bin
+      usr_local_bin=/usr/local/bin
       cni_bin_dir=/opt/cni/bin
 
       {{- /* create all the necessary dirs */}}
@@ -125,6 +167,28 @@ spec:
       {{- /* unpack CNI */}}
       tar xvf "$cni_filename"
       rm -f "$cni_filename"
+      cd -
+
+      {{- /* # cri-tools variables */}}
+      CRI_TOOLS_RELEASE="${CRI_TOOLS_RELEASE:-{{ .CRIToolsVersion }}}"
+      cri_tools_base_url="https://github.com/kubernetes-sigs/cri-tools/releases/download/${CRI_TOOLS_RELEASE}"
+      cri_tools_filename="crictl-${CRI_TOOLS_RELEASE}-linux-${arch}.tar.gz"
+
+      {{- /* download cri-tools */}}
+      curl -Lfo "$opt_bin/$cri_tools_filename" "$cri_tools_base_url/$cri_tools_filename"
+
+      {{- /* download cri-tools checksum */}}
+      {{- /* the cri-tools checksum file has a filename prefix that breaks sha256sum so we need to drop it with sed */}}
+      cri_tools_sum=$(curl -Lf "$cri_tools_base_url/$cri_tools_filename.sha256" | sed 's/\*\///')
+      cd "$opt_bin"
+
+      {{- /* verify cri-tools checksum */}}
+      sha256sum -c <<<"$cri_tools_sum"
+
+      {{- /* unpack cri-tools and symlink to path so it's available to all users */}}
+      tar xvf "$cri_tools_filename"
+      rm -f "$cri_tools_filename"
+      ln -sf "$opt_bin/crictl" "$usr_local_bin"/crictl || echo "symbolic link is skipped"
       cd -
 
       {{- /* kubelet */}}
@@ -262,7 +326,7 @@ spec:
             # set kubelet nodeip environment variable
             /opt/bin/setup_net_env.sh
 
-            systemctl enable --now docker
+            systemctl enable --now {{ .ContainerRuntime }}
             systemctl enable --now kubelet
             systemctl enable --now --no-block kubelet-healthcheck.service
 
