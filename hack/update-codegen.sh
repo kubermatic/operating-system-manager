@@ -32,8 +32,8 @@ export "GOFLAGS=-mod=readonly"
 
 echodate "Generating osm:v1alpha1"
 ./vendor/k8s.io/code-generator/generate-groups.sh deepcopy \
-   k8c.io/operating-system-manager/pkg/crd/client \
-   k8c.io/operating-system-manager/pkg/crd \
+   ./pkg/crd/client \
+   ./pkg/crd \
    osm:v1alpha1 \
   --go-header-file ${SCRIPT_ROOT}/header.txt
 

@@ -171,7 +171,9 @@ write_files:
 {{- if $file.Permissions }}
   permissions: '{{ $file.Permissions }}'
 {{- end }}
+{{- if $file.Append }}
   append: {{or $file.Append false}}
+{{- end }}
   content: |-
 {{ $file.Content | indent 4 }}
 {{ end }}

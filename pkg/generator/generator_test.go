@@ -17,6 +17,7 @@ limitations under the License.
 package generator
 
 import (
+	"fmt"
 	"testing"
 
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
@@ -237,6 +238,7 @@ runcmd:
 			}
 
 			if string(userData) != string(testCase.expectedCloudConfig) {
+				fmt.Printf("\nx%sx\n", string(userData))
 				t.Fatal("unexpected generated cloud config")
 			}
 		})
