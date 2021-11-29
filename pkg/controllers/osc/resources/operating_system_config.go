@@ -65,6 +65,8 @@ func OperatingSystemConfigCreator(
 	containerdVersion string,
 	nodeHTTPProxy string,
 	nodeNoProxy string,
+	nodePortRange string,
+	podCidr string,
 ) reconciling.NamedOperatingSystemConfigCreatorGetter {
 	return func() (string, reconciling.OperatingSystemConfigCreator) {
 		var oscName = fmt.Sprintf(MachineDeploymentSubresourceNamePattern, md.Name, ProvisioningCloudConfig)
@@ -122,6 +124,8 @@ func OperatingSystemConfigCreator(
 				ExternalCloudProvider: externalCloudProvider,
 				PauseImage:            pauseImage,
 				InitialTaints:         initialTaints,
+				PodCIDR:               podCidr,
+				NodePortRange:         nodePortRange,
 			}
 
 			if len(nodeHTTPProxy) > 0 {
@@ -188,6 +192,8 @@ type filesData struct {
 	InitialTaints         string
 	HTTPProxy             *string
 	NoProxy               *string
+	PodCIDR               string
+	NodePortRange         string
 	OperatingSystemConfig
 }
 
