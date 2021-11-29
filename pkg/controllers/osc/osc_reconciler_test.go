@@ -175,6 +175,27 @@ func TestReconciler_Reconcile(t *testing.T) {
 			cloudProvider:     "aws",
 			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"cloud-config-key": "cloud-config-value"}`)},
 		},
+		{
+			name:            "RHEL OS in AWS with Containerd",
+			ospFile:         "osp-rhel.yaml",
+			ospName:         "osp-rhel",
+			operatingSystem: providerconfigtypes.OperatingSystemRHEL,
+			oscFile:         "osc-rhel-8.x-containerd.yaml",
+			oscName:         "osp-rhel-aws-osc-provisioning",
+			mdName:          "osp-rhel-aws",
+			secretFile:      "secret-rhel-8.x-containerd.yaml",
+			config: testConfig{
+				namespace:         "cloud-init-settings",
+				clusterAddress:    "http://127.0.0.1/configs",
+				containerRuntime:  "containerd",
+				cniVersion:        "v0.8.7",
+				containerdVersion: "1.4",
+				kubeVersion:       "1.22.1",
+				clusterDNSIPs:     []net.IP{net.IPv4(10, 0, 0, 0)},
+			},
+			cloudProvider:     "aws",
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"zone": "eu-central-1b", "vpc": "e-123f", "subnetID": "test-subnet"}`)},
+		},
 	}
 
 	for _, testCase := range testCases {
