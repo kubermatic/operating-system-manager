@@ -49,7 +49,6 @@ const (
 
 	MachineDeploymentSubresourceNamePattern = "%s-osc-%s"
 	MachineDeploymentOSPAnnotation          = "k8c.io/operating-system-profile"
-	cloudProviderExternal                   = "external"
 )
 
 func OperatingSystemConfigCreator(
@@ -80,11 +79,6 @@ func OperatingSystemConfigCreator(
 			err := json.Unmarshal(md.Spec.Template.Spec.ProviderSpec.Value.Raw, &providerConfig)
 			if err != nil {
 				return nil, fmt.Errorf("failed to decode provider configs: %v", err)
-			}
-
-			cloudProviderName := string(providerConfig.CloudProvider)
-			if providerConfig.CloudProvider == providerconfigtypes.CloudProviderKubeVirt {
-				cloudProviderName = cloudProviderExternal
 			}
 
 			cloudConfig, err := cloudprovider.GetCloudConfig(providerConfig, md.Spec.Template.Spec.Versions.Kubelet)
@@ -127,16 +121,8 @@ func OperatingSystemConfigCreator(
 				CloudConfig:           cloudConfig,
 				ContainerRuntime:      containerRuntime,
 				ContainerdVersion:     containerdVersion,
-<<<<<<< HEAD
-<<<<<<< HEAD
 				CloudProviderName:     cloudProviderName,
-=======
-				CloudProviderName:     kubeletCloudProviderName(providerConfig.CloudProvider),
->>>>>>> KubeletProviderName correctly set
-=======
 				CRIToolsVersion:       criToolsVersion,
-				CloudProviderName:     cloudProviderName,
->>>>>>> CRI-tools installation section
 				ExternalCloudProvider: externalCloudProvider,
 				PauseImage:            pauseImage,
 				InitialTaints:         initialTaints,
@@ -200,15 +186,8 @@ type filesData struct {
 	CloudConfig           string
 	ContainerRuntime      string
 	ContainerdVersion     string
-<<<<<<< HEAD
-<<<<<<< HEAD
-	CloudProviderName     string
-=======
-=======
 	CRIToolsVersion       string
->>>>>>> CRI-tools installation section
 	CloudProviderName     osmv1alpha1.CloudProvider
->>>>>>> KubeletProviderName correctly set
 	NetworkConfig         *providerconfigtypes.NetworkConfig
 	ExtraKubeletFlags     []string
 	ExternalCloudProvider bool

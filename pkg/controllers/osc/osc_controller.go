@@ -107,12 +107,9 @@ func Add(
 		containerdVersion:     containerdVersion,
 		nodeHTTPProxy:         nodeHTTPProxy,
 		nodeNoProxy:           nodeNoProxy,
-<<<<<<< HEAD
 		podCIDR:               podCIDR,
 		nodePortRange:         nodePortRange,
-=======
 		criToolVersion:        criToolsVersion,
->>>>>>> CRI-tools installation section
 	}
 	log.Info("Reconciling OSC resource..")
 	c, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: reconciler, MaxConcurrentReconciles: workerCount})
