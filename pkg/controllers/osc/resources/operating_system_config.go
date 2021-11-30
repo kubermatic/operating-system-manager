@@ -49,7 +49,6 @@ const (
 
 	MachineDeploymentSubresourceNamePattern = "%s-osc-%s"
 	MachineDeploymentOSPAnnotation          = "k8c.io/operating-system-profile"
-	cloudProviderExternal                   = "external"
 )
 
 func OperatingSystemConfigCreator(
@@ -63,6 +62,7 @@ func OperatingSystemConfigCreator(
 	initialTaints string,
 	cniVersion string,
 	containerdVersion string,
+	criToolsVersion string,
 	nodeHTTPProxy string,
 	nodeNoProxy string,
 	nodePortRange string,
@@ -79,11 +79,6 @@ func OperatingSystemConfigCreator(
 			err := json.Unmarshal(md.Spec.Template.Spec.ProviderSpec.Value.Raw, &providerConfig)
 			if err != nil {
 				return nil, fmt.Errorf("failed to decode provider configs: %v", err)
-			}
-
-			cloudProviderName := string(providerConfig.CloudProvider)
-			if providerConfig.CloudProvider == providerconfigtypes.CloudProviderKubeVirt {
-				cloudProviderName = cloudProviderExternal
 			}
 
 			cloudConfig, err := cloudprovider.GetCloudConfig(providerConfig, md.Spec.Template.Spec.Versions.Kubelet)
@@ -106,9 +101,15 @@ func OperatingSystemConfigCreator(
 			if err != nil {
 				return nil, fmt.Errorf("invalid kubelet version: %w", err)
 			}
+
 			kubeletVersionStr := kubeletVersion.String()
 			if !strings.HasPrefix(kubeletVersionStr, "v") {
 				kubeletVersionStr = fmt.Sprintf("v%s", kubeletVersionStr)
+			}
+
+			cloudProviderName, err := cloudprovider.KubeletCloudProviderName(providerConfig.CloudProvider)
+			if err != nil {
+				return nil, err
 			}
 
 			data := filesData{
@@ -121,6 +122,7 @@ func OperatingSystemConfigCreator(
 				ContainerRuntime:      containerRuntime,
 				ContainerdVersion:     containerdVersion,
 				CloudProviderName:     cloudProviderName,
+				CRIToolsVersion:       criToolsVersion,
 				ExternalCloudProvider: externalCloudProvider,
 				PauseImage:            pauseImage,
 				InitialTaints:         initialTaints,
@@ -184,7 +186,8 @@ type filesData struct {
 	CloudConfig           string
 	ContainerRuntime      string
 	ContainerdVersion     string
-	CloudProviderName     string
+	CRIToolsVersion       string
+	CloudProviderName     osmv1alpha1.CloudProvider
 	NetworkConfig         *providerconfigtypes.NetworkConfig
 	ExtraKubeletFlags     []string
 	ExternalCloudProvider bool

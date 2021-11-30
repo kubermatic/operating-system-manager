@@ -15,18 +15,19 @@
 apiVersion: operatingsystemmanager.k8c.io/v1alpha1
 kind: OperatingSystemProfile
 metadata:
-  name: osp-ubuntu-aws
+  name: osp-ubuntu
   namespace: cloud-init-settings
 spec:
   osName: "ubuntu"
   osVersion: "20.04"
   supportedCloudProviders:
     - name: "aws"
-      spec:
-        region: "eu-central-1"
     - name: "azure"
-      spec:
-        location: "westeurope"
+    - name: "digitalocean"
+    - name: "gce"
+    - name: "hetzner"
+    - name: "openstack"
+    - name: "vsphere"    
   supportedContainerRuntimes:
     - name: containerd
       files:
@@ -114,6 +115,7 @@ spec:
     safeDownloadBinariesScript: |-
       {{- /*setup some common directories */ -}}
       opt_bin=/opt/bin
+      usr_local_bin=/usr/local/bin
       cni_bin_dir=/opt/cni/bin
 
       {{- /* create all the necessary dirs */}}
@@ -155,6 +157,28 @@ spec:
       {{- /* unpack CNI */}}
       tar xvf "$cni_filename"
       rm -f "$cni_filename"
+      cd -
+
+      {{- /* # cri-tools variables */}}
+      CRI_TOOLS_RELEASE="${CRI_TOOLS_RELEASE:-{{ .CRIToolsVersion }}}"
+      cri_tools_base_url="https://github.com/kubernetes-sigs/cri-tools/releases/download/${CRI_TOOLS_RELEASE}"
+      cri_tools_filename="crictl-${CRI_TOOLS_RELEASE}-linux-${arch}.tar.gz"
+
+      {{- /* download cri-tools */}}
+      curl -Lfo "$opt_bin/$cri_tools_filename" "$cri_tools_base_url/$cri_tools_filename"
+
+      {{- /* download cri-tools checksum */}}
+      {{- /* the cri-tools checksum file has a filename prefix that breaks sha256sum so we need to drop it with sed */}}
+      cri_tools_sum=$(curl -Lf "$cri_tools_base_url/$cri_tools_filename.sha256" | sed 's/\*\///')
+      cd "$opt_bin"
+
+      {{- /* verify cri-tools checksum */}}
+      sha256sum -c <<<"$cri_tools_sum"
+
+      {{- /* unpack cri-tools and symlink to path so it's available to all users */}}
+      tar xvf "$cri_tools_filename"
+      rm -f "$cri_tools_filename"
+      ln -sf "$opt_bin/crictl" "$usr_local_bin"/crictl || echo "symbolic link is skipped"
       cd -
 
       {{- /* kubelet */}}
@@ -420,8 +444,13 @@ spec:
               exit 1
             fi
 
-             # get the full hostname
+            
+            # get the full hostname
             FULL_HOSTNAME=$(hostname -f)
+            # if /etc/hostname is not empty then use the hostname from there
+            if [ -s /etc/hostname ]; then
+              FULL_HOSTNAME=$(cat /etc/hostname)
+            fi
 
             # write the nodeip_env file
             # we need the line below because flatcar has the same string "coreos" in that file

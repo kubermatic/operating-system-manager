@@ -94,7 +94,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 		{
 			name:            "Ubuntu OS in AWS with Containerd",
 			ospFile:         "osp-ubuntu-20.04.yaml",
-			ospName:         "osp-ubuntu-aws",
+			ospName:         "osp-ubuntu",
 			operatingSystem: providerconfigtypes.OperatingSystemUbuntu,
 			oscFile:         "osc-ubuntu-20.04-aws-containerd.yaml",
 			oscName:         "ubuntu-20.04-aws-osc-provisioning",
@@ -115,7 +115,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 		{
 			name:            "Ubuntu OS in AWS with Docker",
 			ospFile:         "osp-ubuntu-20.04.yaml",
-			ospName:         "osp-ubuntu-aws",
+			ospName:         "osp-ubuntu",
 			operatingSystem: providerconfigtypes.OperatingSystemUbuntu,
 			oscFile:         "osc-ubuntu-20.04-aws-docker.yaml",
 			oscName:         "ubuntu-20.04-aws-osc-provisioning",
@@ -281,7 +281,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 
 			name:            "test the deletion of machineDeployment",
 			ospFile:         "osp-ubuntu-20.04.yaml",
-			ospName:         "osp-ubuntu-aws",
+			ospName:         "osp-ubuntu",
 			operatingSystem: providerconfigtypes.OperatingSystemUbuntu,
 			oscFile:         "osc-ubuntu-20.04-aws-containerd.yaml",
 			oscName:         "ubuntu-20.04-aws-osc-provisioning",
