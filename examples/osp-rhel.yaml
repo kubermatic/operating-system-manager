@@ -540,5 +540,5 @@ spec:
             [Install]
             WantedBy=multi-user.target
   modules:
-    - bootcmd:
-        - modprobe ip_tables
+    bootcmd:
+    - modprobe ip_tables

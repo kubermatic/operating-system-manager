@@ -15,25 +15,17 @@
 apiVersion: operatingsystemmanager.k8c.io/v1alpha1
 kind: OperatingSystemProfile
 metadata:
-  name: osp-ubuntu
+  name: osp-rhel
   namespace: cloud-init-settings
 spec:
-  osName: "ubuntu"
-  osVersion: "20.04"
-  modules:
-    bootcmd:
-      - "echo hello"
-      - "echo world"
-    rh_subscription:
-      username: username
-      password: password
+  osName: "rhel"
+  osVersion: "8.4"
   supportedCloudProviders:
     - name: "aws"
-      spec:
-        region: "eu-central-1"
     - name: "azure"
-      spec:
-        location: "westeurope"
+    - name: "kubevirt"
+    - name: "openstack"
+    - name: "vsphere"
   supportedContainerRuntimes:
     - name: containerd
       files:
@@ -62,10 +54,13 @@ spec:
                 endpoint = ["https://registry-1.docker.io"]
       templates:
         containerRuntimeInstallation: |-
-          apt-get update
-          apt-get install -y apt-transport-https ca-certificates curl software-properties-common lsb-release
-          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
-          add-apt-repository "deb https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+          yum install -y yum-utils
+          yum-config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
+          {{- /*
+              Due to DNF modules we have to do this on docker-ce repo
+              More info at: https://bugzilla.redhat.com/show_bug.cgi?id=1756473
+          */}}
+          yum-config-manager --save --setopt=docker-ce-stable.module_hotfixes=true
 
           cat <<EOF | tee /etc/crictl.yaml
           runtime-endpoint: unix:///run/containerd/containerd.sock
@@ -78,8 +73,8 @@ spec:
           EnvironmentFile=-/etc/environment
           EOF
 
-          apt-get install -y --allow-downgrades containerd.io={{ .ContainerdVersion }}*
-          apt-mark hold containerd.io
+          yum install -y containerd.io-{{ .ContainerdVersion }}* yum-plugin-versionlock
+          yum versionlock add containerd.io
 
           systemctl daemon-reload
           systemctl enable --now containerd
@@ -92,13 +87,12 @@ spec:
             inline:
               encoding: b64
               data: |-
-                {"exec-opts":["native.cgroupdriver=systemd"],"storage-driver":"overlay2","log-driver":"json-file","log-opts":{"max-file":"5","max-size":"100m"}}
+                {"exec-opts":["native.cgroupdriver=systemd"],"storage-driver":"overlay2","log-driver":"json-file","log-opts":{"max-file":"5","max-size":"10m"}}
       templates:
         containerRuntimeInstallation: |-
-          apt-get update
-          apt-get install -y apt-transport-https ca-certificates curl software-properties-common lsb-release
-          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
-          add-apt-repository "deb https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+          yum install -y yum-utils
+          yum-config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
+          yum-config-manager --save --setopt=docker-ce-stable.module_hotfixes=true
 
           mkdir -p /etc/systemd/system/containerd.service.d /etc/systemd/system/docker.service.d
 
@@ -108,11 +102,12 @@ spec:
           EnvironmentFile=-/etc/environment
           EOF
 
-          apt-get install -y \
-              containerd.io=1.4.3* \
-              docker-ce=5:19.03.13* \
-              docker-ce-cli=5:19.03.13*
-          apt-mark hold docker-ce docker-ce-cli containerd.io
+          yum install -y \
+              docker-ce-cli-19.03* \
+              containerd.io-1.4* \
+              docker-ce-19.03* \
+              yum-plugin-versionlock
+          yum versionlock add docker-ce* containerd.io
 
           systemctl daemon-reload
           systemctl enable --now docker
@@ -201,18 +196,14 @@ spec:
 
     configureProxyScript: |-
       {{- if .HTTPProxy }}
-          cat <<EOF | tee -a /etc/environment
-          HTTP_PROXY={{ .HTTPProxy }}
-          http_proxy={{ .HTTPProxy }}
-          HTTPS_PROXY={{ .HTTPProxy }}
-          https_proxy={{ .HTTPProxy }}
-          EOF
-      {{- end }}
-      {{- if .NoProxy }}
-          cat <<EOF | tee -a /etc/environment
-          NO_PROXY={{ .NoProxy }}
-          no_proxy={{ .NoProxy }}
-          EOF
+      cat <<EOF | tee -a /etc/environment
+      HTTP_PROXY={{ .HTTPProxy }}
+      http_proxy={{ .HTTPProxy }}
+      HTTPS_PROXY={{ .HTTPProxy }}
+      https_proxy={{ .HTTPProxy }}
+      NO_PROXY={{ .NoProxy }}
+      no_proxy={{ .NoProxy }}
+      EOF
       {{- end }}
 
   files:
@@ -257,14 +248,24 @@ spec:
             vm.overcommit_memory = 1
             fs.inotify.max_user_watches = 1048576
 
-    - path: "/etc/default/grub.d/60-swap-accounting.cfg"
+    - path: "/etc/selinux/config"
       content:
         inline:
           encoding: b64
           data: |
-            # Added by kubermatic machine-controller
-            # Enable cgroups memory and swap accounting
-            GRUB_CMDLINE_LINUX="cgroup_enable=memory swapaccount=1"
+            # This file controls the state of SELinux on the system.
+            # SELINUX= can take one of these three values:
+            #     enforcing - SELinux security policy is enforced.
+            #     permissive - SELinux prints warnings instead of enforcing.
+            #     disabled - No SELinux policy is loaded.
+            SELINUX=permissive
+            # SELINUXTYPE= can take one of three two values:
+            #     targeted - Targeted processes are protected,
+            #     minimum - Modification of targeted policy. Only selected processes are protected.
+            #     mls - Multi Level Security protection.
+            SELINUXTYPE=targeted
+
+
 
     - path: "/opt/bin/setup"
       permissions: 0755
@@ -274,8 +275,8 @@ spec:
           data: |
             #!/bin/bash
             set -xeuo pipefail
-            if systemctl is-active ufw; then systemctl stop ufw; fi
-            systemctl mask ufw
+
+            setenforce 0 || true
 
             {{- /* As we added some modules and don't want to reboot, restart the service */}}
             systemctl restart systemd-modules-load.service
@@ -285,39 +286,42 @@ spec:
             sed -i.orig '/.*swap.*/d' /etc/fstab
             swapoff -a
 
-            apt-get update
-
-            DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y \
-              curl \
-              ca-certificates \
-              ceph-common \
-              cifs-utils \
-              conntrack \
-              e2fsprogs \
+            {{ if eq .CloudProviderName "azure" }}
+            yum update -y --disablerepo='*' --enablerepo='*microsoft*'
+            firewall-cmd --permanent --zone=trusted --add-source={{ .PodCIDR }}
+            firewall-cmd --permanent --add-port=8472/udp
+            firewall-cmd --permanent --add-port={{ .NodePortRange }}/tcp
+            firewall-cmd --permanent --add-port={{ .NodePortRange }}/udp
+            firewall-cmd --reload
+            systemctl restart firewalld
+            {{ end }}
+            yum install -y \
+              device-mapper-persistent-data \
+              lvm2 \
               ebtables \
               ethtool \
-              glusterfs-client \
-              iptables \
-              jq \
-              kmod \
-              openssh-client \
-              nfs-common \
+              nfs-utils \
+              bash-completion \
+              sudo \
               socat \
-              util-linux \
+              wget \
+              curl \
               {{- if eq .CloudProviderName "vsphere" }}
               open-vm-tools \
               {{- end }}
               ipvsadm
 
-            {{- template "configureProxyScript" }}
-
             {{- template "containerRuntimeInstallation" }}
 
             {{- template "safeDownloadBinariesScript" }}
 
+            mkdir -p /etc/systemd/system/kubelet.service.d/
             # set kubelet nodeip environment variable
             /opt/bin/setup_net_env.sh
 
+            {{ if eq .CloudProviderName "vsphere" }}
+            systemctl enable --now vmtoolsd.service
+            {{ end -}}
             systemctl enable --now kubelet
             systemctl enable --now --no-block kubelet-healthcheck.service
 
@@ -394,14 +398,6 @@ spec:
 
             [Install]
             WantedBy=multi-user.target
-
-    - path: "/etc/systemd/system/kubelet.service.d/extras.conf"
-      content:
-        inline:
-          encoding: b64
-          data: |
-            [Service]
-            Environment="KUBELET_EXTRA_ARGS=--resolv-conf=/run/systemd/resolve/resolv.conf"
 
     - path: "/etc/kubernetes/cloud-config"
       permissions: 0600
@@ -543,3 +539,6 @@ spec:
 
             [Install]
             WantedBy=multi-user.target
+  modules:
+    bootcmd:
+      - modprobe ip_tables

@@ -94,7 +94,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 		{
 			name:            "Ubuntu OS in AWS with Containerd",
 			ospFile:         "osp-ubuntu-20.04.yaml",
-			ospName:         "osp-ubuntu-aws",
+			ospName:         "osp-ubuntu",
 			operatingSystem: providerconfigtypes.OperatingSystemUbuntu,
 			oscFile:         "osc-ubuntu-20.04-aws-containerd.yaml",
 			oscName:         "ubuntu-20.04-aws-osc-provisioning",
@@ -115,7 +115,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 		{
 			name:            "Ubuntu OS in AWS with Docker",
 			ospFile:         "osp-ubuntu-20.04.yaml",
-			ospName:         "osp-ubuntu-aws",
+			ospName:         "osp-ubuntu",
 			operatingSystem: providerconfigtypes.OperatingSystemUbuntu,
 			oscFile:         "osc-ubuntu-20.04-aws-docker.yaml",
 			oscName:         "ubuntu-20.04-aws-osc-provisioning",
@@ -174,6 +174,27 @@ func TestReconciler_Reconcile(t *testing.T) {
 			},
 			cloudProvider:     "aws",
 			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"cloud-config-key": "cloud-config-value"}`)},
+		},
+		{
+			name:            "RHEL OS in AWS with Containerd",
+			ospFile:         "osp-rhel.yaml",
+			ospName:         "osp-rhel",
+			operatingSystem: providerconfigtypes.OperatingSystemRHEL,
+			oscFile:         "osc-rhel-8.x-containerd.yaml",
+			oscName:         "osp-rhel-aws-osc-provisioning",
+			mdName:          "osp-rhel-aws",
+			secretFile:      "secret-rhel-8.x-containerd.yaml",
+			config: testConfig{
+				namespace:         "cloud-init-settings",
+				clusterAddress:    "http://127.0.0.1/configs",
+				containerRuntime:  "containerd",
+				cniVersion:        "v0.8.7",
+				containerdVersion: "1.4",
+				kubeVersion:       "1.22.1",
+				clusterDNSIPs:     []net.IP{net.IPv4(10, 0, 0, 0)},
+			},
+			cloudProvider:     "aws",
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"zone": "eu-central-1b", "vpc": "e-123f", "subnetID": "test-subnet"}`)},
 		},
 	}
 
@@ -260,7 +281,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 
 			name:            "test the deletion of machineDeployment",
 			ospFile:         "osp-ubuntu-20.04.yaml",
-			ospName:         "osp-ubuntu-aws",
+			ospName:         "osp-ubuntu",
 			operatingSystem: providerconfigtypes.OperatingSystemUbuntu,
 			oscFile:         "osc-ubuntu-20.04-aws-containerd.yaml",
 			oscName:         "ubuntu-20.04-aws-osc-provisioning",

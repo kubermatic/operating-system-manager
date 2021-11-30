@@ -64,6 +64,7 @@ type Reconciler struct {
 	kubeconfig            string
 	cniVersion            string
 	containerdVersion     string
+	criToolVersion        string
 	nodeHTTPProxy         string
 	nodeNoProxy           string
 	podCIDR               string
@@ -85,6 +86,7 @@ func Add(
 	initialTaints string,
 	cniVersion string,
 	containerdVersion string,
+	criToolsVersion string,
 	nodeHTTPProxy string,
 	nodeNoProxy string,
 	podCIDR string,
@@ -107,6 +109,7 @@ func Add(
 		nodeNoProxy:           nodeNoProxy,
 		podCIDR:               podCIDR,
 		nodePortRange:         nodePortRange,
+		criToolVersion:        criToolsVersion,
 	}
 	log.Info("Reconciling OSC resource..")
 	c, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: reconciler, MaxConcurrentReconciles: workerCount})
@@ -195,6 +198,7 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 			r.initialTaints,
 			r.cniVersion,
 			r.containerdVersion,
+			r.criToolVersion,
 			r.nodeHTTPProxy,
 			r.nodeNoProxy,
 			r.nodePortRange,
