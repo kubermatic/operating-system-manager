@@ -265,8 +265,6 @@ spec:
             #     mls - Multi Level Security protection.
             SELINUXTYPE=targeted
 
-
-
     - path: "/opt/bin/setup"
       permissions: 0755
       content:
@@ -367,7 +365,7 @@ spec:
               --config=/etc/kubernetes/kubelet.conf \
               --network-plugin=cni \
               --cert-dir=/etc/kubernetes/pki \
-              {{- if or (.ExternalCloudProvider) (.CloudProviderName "external") }}
+              {{- if or (.ExternalCloudProvider) (eq .CloudProviderName "external") }}
               --cloud-provider=external \
               {{- else if .CloudProviderName }}
               --cloud-provider={{- .CloudProviderName}} \
@@ -541,4 +539,4 @@ spec:
             WantedBy=multi-user.target
   modules:
     bootcmd:
-    - modprobe ip_tables
+      - modprobe ip_tables
