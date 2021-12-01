@@ -27,7 +27,7 @@ spec:
     - name: "gce"
     - name: "hetzner"
     - name: "openstack"
-    - name: "vsphere"    
+    - name: "vsphere"
   supportedContainerRuntimes:
     - name: containerd
       files:
@@ -376,7 +376,7 @@ spec:
               --config=/etc/kubernetes/kubelet.conf \
               --network-plugin=cni \
               --cert-dir=/etc/kubernetes/pki \
-              {{- if .ExternalCloudProvider }}
+              {{- if or (.ExternalCloudProvider) (.CloudProviderName "external") }}
               --cloud-provider=external \
               {{- else if .CloudProviderName }}
               --cloud-provider={{- .CloudProviderName}} \
@@ -444,7 +444,7 @@ spec:
               exit 1
             fi
 
-            
+
             # get the full hostname
             FULL_HOSTNAME=$(hostname -f)
             # if /etc/hostname is not empty then use the hostname from there

@@ -196,6 +196,17 @@ spec:
           chmod +x /opt/bin/health-monitor.sh
       fi
 
+    configureProxyScript: |-
+      {{- if .HTTPProxy }}
+      cat <<EOF | tee -a /etc/environment
+      HTTP_PROXY={{ .HTTPProxy }}
+      http_proxy={{ .HTTPProxy }}
+      HTTPS_PROXY={{ .HTTPProxy }}
+      https_proxy={{ .HTTPProxy }}
+      NO_PROXY={{ .NoProxy }}
+      no_proxy={{ .NoProxy }}
+      EOF
+      {{- end }}
 
   files:
     - path: "/etc/systemd/journald.conf.d/max_disk_use.conf"
@@ -256,8 +267,6 @@ spec:
             #     mls - Multi Level Security protection.
             SELINUXTYPE=targeted
 
-
-
     - path: "/opt/bin/setup"
       permissions: 0755
       content:
@@ -293,6 +302,8 @@ spec:
               {{- end }}
               ipvsadm
 
+            {{- template "configureProxyScript" }}
+
             {{- template "containerRuntimeInstallation" }}
 
             {{- template "safeDownloadBinariesScript" }}
@@ -300,6 +311,10 @@ spec:
             mkdir -p /etc/systemd/system/kubelet.service.d/
             # set kubelet nodeip environment variable
             /opt/bin/setup_net_env.sh
+
+            {{ if eq .CloudProviderName "vsphere" }}
+            systemctl enable --now vmtoolsd.service
+            {{ end -}}
 
             systemctl enable --now kubelet
             systemctl enable --now --no-block kubelet-healthcheck.service
@@ -346,7 +361,7 @@ spec:
               --config=/etc/kubernetes/kubelet.conf \
               --network-plugin=cni \
               --cert-dir=/etc/kubernetes/pki \
-              {{- if .ExternalCloudProvider }}
+              {{- if or (.ExternalCloudProvider) (.CloudProviderName "external") }}
               --cloud-provider=external \
               {{- else if .CloudProviderName }}
               --cloud-provider={{- .CloudProviderName}} \
@@ -406,8 +421,12 @@ spec:
               exit 1
             fi
 
-             # get the full hostname
+            # get the full hostname
             FULL_HOSTNAME=$(hostname -f)
+            # if /etc/hostname is not empty then use the hostname from there
+            if [ -s /etc/hostname ]; then
+                FULL_HOSTNAME=$(cat /etc/hostname)
+            fi
 
             # write the nodeip_env file
             # we need the line below because flatcar has the same string "coreos" in that file

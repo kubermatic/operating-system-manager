@@ -347,7 +347,7 @@ spec:
               --config=/etc/kubernetes/kubelet.conf \
               --network-plugin=cni \
               --cert-dir=/etc/kubernetes/pki \
-              {{- if .ExternalCloudProvider }}
+              {{- if or (.ExternalCloudProvider) (.CloudProviderName "external") }}
               --cloud-provider=external \
               {{- else if .CloudProviderName }}
               --cloud-provider={{- .CloudProviderName}} \
