@@ -64,9 +64,6 @@ spec:
                       - content
                       - path
                     properties:
-                      append:
-                        description: Whether to append content to existing file if path exists
-                        type: boolean
                       content:
                         description: Content describe the file's content.
                         type: object
@@ -151,9 +148,6 @@ spec:
                             - content
                             - path
                           properties:
-                            append:
-                              description: Whether to append content to existing file if path exists
-                              type: boolean
                             content:
                               description: Content describe the file's content.
                               type: object

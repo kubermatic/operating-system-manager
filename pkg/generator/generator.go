@@ -140,7 +140,6 @@ type fileSpec struct {
 	Path        string
 	Content     string
 	Permissions *string
-	Append      bool
 	Name        string
 }
 
@@ -170,9 +169,6 @@ write_files:
 - path: '{{ $file.Path }}'
 {{- if $file.Permissions }}
   permissions: '{{ $file.Permissions }}'
-{{- end }}
-{{- if $file.Append }}
-  append: {{or $file.Append false}}
 {{- end }}
   content: |-
 {{ $file.Content | indent 4 }}

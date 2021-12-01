@@ -134,13 +134,6 @@ spec:
       EOF
       {{- end }}
 
-    configureSSHCAPublicKeys: |-
-      {{- if .CAPublicKey }}
-      cat <<EOF | tee /etc/ssh/trusted-user-ca-keys.pem
-      {{ .CAPublicKey }}
-      EOF
-      {{- end }}
-
   files:
     - path: "/etc/systemd/journald.conf.d/max_disk_use.conf"
       content:
@@ -216,8 +209,6 @@ spec:
             {{- template "configureProxyScript" }}
 
             {{- template "safeDownloadBinariesScript" }}
-
-            {{- template "configureSSHCAPublicKeys" }}
 
             # set kubelet nodeip environment variable
             /opt/bin/setup_net_env.sh
@@ -462,12 +453,3 @@ spec:
 
             [Install]
             WantedBy=multi-user.target
-
-    - path: "/etc/ssh/sshd_config"
-      append: true
-      content:
-        inline:
-          encoding: b64
-          data: |
-            TrustedUserCAKeys /etc/ssh/trusted-user-ca-keys.pem
-            CASignatureAlgorithms ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,ssh-ed25519,rsa-sha2-512,rsa-sha2-256,ssh-rsa

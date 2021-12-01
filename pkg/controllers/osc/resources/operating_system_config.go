@@ -126,7 +126,6 @@ func OperatingSystemConfigCreator(
 				ExternalCloudProvider: externalCloudProvider,
 				PauseImage:            pauseImage,
 				InitialTaints:         initialTaints,
-				CAPublicKey:           providerConfig.CAPublicKey,
 				PodCIDR:               podCidr,
 				NodePortRange:         nodePortRange,
 			}
@@ -196,7 +195,6 @@ type filesData struct {
 	InitialTaints         string
 	HTTPProxy             *string
 	NoProxy               *string
-	CAPublicKey           string
 	PodCIDR               string
 	NodePortRange         string
 	OperatingSystemConfig

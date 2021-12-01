@@ -128,11 +128,6 @@ func (in *File) DeepCopyInto(out *File) {
 		*out = new(int32)
 		**out = **in
 	}
-	if in.Append != nil {
-		in, out := &in.Append, &out.Append
-		*out = new(bool)
-		**out = **in
-	}
 	in.Content.DeepCopyInto(&out.Content)
 	return
 }
