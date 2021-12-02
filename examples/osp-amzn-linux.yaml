@@ -182,8 +182,6 @@ spec:
           chmod +x /opt/bin/health-monitor.sh
       fi
 
-
-
     configureProxyScript: |-
       {{- if .HTTPProxy }}
       cat <<EOF | tee -a /etc/environment
@@ -254,8 +252,6 @@ spec:
             #     minimum - Modification of targeted policy. Only selected processes are protected.
             #     mls - Multi Level Security protection.
             SELINUXTYPE=targeted
-
-
 
     - path: "/opt/bin/setup"
       permissions: 0755
@@ -407,8 +403,12 @@ spec:
               exit 1
             fi
 
-             # get the full hostname
+            # get the full hostname
             FULL_HOSTNAME=$(hostname -f)
+            # if /etc/hostname is not empty then use the hostname from there
+            if [ -s /etc/hostname ]; then
+              FULL_HOSTNAME=$(cat /etc/hostname)
+            fi
 
             # write the nodeip_env file
             # we need the line below because flatcar has the same string "coreos" in that file
@@ -502,6 +502,16 @@ spec:
               cpu: 200m
               ephemeral-storage: 1Gi
               memory: 200Mi
+            tlsCipherSuites:
+            - TLS_AES_128_GCM_SHA256
+            - TLS_AES_256_GCM_SHA384
+            - TLS_CHACHA20_POLY1305_SHA256
+            - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+            - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+            - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
+            - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+            - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+            - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
             volumePluginDir: /var/lib/kubelet/volumeplugins
 
     - path: /etc/systemd/system/kubelet-healthcheck.service
