@@ -19,7 +19,7 @@ metadata:
   namespace: cloud-init-settings
 spec:
   osName: sles
-  osVersion: "20.04"
+  osVersion: "15-SP-1"
   supportedCloudProviders:
     - name: aws
   supportedContainerRuntimes:
