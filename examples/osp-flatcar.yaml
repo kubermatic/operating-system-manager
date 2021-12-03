@@ -76,7 +76,7 @@ spec:
           content:
             inline:
               data: |-
-                {"exec-opts":["native.cgroupdriver=systemd"],"storage-driver":"overlay2","log-driver":"json-file","log-opts":{"max-file":"5","max-size":"10m"}}
+                {"exec-opts":["native.cgroupdriver=systemd"],"storage-driver":"overlay2","log-driver":"json-file","log-opts":{"max-file":"5","max-size":"100m"}}
         - path: /etc/systemd/system/docker.service.d/10-custom.conf
           permissions: 0644
           content:
