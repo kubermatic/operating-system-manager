@@ -93,7 +93,7 @@ spec:
           {{- if .ContainerdVersion }}
               containerd-{{ .ContainerdVersion }}* \
           {{- end }}
-              docker-{{ .DockerVersion }}* \
+              docker-19.03* \
               yum-plugin-versionlock
           yum versionlock add docker containerd
 

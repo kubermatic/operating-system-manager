@@ -104,10 +104,10 @@ spec:
 
           yum install -y \
           {{- if .ContainerdVersion }}
-              docker-ce-cli-{{ .DockerVersion }}* \
+              docker-ce-cli-19.03* \
               containerd.io-{{ .ContainerdVersion }}* \
           {{- end }}
-              docker-ce-{{ .DockerVersion }}* \
+              docker-ce-19.03* \
               yum-plugin-versionlock
           yum versionlock add docker-ce* containerd.io
 
