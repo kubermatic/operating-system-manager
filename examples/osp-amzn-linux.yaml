@@ -63,7 +63,7 @@ spec:
           EOF
 
           yum install -y \
-          	containerd-{{ .ContainerdVersion }}* \
+          	containerd-1.4* \
           	yum-plugin-versionlock
           yum versionlock add containerd
 
@@ -90,9 +90,7 @@ spec:
           EOF
 
           yum install -y \
-          {{- if .ContainerdVersion }}
-              containerd-{{ .ContainerdVersion }}* \
-          {{- end }}
+              containerd-1.4* \
               docker-19.03* \
               yum-plugin-versionlock
           yum versionlock add docker containerd

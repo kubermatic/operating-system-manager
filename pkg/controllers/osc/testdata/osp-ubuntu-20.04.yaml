@@ -78,7 +78,7 @@ spec:
           EnvironmentFile=-/etc/environment
           EOF
 
-          apt-get install -y --allow-downgrades containerd.io={{ .ContainerdVersion }}*
+          apt-get install -y --allow-downgrades containerd.io=1.4*
           apt-mark hold containerd.io
 
           systemctl daemon-reload

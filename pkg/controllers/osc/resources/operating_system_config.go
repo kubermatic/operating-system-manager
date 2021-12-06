@@ -61,7 +61,6 @@ func OperatingSystemConfigCreator(
 	pauseImage string,
 	initialTaints string,
 	cniVersion string,
-	containerdVersion string,
 	criToolsVersion string,
 	nodeHTTPProxy string,
 	nodeNoProxy string,
@@ -125,7 +124,6 @@ func OperatingSystemConfigCreator(
 				Kubeconfig:            kubeconfigStr,
 				CloudConfig:           cloudConfig,
 				ContainerRuntime:      containerRuntime,
-				ContainerdVersion:     containerdVersion,
 				CloudProviderName:     cloudProviderName,
 				CRIToolsVersion:       criToolsVersion,
 				ExternalCloudProvider: externalCloudProvider,
@@ -190,7 +188,6 @@ type filesData struct {
 	Kubeconfig            string
 	CloudConfig           string
 	ContainerRuntime      string
-	ContainerdVersion     string
 	CRIToolsVersion       string
 	CloudProviderName     osmv1alpha1.CloudProvider
 	NetworkConfig         *providerconfigtypes.NetworkConfig

@@ -63,7 +63,6 @@ type Reconciler struct {
 	clusterDNSIPs         []net.IP
 	kubeconfig            string
 	cniVersion            string
-	containerdVersion     string
 	criToolVersion        string
 	nodeHTTPProxy         string
 	nodeNoProxy           string
@@ -85,7 +84,6 @@ func Add(
 	pauseImage string,
 	initialTaints string,
 	cniVersion string,
-	containerdVersion string,
 	criToolsVersion string,
 	nodeHTTPProxy string,
 	nodeNoProxy string,
@@ -104,7 +102,6 @@ func Add(
 		initialTaints:         initialTaints,
 		externalCloudProvider: externalCloudProvider,
 		cniVersion:            cniVersion,
-		containerdVersion:     containerdVersion,
 		nodeHTTPProxy:         nodeHTTPProxy,
 		nodeNoProxy:           nodeNoProxy,
 		podCIDR:               podCIDR,
@@ -197,7 +194,6 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 			r.pauseImage,
 			r.initialTaints,
 			r.cniVersion,
-			r.containerdVersion,
 			r.criToolVersion,
 			r.nodeHTTPProxy,
 			r.nodeNoProxy,

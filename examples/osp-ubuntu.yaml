@@ -72,7 +72,7 @@ spec:
           EnvironmentFile=-/etc/environment
           EOF
 
-          apt-get install -y --allow-downgrades containerd.io={{ .ContainerdVersion }}*
+          apt-get install -y --allow-downgrades containerd.io=1.4*
           apt-mark hold containerd.io
 
           systemctl daemon-reload
@@ -103,10 +103,8 @@ spec:
           EOF
 
           apt-get install --allow-downgrades -y \
-          {{- if .ContainerdVersion }}
-              containerd.io={{ .ContainerdVersion }}* \
+              containerd.io=1.4* \
               docker-ce-cli=5:19.03* \
-          {{- end }}
               docker-ce=5:19.03*
           apt-mark hold docker-ce* containerd.io
 

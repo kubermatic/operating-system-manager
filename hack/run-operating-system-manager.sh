@@ -27,5 +27,4 @@ $(dirname $0)/../_build/osm-controller \
   -namespace=cloud-init-settings \
   -worker-count=50 \
   -cni-version=v0.8.7 \
-  -containerd-version=1.4 \
   -cri-tools-version=v1.22.0

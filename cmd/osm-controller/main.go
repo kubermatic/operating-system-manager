@@ -50,7 +50,6 @@ type options struct {
 	pauseImage            string
 	initialTaints         string
 	cniVersion            string
-	containerdVersion     string
 	criToolsVersion       string
 	nodeHTTPProxy         string
 	nodeNoProxy           string
@@ -79,7 +78,6 @@ func main() {
 	flag.StringVar(&opt.pauseImage, "pause-image", "", "pause image to use in Kubelet.")
 	flag.StringVar(&opt.initialTaints, "initial-taints", "", "taints to use when creating the node.")
 	flag.StringVar(&opt.cniVersion, "cni-version", "", "CNI version to use in the cluster.")
-	flag.StringVar(&opt.containerdVersion, "containerd-version", "", "Containerd version to use in the cluster.")
 	flag.StringVar(&opt.criToolsVersion, "cri-tools-version", "", "cri-tools version to install in the machine")
 	flag.StringVar(&opt.nodeHTTPProxy, "node-http-proxy", "", "If set, it configures the 'HTTP_PROXY' & 'HTTPS_PROXY' environment variable on the nodes.")
 	flag.StringVar(&opt.nodeNoProxy, "node-no-proxy", ".svc,.cluster.local,localhost,127.0.0.1", "If set, it configures the 'NO_PROXY' environment variable on the nodes.")
@@ -97,9 +95,6 @@ func main() {
 	}
 	if len(opt.cniVersion) == 0 {
 		klog.Fatal("-cni-version is required")
-	}
-	if len(opt.containerdVersion) == 0 {
-		klog.Fatal("-containerd-version is required")
 	}
 	if len(opt.criToolsVersion) == 0 {
 		klog.Fatal("-cri-tools-version is required")
@@ -160,7 +155,6 @@ func main() {
 		opt.pauseImage,
 		opt.initialTaints,
 		opt.cniVersion,
-		opt.containerdVersion,
 		opt.criToolsVersion,
 		opt.nodeHTTPProxy,
 		opt.nodeNoProxy,
