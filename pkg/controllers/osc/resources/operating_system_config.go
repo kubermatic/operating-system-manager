@@ -61,7 +61,7 @@ func OperatingSystemConfigCreator(
 	pauseImage string,
 	initialTaints string,
 	cniVersion string,
-	criToolsVersion string,
+	containerdVersion string,
 	nodeHTTPProxy string,
 	nodeNoProxy string,
 	nodePortRange string,
@@ -80,14 +80,9 @@ func OperatingSystemConfigCreator(
 				return nil, fmt.Errorf("failed to decode provider configs: %v", err)
 			}
 
-			var cloudConfig string
-			if providerConfig.OverwriteCloudConfig != nil {
-				cloudConfig = *providerConfig.OverwriteCloudConfig
-			} else {
-				cloudConfig, err = cloudprovider.GetCloudConfig(providerConfig, md.Spec.Template.Spec.Versions.Kubelet)
-				if err != nil {
-					return nil, fmt.Errorf("failed to fetch cloud-config: %v", err)
-				}
+			cloudConfig, err := cloudprovider.GetCloudConfig(providerConfig, md.Spec.Template.Spec.Versions.Kubelet)
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch cloud-config: %v", err)
 			}
 
 			CACert, err := resources.GetCACert(kubeconfig)
@@ -124,8 +119,8 @@ func OperatingSystemConfigCreator(
 				Kubeconfig:            kubeconfigStr,
 				CloudConfig:           cloudConfig,
 				ContainerRuntime:      containerRuntime,
+				ContainerdVersion:     containerdVersion,
 				CloudProviderName:     cloudProviderName,
-				CRIToolsVersion:       criToolsVersion,
 				ExternalCloudProvider: externalCloudProvider,
 				PauseImage:            pauseImage,
 				InitialTaints:         initialTaints,
@@ -188,7 +183,7 @@ type filesData struct {
 	Kubeconfig            string
 	CloudConfig           string
 	ContainerRuntime      string
-	CRIToolsVersion       string
+	ContainerdVersion     string
 	CloudProviderName     osmv1alpha1.CloudProvider
 	NetworkConfig         *providerconfigtypes.NetworkConfig
 	ExtraKubeletFlags     []string

@@ -160,7 +160,7 @@ spec:
       cd -
 
       {{- /* # cri-tools variables */}}
-      CRI_TOOLS_RELEASE="${CRI_TOOLS_RELEASE:-{{ .CRIToolsVersion }}}"
+      CRI_TOOLS_RELEASE="${CRI_TOOLS_RELEASE:-v1.22.0"
       cri_tools_base_url="https://github.com/kubernetes-sigs/cri-tools/releases/download/${CRI_TOOLS_RELEASE}"
       cri_tools_filename="crictl-${CRI_TOOLS_RELEASE}-linux-${arch}.tar.gz"
 
