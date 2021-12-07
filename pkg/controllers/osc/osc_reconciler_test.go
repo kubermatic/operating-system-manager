@@ -68,12 +68,11 @@ func init() {
 }
 
 type testConfig struct {
-	namespace         string
-	clusterAddress    string
-	containerRuntime  string
-	containerdVersion string
-	kubeVersion       string
-	clusterDNSIPs     []net.IP
+	namespace        string
+	clusterAddress   string
+	containerRuntime string
+	kubeVersion      string
+	clusterDNSIPs    []net.IP
 }
 
 func TestReconciler_Reconcile(t *testing.T) {
@@ -100,12 +99,11 @@ func TestReconciler_Reconcile(t *testing.T) {
 			mdName:          "ubuntu-20.04-aws",
 			secretFile:      "secret-ubuntu-20.04-aws-containerd.yaml",
 			config: testConfig{
-				namespace:         "cloud-init-settings",
-				clusterAddress:    "http://127.0.0.1/configs",
-				containerRuntime:  "containerd",
-				containerdVersion: "1.4",
-				kubeVersion:       "1.22.1",
-				clusterDNSIPs:     []net.IP{net.IPv4(10, 0, 0, 0)},
+				namespace:        "cloud-init-settings",
+				clusterAddress:   "http://127.0.0.1/configs",
+				containerRuntime: "containerd",
+				kubeVersion:      "1.22.1",
+				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
 			cloudProvider:     "aws",
 			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"zone": "eu-central-1b", "vpc": "e-123f", "subnetID": "test-subnet"}`)},
@@ -120,12 +118,11 @@ func TestReconciler_Reconcile(t *testing.T) {
 			mdName:          "ubuntu-20.04-aws",
 			secretFile:      "secret-ubuntu-20.04-aws-docker.yaml",
 			config: testConfig{
-				namespace:         "cloud-init-settings",
-				clusterAddress:    "http://127.0.0.1/configs",
-				containerRuntime:  "docker",
-				containerdVersion: "1.4",
-				kubeVersion:       "1.22.1",
-				clusterDNSIPs:     []net.IP{net.IPv4(10, 0, 0, 0)},
+				namespace:        "cloud-init-settings",
+				clusterAddress:   "http://127.0.0.1/configs",
+				containerRuntime: "docker",
+				kubeVersion:      "1.22.1",
+				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
 			cloudProvider:     "aws",
 			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"zone": "eu-central-1b", "vpc": "e-123f", "subnetID": "test-subnet"}`)},
@@ -140,12 +137,11 @@ func TestReconciler_Reconcile(t *testing.T) {
 			mdName:          "flatcar-aws-containerd",
 			secretFile:      "secret-flatcar-aws-containerd.yaml",
 			config: testConfig{
-				namespace:         "cloud-init-settings",
-				clusterAddress:    "http://127.0.0.1/configs",
-				containerRuntime:  "containerd",
-				containerdVersion: "1.4",
-				kubeVersion:       "1.22.1",
-				clusterDNSIPs:     []net.IP{net.IPv4(10, 0, 0, 0)},
+				namespace:        "cloud-init-settings",
+				clusterAddress:   "http://127.0.0.1/configs",
+				containerRuntime: "containerd",
+				kubeVersion:      "1.22.1",
+				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
 			cloudProvider:     "aws",
 			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"zone": "eu-central-1b", "vpc": "e-123f", "subnetID": "test-subnet"}`)},
@@ -160,12 +156,11 @@ func TestReconciler_Reconcile(t *testing.T) {
 			mdName:          "flatcar-aws-docker",
 			secretFile:      "secret-flatcar-aws-docker.yaml",
 			config: testConfig{
-				namespace:         "cloud-init-settings",
-				clusterAddress:    "http://127.0.0.1/configs",
-				containerRuntime:  "docker",
-				containerdVersion: "1.4",
-				kubeVersion:       "1.22.1",
-				clusterDNSIPs:     []net.IP{net.IPv4(10, 0, 0, 0)},
+				namespace:        "cloud-init-settings",
+				clusterAddress:   "http://127.0.0.1/configs",
+				containerRuntime: "docker",
+				kubeVersion:      "1.22.1",
+				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
 			cloudProvider:     "aws",
 			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"cloud-config-key": "cloud-config-value"}`)},
@@ -180,12 +175,11 @@ func TestReconciler_Reconcile(t *testing.T) {
 			mdName:          "osp-rhel-aws",
 			secretFile:      "secret-rhel-8.x-containerd.yaml",
 			config: testConfig{
-				namespace:         "cloud-init-settings",
-				clusterAddress:    "http://127.0.0.1/configs",
-				containerRuntime:  "containerd",
-				containerdVersion: "1.4",
-				kubeVersion:       "1.22.1",
-				clusterDNSIPs:     []net.IP{net.IPv4(10, 0, 0, 0)},
+				namespace:        "cloud-init-settings",
+				clusterAddress:   "http://127.0.0.1/configs",
+				containerRuntime: "containerd",
+				kubeVersion:      "1.22.1",
+				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
 			cloudProvider:     "aws",
 			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"zone": "eu-central-1b", "vpc": "e-123f", "subnetID": "test-subnet"}`)},

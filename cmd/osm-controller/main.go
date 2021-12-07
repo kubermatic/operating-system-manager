@@ -49,7 +49,6 @@ type options struct {
 	externalCloudProvider bool
 	pauseImage            string
 	initialTaints         string
-	containerdVersion     string
 	nodeHTTPProxy         string
 	nodeNoProxy           string
 	nodePortRange         string
@@ -73,10 +72,9 @@ func main() {
 	flag.StringVar(&opt.namespace, "namespace", "", "The namespace where the OSC controller will run.")
 	flag.StringVar(&opt.containerRuntime, "container-runtime", "containerd", "container runtime to deploy.")
 	flag.BoolVar(&opt.externalCloudProvider, "external-cloud-provider", false, "cloud-provider Kubelet flag set to external.")
-	flag.StringVar(&opt.clusterDNSIPs, "cluster-dns", "1.1.1.1", "Comma-separated list of DNS server IP address.")
+	flag.StringVar(&opt.clusterDNSIPs, "cluster-dns", "10.10.10.10", "Comma-separated list of DNS server IP address.")
 	flag.StringVar(&opt.pauseImage, "pause-image", "", "pause image to use in Kubelet.")
 	flag.StringVar(&opt.initialTaints, "initial-taints", "", "taints to use when creating the node.")
-	flag.StringVar(&opt.containerdVersion, "containerd-version", "", "Containerd version to use in the cluster.")
 	flag.StringVar(&opt.nodeHTTPProxy, "node-http-proxy", "", "If set, it configures the 'HTTP_PROXY' & 'HTTPS_PROXY' environment variable on the nodes.")
 	flag.StringVar(&opt.nodeNoProxy, "node-no-proxy", ".svc,.cluster.local,localhost,127.0.0.1", "If set, it configures the 'NO_PROXY' environment variable on the nodes.")
 	flag.StringVar(&opt.podCidr, "pod-cidr", "172.25.0.0/16", "The network ranges from which POD networks are allocated")
@@ -90,9 +88,6 @@ func main() {
 
 	if !(opt.containerRuntime == "docker" || opt.containerRuntime == "containerd") {
 		klog.Fatalf("%s not supported; containerd, docker are the supported container runtimes", opt.containerRuntime)
-	}
-	if len(opt.containerdVersion) == 0 {
-		klog.Fatal("-containerd-version is required")
 	}
 
 	opt.kubeconfig = flag.Lookup("kubeconfig").Value.(flag.Getter).Get().(string)
@@ -146,7 +141,6 @@ func main() {
 		opt.externalCloudProvider,
 		opt.pauseImage,
 		opt.initialTaints,
-		opt.containerdVersion,
 		opt.nodeHTTPProxy,
 		opt.nodeNoProxy,
 		opt.nodePortRange,
