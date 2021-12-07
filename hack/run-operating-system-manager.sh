@@ -25,6 +25,4 @@ make -C $(dirname $0)/.. build
 $(dirname $0)/../_build/osm-controller \
   -kubeconfig=$OSM_KUBECONFIG \
   -namespace=cloud-init-settings \
-  -worker-count=50 \
-  -cni-version=v0.8.7 \
-  -cri-tools-version=v1.22.0
+  -worker-count=50
