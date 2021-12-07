@@ -140,7 +140,7 @@ spec:
       fi
 
       {{- /* # CNI variables */}}
-      CNI_VERSION="${CNI_VERSION:-{{ .CNIVersion }}}"
+      CNI_VERSION="${CNI_VERSION:-v0.8.7}"
       cni_base_url="https://github.com/containernetworking/plugins/releases/download/$CNI_VERSION"
       cni_filename="cni-plugins-linux-$arch-$CNI_VERSION.tgz"
 
