@@ -49,7 +49,6 @@ type options struct {
 	externalCloudProvider bool
 	pauseImage            string
 	initialTaints         string
-	cniVersion            string
 	containerdVersion     string
 	nodeHTTPProxy         string
 	nodeNoProxy           string
@@ -77,7 +76,6 @@ func main() {
 	flag.StringVar(&opt.clusterDNSIPs, "cluster-dns", "10.10.10.10", "Comma-separated list of DNS server IP address.")
 	flag.StringVar(&opt.pauseImage, "pause-image", "", "pause image to use in Kubelet.")
 	flag.StringVar(&opt.initialTaints, "initial-taints", "", "taints to use when creating the node.")
-	flag.StringVar(&opt.cniVersion, "cni-version", "", "CNI version to use in the cluster.")
 	flag.StringVar(&opt.containerdVersion, "containerd-version", "", "Containerd version to use in the cluster.")
 	flag.StringVar(&opt.nodeHTTPProxy, "node-http-proxy", "", "If set, it configures the 'HTTP_PROXY' & 'HTTPS_PROXY' environment variable on the nodes.")
 	flag.StringVar(&opt.nodeNoProxy, "node-no-proxy", ".svc,.cluster.local,localhost,127.0.0.1", "If set, it configures the 'NO_PROXY' environment variable on the nodes.")
@@ -92,9 +90,6 @@ func main() {
 
 	if !(opt.containerRuntime == "docker" || opt.containerRuntime == "containerd") {
 		klog.Fatalf("%s not supported; containerd, docker are the supported container runtimes", opt.containerRuntime)
-	}
-	if len(opt.cniVersion) == 0 {
-		klog.Fatal("-cni-version is required")
 	}
 	if len(opt.containerdVersion) == 0 {
 		klog.Fatal("-containerd-version is required")
@@ -151,7 +146,6 @@ func main() {
 		opt.externalCloudProvider,
 		opt.pauseImage,
 		opt.initialTaints,
-		opt.cniVersion,
 		opt.containerdVersion,
 		opt.nodeHTTPProxy,
 		opt.nodeNoProxy,

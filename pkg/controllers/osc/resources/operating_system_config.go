@@ -60,7 +60,6 @@ func OperatingSystemConfigCreator(
 	externalCloudProvider bool,
 	pauseImage string,
 	initialTaints string,
-	cniVersion string,
 	containerdVersion string,
 	nodeHTTPProxy string,
 	nodeNoProxy string,
@@ -113,7 +112,6 @@ func OperatingSystemConfigCreator(
 
 			data := filesData{
 				KubeVersion:           kubeletVersionStr,
-				CNIVersion:            cniVersion,
 				ClusterDNSIPs:         clusterDNSIPs,
 				KubernetesCACert:      CACert,
 				Kubeconfig:            kubeconfigStr,

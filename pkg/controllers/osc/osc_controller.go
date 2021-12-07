@@ -62,7 +62,6 @@ type Reconciler struct {
 	generator             generator.CloudConfigGenerator
 	clusterDNSIPs         []net.IP
 	kubeconfig            string
-	cniVersion            string
 	containerdVersion     string
 	nodeHTTPProxy         string
 	nodeNoProxy           string
@@ -83,7 +82,6 @@ func Add(
 	externalCloudProvider bool,
 	pauseImage string,
 	initialTaints string,
-	cniVersion string,
 	containerdVersion string,
 	nodeHTTPProxy string,
 	nodeNoProxy string,
@@ -101,7 +99,6 @@ func Add(
 		pauseImage:            pauseImage,
 		initialTaints:         initialTaints,
 		externalCloudProvider: externalCloudProvider,
-		cniVersion:            cniVersion,
 		containerdVersion:     containerdVersion,
 		nodeHTTPProxy:         nodeHTTPProxy,
 		nodeNoProxy:           nodeNoProxy,
@@ -193,7 +190,6 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 			r.externalCloudProvider,
 			r.pauseImage,
 			r.initialTaints,
-			r.cniVersion,
 			r.containerdVersion,
 			r.nodeHTTPProxy,
 			r.nodeNoProxy,

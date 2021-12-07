@@ -68,7 +68,7 @@ spec:
       fi
 
       {{- /* # CNI variables */}}
-      CNI_VERSION="${CNI_VERSION:-{{ .CNIVersion }}}"
+      CNI_VERSION="${CNI_VERSION:-v0.8.7}"
       cni_base_url="https://github.com/containernetworking/plugins/releases/download/$CNI_VERSION"
       cni_filename="cni-plugins-linux-$arch-$CNI_VERSION.tgz"
 
@@ -88,7 +88,7 @@ spec:
       cd -
 
       {{- /* # cri-tools variables */}}
-      CRI_TOOLS_RELEASE="${CRI_TOOLS_RELEASE:-v1.22.0"
+      CRI_TOOLS_RELEASE="${CRI_TOOLS_RELEASE:-v1.22.0}"
       cri_tools_base_url="https://github.com/kubernetes-sigs/cri-tools/releases/download/${CRI_TOOLS_RELEASE}"
       cri_tools_filename="crictl-${CRI_TOOLS_RELEASE}-linux-${arch}.tar.gz"
 
