@@ -71,7 +71,6 @@ type testConfig struct {
 	namespace        string
 	clusterAddress   string
 	containerRuntime string
-	cniVersion       string
 	kubeVersion      string
 	clusterDNSIPs    []net.IP
 }
@@ -103,7 +102,6 @@ func TestReconciler_Reconcile(t *testing.T) {
 				namespace:        "cloud-init-settings",
 				clusterAddress:   "http://127.0.0.1/configs",
 				containerRuntime: "containerd",
-				cniVersion:       "v0.8.7",
 				kubeVersion:      "1.22.1",
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
@@ -123,7 +121,6 @@ func TestReconciler_Reconcile(t *testing.T) {
 				namespace:        "cloud-init-settings",
 				clusterAddress:   "http://127.0.0.1/configs",
 				containerRuntime: "docker",
-				cniVersion:       "v0.8.7",
 				kubeVersion:      "1.22.1",
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
@@ -143,7 +140,6 @@ func TestReconciler_Reconcile(t *testing.T) {
 				namespace:        "cloud-init-settings",
 				clusterAddress:   "http://127.0.0.1/configs",
 				containerRuntime: "containerd",
-				cniVersion:       "v0.8.7",
 				kubeVersion:      "1.22.1",
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
@@ -163,7 +159,6 @@ func TestReconciler_Reconcile(t *testing.T) {
 				namespace:        "cloud-init-settings",
 				clusterAddress:   "http://127.0.0.1/configs",
 				containerRuntime: "docker",
-				cniVersion:       "v0.8.7",
 				kubeVersion:      "1.22.1",
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
@@ -183,7 +178,6 @@ func TestReconciler_Reconcile(t *testing.T) {
 				namespace:        "cloud-init-settings",
 				clusterAddress:   "http://127.0.0.1/configs",
 				containerRuntime: "containerd",
-				cniVersion:       "v0.8.7",
 				kubeVersion:      "1.22.1",
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
@@ -438,7 +432,6 @@ func buildReconciler(fakeClient client.Client, config testConfig) Reconciler {
 		clusterAddress:   config.clusterAddress,
 		kubeconfig:       kubeconfigPath,
 		containerRuntime: config.containerRuntime,
-		cniVersion:       config.cniVersion,
 		clusterDNSIPs:    config.clusterDNSIPs,
 	}
 }

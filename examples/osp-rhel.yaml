@@ -140,7 +140,7 @@ spec:
       fi
 
       {{- /* # CNI variables */}}
-      CNI_VERSION="${CNI_VERSION:-{{ .CNIVersion }}}"
+      CNI_VERSION="${CNI_VERSION:-v0.8.7}"
       cni_base_url="https://github.com/containernetworking/plugins/releases/download/$CNI_VERSION"
       cni_filename="cni-plugins-linux-$arch-$CNI_VERSION.tgz"
 
@@ -157,6 +157,28 @@ spec:
       {{- /* unpack CNI */}}
       tar xvf "$cni_filename"
       rm -f "$cni_filename"
+      cd -
+
+      {{- /* # cri-tools variables */}}
+      CRI_TOOLS_RELEASE="${CRI_TOOLS_RELEASE:-v1.22.0}"
+      cri_tools_base_url="https://github.com/kubernetes-sigs/cri-tools/releases/download/${CRI_TOOLS_RELEASE}"
+      cri_tools_filename="crictl-${CRI_TOOLS_RELEASE}-linux-${arch}.tar.gz"
+
+      {{- /* download cri-tools */}}
+      curl -Lfo "$opt_bin/$cri_tools_filename" "$cri_tools_base_url/$cri_tools_filename"
+
+      {{- /* download cri-tools checksum */}}
+      {{- /* the cri-tools checksum file has a filename prefix that breaks sha256sum so we need to drop it with sed */}}
+      cri_tools_sum=$(curl -Lf "$cri_tools_base_url/$cri_tools_filename.sha256" | sed 's/\*\///')
+      cd "$opt_bin"
+
+      {{- /* verify cri-tools checksum */}}
+      sha256sum -c <<<"$cri_tools_sum"
+
+      {{- /* unpack cri-tools and symlink to path so it's available to all users */}}
+      tar xvf "$cri_tools_filename"
+      rm -f "$cri_tools_filename"
+      ln -sf "$opt_bin/crictl" "$usr_local_bin"/crictl || echo "symbolic link is skipped"
       cd -
 
       {{- /* kubelet */}}
