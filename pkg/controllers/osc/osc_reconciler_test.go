@@ -438,7 +438,6 @@ func buildReconciler(fakeClient client.Client, config testConfig) Reconciler {
 		clusterAddress:   config.clusterAddress,
 		kubeconfig:       kubeconfigPath,
 		containerRuntime: config.containerRuntime,
-		cniVersion:       config.cniVersion,
 		clusterDNSIPs:    config.clusterDNSIPs,
 	}
 }

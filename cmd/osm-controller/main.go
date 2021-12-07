@@ -73,7 +73,7 @@ func main() {
 	flag.StringVar(&opt.namespace, "namespace", "", "The namespace where the OSC controller will run.")
 	flag.StringVar(&opt.containerRuntime, "container-runtime", "containerd", "container runtime to deploy.")
 	flag.BoolVar(&opt.externalCloudProvider, "external-cloud-provider", false, "cloud-provider Kubelet flag set to external.")
-	flag.StringVar(&opt.clusterDNSIPs, "cluster-dns", "10.10.10.10", "Comma-separated list of DNS server IP address.")
+	flag.StringVar(&opt.clusterDNSIPs, "cluster-dns", "1.1.1.1", "Comma-separated list of DNS server IP address.")
 	flag.StringVar(&opt.pauseImage, "pause-image", "", "pause image to use in Kubelet.")
 	flag.StringVar(&opt.initialTaints, "initial-taints", "", "taints to use when creating the node.")
 	flag.StringVar(&opt.containerdVersion, "containerd-version", "", "Containerd version to use in the cluster.")
