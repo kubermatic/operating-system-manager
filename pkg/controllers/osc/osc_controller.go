@@ -143,7 +143,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrlruntime.Request) (re
 	}
 
 	supportedMD, err := r.isSupportedMachineDeployment(ctx, machineDeployment)
-	if err != nil || !supportedMD  {
+	if err != nil || !supportedMD {
 		return reconcile.Result{}, err
 	}
 
