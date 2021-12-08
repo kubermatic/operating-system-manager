@@ -39,8 +39,10 @@ import (
 	ctrlruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
@@ -111,7 +113,7 @@ func Add(
 		return err
 	}
 
-	if err := c.Watch(&source.Kind{Type: &clusterv1alpha1.MachineDeployment{}}, &handler.EnqueueRequestForObject{}); err != nil {
+	if err := c.Watch(&source.Kind{Type: &clusterv1alpha1.MachineDeployment{}}, &handler.EnqueueRequestForObject{}, filterMachineDeploymentPredicate()); err != nil {
 		return fmt.Errorf("failed to watch MachineDeployments: %v", err)
 	}
 
@@ -283,12 +285,6 @@ func (r *Reconciler) deleteGeneratedSecrets(ctx context.Context, md *clusterv1al
 
 // isSupportedMachineDeployment ensures that MachineDeployment is complaint with the OperatingSystemProfile
 func (r *Reconciler) isSupportedMachineDeployment(ctx context.Context, md *clusterv1alpha1.MachineDeployment) (bool, error) {
-	if md.Annotations[resources.MachineDeploymentOSPAnnotation] == "" {
-		// Just log a warning since the MD is not supposed to be reconciled by OSM
-		r.log.Warnw("Ignoring OSM request: no OperatingSystemProfile found. This could influence the provisioning of the machine")
-		return false, nil
-	}
-
 	ospName := md.Annotations[resources.MachineDeploymentOSPAnnotation]
 	osp := &osmv1alpha1.OperatingSystemProfile{}
 	if err := r.Get(ctx, types.NamespacedName{Name: ospName, Namespace: r.namespace}, osp); err != nil {
@@ -325,4 +321,26 @@ func (r *Reconciler) isSupportedMachineDeployment(ctx context.Context, md *clust
 		return false, nil
 	}
 	return true, nil
+}
+
+// filterMachineDeploymentPredicate will filter machine deployments based on the presence of OSP annotation
+func filterMachineDeploymentPredicate() predicate.Predicate {
+	return predicate.Funcs{
+		CreateFunc: func(e event.CreateEvent) bool {
+			md := e.Object.(*clusterv1alpha1.MachineDeployment)
+			return md.Annotations[resources.MachineDeploymentOSPAnnotation] != ""
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			md := e.Object.(*clusterv1alpha1.MachineDeployment)
+			return md.Annotations[resources.MachineDeploymentOSPAnnotation] != ""
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			md := e.ObjectNew.(*clusterv1alpha1.MachineDeployment)
+			return md.Annotations[resources.MachineDeploymentOSPAnnotation] != ""
+		},
+		GenericFunc: func(e event.GenericEvent) bool {
+			md := e.Object.(*clusterv1alpha1.MachineDeployment)
+			return md.Annotations[resources.MachineDeploymentOSPAnnotation] != ""
+		},
+	}
 }
