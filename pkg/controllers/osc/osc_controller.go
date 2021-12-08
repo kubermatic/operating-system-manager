@@ -18,12 +18,15 @@ package osc
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 
 	"go.uber.org/zap"
 
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
+	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
+
 	kuberneteshelper "k8c.io/kubermatic/v2/pkg/kubernetes"
 	"k8c.io/operating-system-manager/pkg/controllers/osc/resources"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
@@ -137,9 +140,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrlruntime.Request) (re
 		return reconcile.Result{}, nil
 	}
 
-	if machineDeployment.Annotations[resources.MachineDeploymentOSPAnnotation] == "" {
-		r.log.Warnw("Ignoring OSM request: no OperatingSystemProfile found. This could influence the provisioning of the machine")
-		return reconcile.Result{}, nil
+	supportedMD, err := r.isSupportedMachineDeployment(ctx, machineDeployment)
+	if err != nil || !supportedMD  {
+		return reconcile.Result{}, err
 	}
 
 	// Add finalizer if it doesn't exist
@@ -150,7 +153,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrlruntime.Request) (re
 		}
 	}
 
-	err := r.reconcile(ctx, machineDeployment)
+	err = r.reconcile(ctx, machineDeployment)
 	if err != nil {
 		r.log.Errorw("Reconciling failed", zap.Error(err))
 	}
@@ -276,4 +279,50 @@ func (r *Reconciler) deleteGeneratedSecrets(ctx context.Context, md *clusterv1al
 		return fmt.Errorf("failed to delete secret %s against MachineDeployment %s: %v", secret, md.Name, err)
 	}
 	return nil
+}
+
+// isSupportedMachineDeployment ensures that MachineDeployment is complaint with the OperatingSystemProfile
+func (r *Reconciler) isSupportedMachineDeployment(ctx context.Context, md *clusterv1alpha1.MachineDeployment) (bool, error) {
+	if md.Annotations[resources.MachineDeploymentOSPAnnotation] == "" {
+		// Just log a warning since the MD is not supposed to be reconciled by OSM
+		r.log.Warnw("Ignoring OSM request: no OperatingSystemProfile found. This could influence the provisioning of the machine")
+		return false, nil
+	}
+
+	ospName := md.Annotations[resources.MachineDeploymentOSPAnnotation]
+	osp := &osmv1alpha1.OperatingSystemProfile{}
+	if err := r.Get(ctx, types.NamespacedName{Name: ospName, Namespace: r.namespace}, osp); err != nil {
+		return false, fmt.Errorf("Failed to get OperatingSystemProfile: %v", err)
+	}
+
+	// Get providerConfig from machineDeployment
+	providerConfig := providerconfigtypes.Config{}
+	err := json.Unmarshal(md.Spec.Template.Spec.ProviderSpec.Value.Raw, &providerConfig)
+	if err != nil {
+		return false, fmt.Errorf("Failed to decode provider configs: %v", err)
+	}
+
+	// Ensure that OSP supports the operating system
+	if osp.Spec.OSName != osmv1alpha1.OperatingSystem(providerConfig.OperatingSystem) {
+		// Just log an error instead of returning it to avoid re-queues
+		r.log.Errorw("OperatingSystemProfile does not support the OperatingSystem specified in MachineDeployment")
+		return false, nil
+	}
+
+	// Ensure that OSP supports the cloud provider
+	supportedCloudProvider := false
+	for _, cloudProvider := range osp.Spec.SupportedCloudProviders {
+		if providerconfigtypes.CloudProvider(cloudProvider.Name) == providerConfig.CloudProvider {
+			supportedCloudProvider = true
+			break
+		}
+	}
+
+	// Ensure that OSP supports the operating system
+	if !supportedCloudProvider {
+		// Just log an error instead of returning it to avoid re-queues
+		r.log.Errorw("OperatingSystemProfile does not support the CloudProvider specified in MachineDeployment")
+		return false, nil
+	}
+	return true, nil
 }
