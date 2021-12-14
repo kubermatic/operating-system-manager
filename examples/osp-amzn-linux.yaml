@@ -20,6 +20,7 @@ metadata:
 spec:
   osName: "amzn2"
   osVersion: "2.0"
+  version: "1.0.0"
   supportedCloudProviders:
     - name: "aws"
   supportedContainerRuntimes:

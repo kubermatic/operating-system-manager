@@ -43,7 +43,9 @@ func (ad *admissionData) mutateOperatingSystemProfiles(ar admissionv1.AdmissionR
 		if err := json.Unmarshal(ar.OldObject.Raw, &ospOld); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal OldObject: %v", err)
 		}
-		// TODO: Implement this
+		if errs := ad.validateOperatingSystemProfileUpdate(ospOld, osp); len(errs) > 0 {
+			return nil, fmt.Errorf("validation failed for update: %v", errs)
+		}
 	}
 	return createAdmissionResponse(&osp, ospOriginal)
 }

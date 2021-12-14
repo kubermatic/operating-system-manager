@@ -20,6 +20,7 @@ metadata:
 spec:
   osName: "centos"
   osVersion: "7.7"
+  version: "1.0.0"
   supportedCloudProviders:
     - name: "aws"
     - name: "azure"

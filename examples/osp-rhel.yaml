@@ -20,6 +20,7 @@ metadata:
 spec:
   osName: "rhel"
   osVersion: "8.4"
+  version: "1.0.0"
   supportedCloudProviders:
     - name: "aws"
     - name: "azure"

@@ -20,6 +20,7 @@ metadata:
 spec:
   osName: "ubuntu"
   osVersion: "20.04"
+  version: "1.0.0"
   supportedCloudProviders:
     - name: "aws"
     - name: "azure"
