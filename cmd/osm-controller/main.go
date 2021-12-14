@@ -37,6 +37,7 @@ import (
 	"k8s.io/client-go/util/homedir"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 )
@@ -56,6 +57,9 @@ type options struct {
 
 	clusterDNSIPs string
 	kubeconfig    string
+
+	healthProbeAddress string
+	metricsAddress     string
 }
 
 func main() {
@@ -80,6 +84,9 @@ func main() {
 	flag.StringVar(&opt.podCidr, "pod-cidr", "172.25.0.0/16", "The network ranges from which POD networks are allocated")
 	flag.StringVar(&opt.nodePortRange, "node-port-range", "30000-32767", "A port range to reserve for services with NodePort visibility")
 
+	flag.StringVar(&opt.healthProbeAddress, "health-probe-address", "127.0.0.1:8085", "The address on which the liveness check on /healthz and readiness check on /readyz will be available")
+	flag.StringVar(&opt.metricsAddress, "metrics-address", "127.0.0.1:8080", "The address on which Prometheus metrics will be available under /metrics")
+
 	flag.Parse()
 
 	if len(opt.namespace) == 0 {
@@ -102,7 +109,10 @@ func main() {
 		klog.Fatalf("invalid cluster dns specified: %v", err)
 	}
 
-	mgr, err := manager.New(config.GetConfigOrDie(), manager.Options{})
+	mgr, err := manager.New(config.GetConfigOrDie(), manager.Options{
+		HealthProbeBindAddress: opt.healthProbeAddress,
+		MetricsBindAddress:     opt.metricsAddress,
+	})
 	if err != nil {
 		klog.Error(err, "could not create manager")
 		os.Exit(1)
@@ -114,6 +124,11 @@ func main() {
 	if err = clusterv1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
 		klog.Fatal(err)
 	}
+
+	if err := mgr.AddReadyzCheck("alive", healthz.Ping); err != nil {
+		klog.Fatalf("failed to add readiness check: %v", err)
+	}
+
 	logger, err := zap.NewProduction()
 	if err != nil {
 		klog.Fatal(err)

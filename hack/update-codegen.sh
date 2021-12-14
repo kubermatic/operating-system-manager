@@ -19,7 +19,7 @@ set -euo pipefail
 cd $(dirname $0)/..
 source hack/lib.sh
 
-CONTAINERIZE_IMAGE=golang:1.15.1 containerize ./hack/update-codegen.sh
+CONTAINERIZE_IMAGE=golang:1.17.6 containerize ./hack/update-codegen.sh
 SCRIPT_ROOT=$(dirname "${BASH_SOURCE}")
 
 echodate "Creating vendor directory"

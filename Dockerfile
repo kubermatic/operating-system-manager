@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-
 # Copyright 2021 The Operating System Manager contributors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,19 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -euo pipefail
+ARG GO_VERSION=1.17.6
+FROM golang:${GO_VERSION} AS builder
+WORKDIR /go/src/k8c.io/operating-system-manager
+COPY . .
+RUN make all
 
-cd $(dirname $0)/..
-source hack/lib.sh
+FROM alpine:3.12
 
-CONTAINERIZE_IMAGE=golang:1.17.6 containerize ./hack/update-crds-openapi.sh
-SCRIPT_ROOT=$(dirname "${BASH_SOURCE}")
+RUN apk add --no-cache ca-certificates cdrkit
 
-echodate "Creating vendor directory"
-go mod vendor
-
-echodate "Generating OpenAPI 3 schema for CRDs"
-go run sigs.k8s.io/controller-tools/cmd/controller-gen \
-    schemapatch:manifests=./deploy/crd \
-    output:dir=./deploy/crd \
-    paths=./pkg/crd/...
+COPY --from=builder \
+    /go/src/k8c.io/operating-system-manager \
+    /go/src/k8c.io/operating-system-manager/webhook \
+    /usr/local/bin/
+USER nobody

@@ -20,8 +20,8 @@ cd $(dirname $0)/..
 source hack/lib.sh
 
 TEMPDIR=_tmp
-DIFFROOT="charts/crd"
-TMP_DIFFROOT="$TEMPDIR/charts/crd"
+DIFFROOT="deploy/crd"
+TMP_DIFFROOT="$TEMPDIR/deploy/crd"
 
 cleanup() {
   rm -rf "$TEMPDIR"

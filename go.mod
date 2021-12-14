@@ -1,6 +1,6 @@
 module k8c.io/operating-system-manager
 
-go 1.15
+go 1.17
 
 require (
 	github.com/Masterminds/semver/v3 v3.1.1

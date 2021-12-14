@@ -39,7 +39,7 @@ presubmits:
       preset-goproxy: "true"
     spec:
       containers:
-        - image: golang:1.15.7
+        - image: golang:1.17.6
           command:
             - make
           args:
@@ -61,7 +61,7 @@ presubmits:
       preset-goproxy: "true"
     spec:
       containers:
-        - image: golang:1.15.7
+        - image: golang:1.17.6
           command:
             - make
           args:
@@ -124,7 +124,7 @@ presubmits:
       preset-goproxy: "true"
     spec:
       containers:
-        - image: golang:1.15.7
+        - image: golang:1.17.6
           command:
             - make
           args:
