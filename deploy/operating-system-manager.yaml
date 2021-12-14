@@ -1,0 +1,59 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: operating-system-manager
+  namespace: kube-system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: operating-system-manager
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: operating-system-manager
+  template:
+    metadata:
+      annotations:
+        "prometheus.io/scrape": "true"
+        "prometheus.io/port": "8080"
+        "prometheus.io/path": "/metrics"
+      labels:
+        app: operating-system-manager
+    spec:
+      serviceAccountName: operating-system-manager
+      containers:
+        - image: kubermatic/operating-system-manager:latest
+          imagePullPolicy: IfNotPresent
+          name: operating-system-manager
+          command:
+            - /usr/local/bin/operating-system-manager
+            - -logtostderr
+            - -v=3
+            - -worker-count=5
+            - -cluster-dns=10.10.10.10
+            - -metrics-address=0.0.0.0:8080
+            - -health-probe-address=0.0.0.0:8085
+          ports:
+            - containerPort: 8085
+          livenessProbe:
+            httpGet:
+              path: /readyz
+              port: 8085
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8085
+            periodSeconds: 5
+          resources:
+            requests:
+              memory: 500Mi
+              cpu: 500m
+            limits:
+              memory: 500Mi
+              cpu: 500m
