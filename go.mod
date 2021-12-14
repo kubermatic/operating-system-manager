@@ -9,8 +9,10 @@ require (
 	github.com/kinvolk/container-linux-config-transpiler v0.9.1
 	github.com/kubermatic/machine-controller v1.36.1
 	github.com/onsi/ginkgo v1.14.2
+	github.com/pkg/errors v0.9.1
 	github.com/pmezard/go-difflib v1.0.0
 	go.uber.org/zap v1.16.0
+	gomodules.xyz/jsonpatch/v2 v2.1.0
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776
 	k8c.io/kubermatic/v2 v2.16.2
 	k8s.io/api v0.20.2
@@ -18,6 +20,7 @@ require (
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/code-generator v0.20.4
 	k8s.io/klog v1.0.0
+	k8s.io/klog/v2 v2.4.0
 	k8s.io/utils v0.0.0-20201110183641-67b214c5f920
 	sigs.k8s.io/controller-runtime v0.7.0
 	sigs.k8s.io/controller-tools v0.4.1
