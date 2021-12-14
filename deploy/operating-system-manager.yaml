@@ -30,7 +30,7 @@ spec:
           imagePullPolicy: IfNotPresent
           name: operating-system-manager
           command:
-            - /usr/local/bin/operating-system-manager
+            - /usr/local/bin/osm-controller
             - -logtostderr
             - -v=3
             - -worker-count=5
