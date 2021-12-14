@@ -45,6 +45,7 @@ spec:
             - -logtostderr
             - -v=6
             - -listen-address=0.0.0.0:9876
+            - -namespace=kube-system
           volumeMounts:
             - name: operating-system-manager-admission-cert
               mountPath: /tmp/cert
@@ -72,6 +73,15 @@ spec:
         - name: operating-system-manager-admission-cert
           secret:
             secretName: operating-system-manager-admission-cert
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: operating-system-manager-admission-cert
+  namespace: kube-system
+data:
+  "cert.pem": __admission_cert__
+  "key.pem": __admission_key__
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration

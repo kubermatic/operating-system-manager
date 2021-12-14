@@ -1,3 +1,90 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: operating-system-manager
+rules:
+- apiGroups:
+  - "cluster.k8s.io"
+  resources:
+  - "machinedeployments"
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: operating-system-manager
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: operating-system-manager
+subjects:
+  - kind: ServiceAccount
+    name: operating-system-manager
+    namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: operating-system-manager
+  namespace: kube-system
+rules:
+- apiGroups:
+  - operatingsystemmanager.k8c.io
+  resources:
+  - operatingsystemprofile
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - operatingsystemmanager.k8c.io
+  resources:
+  - operatingsystemprofile/status
+  verbs:
+  - get
+- apiGroups:
+  - operatingsystemmanager.k8c.io
+  resources:
+  - operatingsystemconfig
+  verbs:
+  - "*"
+- apiGroups:
+  - operatingsystemmanager.k8c.io
+  resources:
+  - operatingsystemconfig/status
+  verbs:
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - update
+  - get
+- apiGroups:
+  - "coordination.k8s.io"
+  resources:
+  - leases
+  verbs:
+  - "*"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: operating-system-manager
+  namespace: kube-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: operating-system-manager
+subjects:
+- kind: ServiceAccount
+  name: operating-system-manager
+  namespace: kube-system
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -37,6 +124,7 @@ spec:
             - -cluster-dns=10.10.10.10
             - -metrics-address=0.0.0.0:8080
             - -health-probe-address=0.0.0.0:8085
+            - -namespace=kube-system
           ports:
             - containerPort: 8085
           livenessProbe:
