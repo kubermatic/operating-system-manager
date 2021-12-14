@@ -17,9 +17,19 @@ export CGO_ENABLED=0
 export GOPROXY?=https://proxy.golang.org
 export GO111MODULE=on
 export GOFLAGS?=-mod=readonly -trimpath
+export GIT_TAG ?= $(shell git tag --points-at HEAD)
+
+GO_VERSION = 1.17.5
 
 CMD = $(notdir $(wildcard ./cmd/*))
 BUILD_DEST ?= _build
+
+REGISTRY ?= quay.io
+REGISTRY_NAMESPACE ?= kubermatic
+
+IMAGE_TAG = \
+		$(shell echo $$(git rev-parse HEAD && if [[ -n $$(git status --porcelain) ]]; then echo '-dirty'; fi)|tr -d ' ')
+IMAGE_NAME ?= $(REGISTRY)/$(REGISTRY_NAMESPACE)/operating-system-manager:$(IMAGE_TAG)
 
 .PHONY: lint
 lint:
@@ -87,3 +97,24 @@ test:
 clean:
 	rm -rf $(BUILD_DEST)
 	@echo "Cleaned $(BUILD_DEST)"
+
+.PHONY: download-gocache
+download-gocache:
+	@./hack/ci-download-gocache.sh
+
+.PHONY: docker-image
+docker-image:
+	docker build --build-arg GO_VERSION=$(GO_VERSION) -t $(IMAGE_NAME) .
+
+
+.PHONY: docker-image-publish
+docker-image-publish: docker-image
+	docker push $(IMAGE_NAME)
+	if [[ -n "$(GIT_TAG)" ]]; then \
+		$(eval IMAGE_TAG = $(GIT_TAG)) \
+		docker build -t $(IMAGE_NAME) . && \
+		docker push $(IMAGE_NAME) && \
+		$(eval IMAGE_TAG = latest) \
+		docker build -t $(IMAGE_NAME) . ;\
+		docker push $(IMAGE_NAME) ;\
+	fi
