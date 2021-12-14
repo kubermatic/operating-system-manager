@@ -21,6 +21,7 @@ import (
 )
 
 // OperatingSystem represents supported operating system.
+// +kubebuilder:validation:Enum=flatcar;rhel;centos;ubuntu;sles;amzn2
 type OperatingSystem string
 
 const (
@@ -33,6 +34,7 @@ const (
 )
 
 // CloudProvider represents supported cloud provider.
+// +kubebuilder:validation:Enum=aws;azure;digitalocean;gce;hetzner;kubevirt;linode;openstack;packet;vsphere;fake;alibaba;anexia;scaleway;baremetal;external
 type CloudProvider string
 
 const (
@@ -52,6 +54,15 @@ const (
 	CloudProviderScaleway     CloudProvider = "scaleway"
 	CloudProviderBaremetal    CloudProvider = "baremetal"
 	CloudProviderExternal     CloudProvider = "external"
+)
+
+// ContainerRuntime represents supported container runtime
+// +kubebuilder:validation:Enum=docker;containerd
+type ContainerRuntime string
+
+const (
+	ContainerRuntimeDocker     ContainerRuntime = "docker"
+	ContainerRuntimeContainerd ContainerRuntime = "containerd"
 )
 
 // CloudProviderSpec contains the os/image reference for a specific supported cloud provider
@@ -100,7 +111,7 @@ type File struct {
 // ContainerRuntimeSpec aggregates information about a specific container runtime
 type ContainerRuntimeSpec struct {
 	// Name of the Container runtime
-	Name string `json:"name"`
+	Name ContainerRuntime `json:"name"`
 	// Files to add to the main files list when the containerRuntime is selected
 	Files []File `json:"files"`
 	// Templates to add to the available templates when the containerRuntime is selected
