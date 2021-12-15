@@ -28,11 +28,8 @@ import (
 	ctrlruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 const (
@@ -41,27 +38,12 @@ const (
 
 type Reconciler struct {
 	client.Client
-
-	log *zap.SugaredLogger
-}
-
-func Add(mgr manager.Manager, log *zap.SugaredLogger, namespace string, workerCount int) error {
-	reconciler := &Reconciler{
-		Client: mgr.GetClient(),
-		log:    log,
-	}
-	log.Info("Reconciling OSP resource..")
-
-	c, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: reconciler, MaxConcurrentReconciles: workerCount})
-	if err != nil {
-		return err
-	}
-	return c.Watch(&source.Kind{Type: &v1alpha1.OperatingSystemProfile{}}, &handler.EnqueueRequestForObject{},
-		predicate.NewPredicateFuncs(func(o client.Object) bool { return o.GetNamespace() == namespace }))
+	Log         *zap.SugaredLogger
+	WorkerCount int
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrlruntime.Request) (reconcile.Result, error) {
-	log := r.log.With("request", req)
+	log := r.Log.With("request", req)
 	log.Info("Reconciling OSP resource..")
 
 	profile := &v1alpha1.OperatingSystemProfile{}
@@ -74,4 +56,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrlruntime.Request) (re
 	}
 
 	return reconcile.Result{}, nil
+}
+
+func (r *Reconciler) SetupWithManager(mgr manager.Manager) error {
+	return ctrlruntime.NewControllerManagedBy(mgr).
+		For(&v1alpha1.OperatingSystemProfile{}).
+		WithOptions(controller.Options{MaxConcurrentReconciles: r.WorkerCount}).
+		Complete(r)
 }

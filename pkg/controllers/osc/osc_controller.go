@@ -36,10 +36,9 @@ import (
 	ctrlruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 const (
@@ -52,71 +51,27 @@ const (
 
 type Reconciler struct {
 	client.Client
-	log                   *zap.SugaredLogger
-	namespace             string
-	clusterAddress        string
-	containerRuntime      string
-	externalCloudProvider bool
-	pauseImage            string
-	initialTaints         string
-	generator             generator.CloudConfigGenerator
-	clusterDNSIPs         []net.IP
-	kubeconfig            string
-	nodeHTTPProxy         string
-	nodeNoProxy           string
-	podCIDR               string
-	nodePortRange         string
-}
+	UserClient  client.Client
+	Log         *zap.SugaredLogger
+	WorkerCount int
 
-func Add(
-	mgr manager.Manager,
-	log *zap.SugaredLogger,
-	namespace string,
-	clusterName string,
-	workerCount int,
-	clusterDNSIPs []net.IP,
-	kubeconfig string,
-	generator generator.CloudConfigGenerator,
-	containerRuntime string,
-	externalCloudProvider bool,
-	pauseImage string,
-	initialTaints string,
-	nodeHTTPProxy string,
-	nodeNoProxy string,
-	podCIDR string,
-	nodePortRange string) error {
-	reconciler := &Reconciler{
-		Client:                mgr.GetClient(),
-		log:                   log,
-		namespace:             namespace,
-		clusterAddress:        clusterName,
-		generator:             generator,
-		kubeconfig:            kubeconfig,
-		clusterDNSIPs:         clusterDNSIPs,
-		containerRuntime:      containerRuntime,
-		pauseImage:            pauseImage,
-		initialTaints:         initialTaints,
-		externalCloudProvider: externalCloudProvider,
-		nodeHTTPProxy:         nodeHTTPProxy,
-		nodeNoProxy:           nodeNoProxy,
-		podCIDR:               podCIDR,
-		nodePortRange:         nodePortRange,
-	}
-	log.Info("Reconciling OSC resource..")
-	c, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: reconciler, MaxConcurrentReconciles: workerCount})
-	if err != nil {
-		return err
-	}
-
-	if err := c.Watch(&source.Kind{Type: &clusterv1alpha1.MachineDeployment{}}, &handler.EnqueueRequestForObject{}); err != nil {
-		return fmt.Errorf("failed to watch MachineDeployments: %v", err)
-	}
-
-	return nil
+	Namespace             string
+	ClusterAddress        string
+	ContainerRuntime      string
+	ExternalCloudProvider bool
+	PauseImage            string
+	InitialTaints         string
+	Generator             generator.CloudConfigGenerator
+	ClusterDNSIPs         []net.IP
+	UserClusterKubeconfig string
+	NodeHTTPProxy         string
+	NodeNoProxy           string
+	PodCIDR               string
+	NodePortRange         string
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrlruntime.Request) (reconcile.Result, error) {
-	log := r.log.With("request", req)
+	log := r.Log.With("request", req)
 	log.Info("Reconciling OSC resource..")
 
 	machineDeployment := &clusterv1alpha1.MachineDeployment{}
@@ -138,7 +93,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrlruntime.Request) (re
 	}
 
 	if machineDeployment.Annotations[resources.MachineDeploymentOSPAnnotation] == "" {
-		r.log.Warnw("Ignoring OSM request: no OperatingSystemProfile found. This could influence the provisioning of the machine")
+		r.Log.Warnw("Ignoring OSM request: no OperatingSystemProfile found. This could influence the provisioning of the machine")
 		return reconcile.Result{}, nil
 	}
 
@@ -152,7 +107,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrlruntime.Request) (re
 
 	err := r.reconcile(ctx, machineDeployment)
 	if err != nil {
-		r.log.Errorw("Reconciling failed", zap.Error(err))
+		r.Log.Errorw("Reconciling failed", zap.Error(err))
 	}
 
 	return reconcile.Result{}, err
@@ -173,7 +128,7 @@ func (r *Reconciler) reconcile(ctx context.Context, md *clusterv1alpha1.MachineD
 func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
 	ospName := md.Annotations[resources.MachineDeploymentOSPAnnotation]
 	osp := &osmv1alpha1.OperatingSystemProfile{}
-	if err := r.Get(ctx, types.NamespacedName{Name: ospName, Namespace: r.namespace}, osp); err != nil {
+	if err := r.Get(ctx, types.NamespacedName{Name: ospName, Namespace: r.Namespace}, osp); err != nil {
 		return fmt.Errorf("failed to get OperatingSystemProfile: %v", err)
 	}
 
@@ -181,18 +136,18 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 		resources.OperatingSystemConfigCreator(
 			md,
 			osp,
-			r.kubeconfig,
-			r.clusterDNSIPs,
-			r.containerRuntime,
-			r.externalCloudProvider,
-			r.pauseImage,
-			r.initialTaints,
-			r.nodeHTTPProxy,
-			r.nodeNoProxy,
-			r.nodePortRange,
-			r.podCIDR,
+			r.UserClusterKubeconfig,
+			r.ClusterDNSIPs,
+			r.ContainerRuntime,
+			r.ExternalCloudProvider,
+			r.PauseImage,
+			r.InitialTaints,
+			r.NodeHTTPProxy,
+			r.NodeNoProxy,
+			r.NodePortRange,
+			r.PodCIDR,
 		),
-	}, r.namespace, r.Client); err != nil {
+	}, r.Namespace, r.Client); err != nil {
 		return fmt.Errorf("failed to reconcile provisioning operating system config: %v", err)
 	}
 
@@ -206,17 +161,17 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.M
 		return fmt.Errorf("failed to list OperatingSystemConfigs: %v", err)
 	}
 
-	provisionData, err := r.generator.Generate(osc)
+	provisionData, err := r.Generator.Generate(osc)
 	if err != nil {
 		return fmt.Errorf("failed to generate provisioning data")
 	}
 
 	if err := reconciling.ReconcileSecrets(ctx, []reconciling.NamedSecretCreatorGetter{
 		resources.CloudConfigSecretCreator(md.Name, resources.ProvisioningCloudConfig, provisionData),
-	}, r.namespace, r.Client); err != nil {
+	}, r.Namespace, r.UserClient); err != nil {
 		return fmt.Errorf("failed to reconcile provisioning secrets: %v", err)
 	}
-	r.log.Infof("successfully generated provisioning secret: %v", fmt.Sprintf(resources.MachineDeploymentSubresourceNamePattern, md.Name, resources.ProvisioningCloudConfig))
+	r.Log.Infof("successfully generated provisioning secret: %v", fmt.Sprintf(resources.MachineDeploymentSubresourceNamePattern, md.Name, resources.ProvisioningCloudConfig))
 
 	return nil
 }
@@ -249,7 +204,7 @@ func (r *Reconciler) handleMachineDeploymentCleanup(ctx context.Context, md *clu
 func (r *Reconciler) deleteOperatingSystemConfig(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
 	oscName := fmt.Sprintf(resources.MachineDeploymentSubresourceNamePattern, md.Name, resources.ProvisioningCloudConfig)
 	osc := &osmv1alpha1.OperatingSystemConfig{}
-	if err := r.Get(ctx, types.NamespacedName{Name: oscName, Namespace: r.namespace}, osc); err != nil {
+	if err := r.Get(ctx, types.NamespacedName{Name: oscName, Namespace: r.Namespace}, osc); err != nil {
 		if kerrors.IsNotFound(err) {
 			return nil
 		}
@@ -265,7 +220,7 @@ func (r *Reconciler) deleteOperatingSystemConfig(ctx context.Context, md *cluste
 func (r *Reconciler) deleteGeneratedSecrets(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
 	secretName := fmt.Sprintf(resources.MachineDeploymentSubresourceNamePattern, md.Name, resources.ProvisioningCloudConfig)
 	secret := &corev1.Secret{}
-	if err := r.Get(ctx, types.NamespacedName{Name: secretName, Namespace: r.namespace}, secret); err != nil {
+	if err := r.Get(ctx, types.NamespacedName{Name: secretName, Namespace: r.Namespace}, secret); err != nil {
 		if kerrors.IsNotFound(err) {
 			return nil
 		}
@@ -276,4 +231,19 @@ func (r *Reconciler) deleteGeneratedSecrets(ctx context.Context, md *clusterv1al
 		return fmt.Errorf("failed to delete secret %s against MachineDeployment %s: %v", secret, md.Name, err)
 	}
 	return nil
+}
+
+func (r *Reconciler) SetupWithManager(mgr manager.Manager) error {
+	return ctrlruntime.NewControllerManagedBy(mgr).
+		For(&clusterv1alpha1.MachineDeployment{}).
+		WithEventFilter(filterMachineDeploymentPredicate()).
+		WithOptions(controller.Options{MaxConcurrentReconciles: r.WorkerCount}).
+		Complete(r)
+}
+
+// filterMachineDeploymentPredicate will filter machine deployments based on the presence of OSP annotation
+func filterMachineDeploymentPredicate() predicate.Predicate {
+	return predicate.NewPredicateFuncs(func(o client.Object) bool {
+		return o.GetAnnotations()[resources.MachineDeploymentOSPAnnotation] != ""
+	})
 }

@@ -21,9 +21,8 @@ import (
 	"flag"
 	"fmt"
 	"net"
-	"os"
-	"path"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -34,8 +33,13 @@ import (
 	"k8c.io/operating-system-manager/pkg/generator"
 	providerconfig "k8c.io/operating-system-manager/pkg/providerconfig/config"
 
-	"k8s.io/client-go/util/homedir"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
+	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -55,11 +59,24 @@ type options struct {
 	nodePortRange         string
 	podCidr               string
 
-	clusterDNSIPs string
-	kubeconfig    string
+	clusterDNSIPs         string
+	userClusterKubeconfig string
 
 	healthProbeAddress string
 	metricsAddress     string
+}
+
+const (
+	defaultLeaderElectionNamespace = "kube-system"
+)
+
+var (
+	scheme = runtime.NewScheme()
+)
+
+func init() {
+	utilruntime.Must(v1alpha1.AddToScheme(scheme))
+	utilruntime.Must(clusterv1alpha1.AddToScheme(scheme))
 }
 
 func main() {
@@ -67,10 +84,7 @@ func main() {
 
 	opt := &options{}
 
-	if flag.Lookup("kubeconfig") == nil {
-		flag.StringVar(&opt.kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
-	}
-
+	flag.StringVar(&opt.userClusterKubeconfig, "user-cluster-kubeconfig", "", "Path to a user cluster kubeconfig where provisioning secrets are created")
 	flag.IntVar(&opt.workerCount, "worker-count", 10, "Number of workers which process reconciliation in parallel.")
 	flag.StringVar(&opt.clusterName, "cluster-name", "", "The cluster where the OSC will run.")
 	flag.StringVar(&opt.namespace, "namespace", "", "The namespace where the OSC controller will run.")
@@ -93,80 +107,126 @@ func main() {
 		klog.Fatal("-namespace is required")
 	}
 
+	if len(opt.userClusterKubeconfig) == 0 {
+		klog.Fatal("-user-cluster-kubeconfig is required")
+	}
+
 	if !(opt.containerRuntime == "docker" || opt.containerRuntime == "containerd") {
 		klog.Fatalf("%s not supported; containerd, docker are the supported container runtimes", opt.containerRuntime)
 	}
 
-	opt.kubeconfig = flag.Lookup("kubeconfig").Value.(flag.Getter).Get().(string)
-
-	// out-of-cluster config was not provided using the flag, try to use the in-cluster config.
-	if opt.kubeconfig == "" {
-		opt.kubeconfig = getKubeConfigPath()
-	}
+	opt.userClusterKubeconfig = flag.Lookup("user-cluster-kubeconfig").Value.(flag.Getter).Get().(string)
 
 	parsedClusterDNSIPs, err := parseClusterDNSIPs(opt.clusterDNSIPs)
 	if err != nil {
 		klog.Fatalf("invalid cluster dns specified: %v", err)
 	}
 
-	mgr, err := manager.New(config.GetConfigOrDie(), manager.Options{
-		HealthProbeBindAddress: opt.healthProbeAddress,
-		MetricsBindAddress:     opt.metricsAddress,
-	})
+	mgr, err := createManager(opt)
 	if err != nil {
-		klog.Error(err, "could not create manager")
-		os.Exit(1)
-	}
-	if err = v1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
-		klog.Fatal(err)
-	}
-	// because we watch MachineDeployments
-	if err = clusterv1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
-		klog.Fatal(err)
-	}
-
-	if err := mgr.AddReadyzCheck("alive", healthz.Ping); err != nil {
-		klog.Fatalf("failed to add readiness check: %v", err)
-	}
-
-	logger, err := zap.NewProduction()
-	if err != nil {
-		klog.Fatal(err)
-	}
-
-	log := logger.Sugar()
-
-	if err := osp.Add(mgr, log, opt.namespace, opt.workerCount); err != nil {
-		klog.Fatal(err)
+		klog.Fatalf("failed to create runtime manager: %v", err)
 	}
 
 	// Instantiate ConfigVarResolver
 	providerconfig.SetConfigVarResolver(context.Background(), mgr.GetClient(), opt.namespace)
 
-	if err := osc.Add(
-		mgr,
-		log,
-		osc.CloudInitSettingsNamespace,
-		opt.clusterName,
-		opt.workerCount,
-		parsedClusterDNSIPs,
-		opt.kubeconfig,
-		generator.NewDefaultCloudConfigGenerator(""),
-		opt.containerRuntime,
-		opt.externalCloudProvider,
-		opt.pauseImage,
-		opt.initialTaints,
-		opt.nodeHTTPProxy,
-		opt.nodeNoProxy,
-		opt.nodePortRange,
-		opt.podCidr,
-	); err != nil {
+	logger, err := zap.NewProduction()
+	if err != nil {
 		klog.Fatal(err)
 	}
+	log := logger.Sugar()
 
+	// Setup OSP controller
+	if err = (&osp.Reconciler{
+		Client:      mgr.GetClient(),
+		Log:         log,
+		WorkerCount: opt.workerCount,
+	}).SetupWithManager(mgr); err != nil {
+		klog.Fatalf("unable to create osp controller with err: %v", err)
+	}
+
+	// Build config for user cluster
+	userCfg, err := clientcmd.BuildConfigFromFlags("", opt.userClusterKubeconfig)
+	if err != nil {
+		klog.Fatalf("error building user cluster kubeconfig: %v", err)
+	}
+
+	// Build client for user cluster
+	userClient, err := ctrlruntimeclient.New(userCfg, ctrlruntimeclient.Options{})
+	if err != nil {
+		klog.Fatalf("failed to build user client: %v", err)
+	}
+
+	// Build dedicated clientset for informers
+	userClientset := kubernetes.NewForConfigOrDie(userCfg)
+
+	// Build informers for OSC controller
+	userInformerFactory := informers.NewSharedInformerFactory(userClientset, time.Minute*30)
+	err = mgr.Add(manager.RunnableFunc(func(ctx context.Context) error {
+		userInformerFactory.Start(ctx.Done())
+		userInformerFactory.WaitForCacheSync(ctx.Done())
+		return nil
+	}))
+	if err != nil {
+		klog.Fatalf("error adding InformerFactory to the manager: %v", err)
+	}
+
+	// Setup OSC controller
+	if err = (&osc.Reconciler{
+		Client:                mgr.GetClient(),
+		Log:                   log,
+		UserClient:            userClient,
+		WorkerCount:           opt.workerCount,
+		Namespace:             osc.CloudInitSettingsNamespace,
+		ClusterAddress:        opt.clusterName,
+		ContainerRuntime:      opt.containerRuntime,
+		ExternalCloudProvider: opt.externalCloudProvider,
+		PauseImage:            opt.pauseImage,
+		InitialTaints:         opt.initialTaints,
+		Generator:             generator.NewDefaultCloudConfigGenerator(""),
+		ClusterDNSIPs:         parsedClusterDNSIPs,
+		UserClusterKubeconfig: opt.userClusterKubeconfig,
+		NodeHTTPProxy:         opt.nodeHTTPProxy,
+		NodeNoProxy:           opt.nodeNoProxy,
+		PodCIDR:               opt.podCidr,
+		NodePortRange:         opt.nodePortRange,
+	}).SetupWithManager(mgr); err != nil {
+		klog.Fatalf("unable to create osc controller with err: %v", err)
+	}
+
+	log.Info("starting manager")
 	if err := mgr.Start(signals.SetupSignalHandler()); err != nil {
 		klog.Fatalf("Failed to start OSC controller: %v", zap.Error(err))
 	}
+}
+
+func createManager(opt *options) (manager.Manager, error) {
+	// Manager options
+	options := manager.Options{
+		Scheme: scheme,
+		// TODO(waleed) make it work
+		LeaderElection:          false,
+		LeaderElectionID:        "operating-system-manager",
+		LeaderElectionNamespace: defaultLeaderElectionNamespace,
+		HealthProbeBindAddress:  opt.healthProbeAddress,
+		MetricsBindAddress:      opt.metricsAddress,
+		Port:                    9443,
+		Namespace:               opt.namespace, // namespaced-scope when the value is not an empty string
+	}
+
+	mgr, err := manager.New(config.GetConfigOrDie(), options)
+	if err != nil {
+		return nil, fmt.Errorf("error building ctrlruntime manager: %v", err)
+	}
+
+	// Add health endpoints
+	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
+		return nil, fmt.Errorf("failed to add health check: %v", err)
+	}
+	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
+		return nil, fmt.Errorf("failed to add readiness check: %v", err)
+	}
+	return mgr, nil
 }
 
 func parseClusterDNSIPs(s string) ([]net.IP, error) {
@@ -180,12 +240,4 @@ func parseClusterDNSIPs(s string) ([]net.IP, error) {
 		ips = append(ips, ip)
 	}
 	return ips, nil
-}
-
-// getKubeConfigPath returns the path to the kubeconfig file.
-func getKubeConfigPath() string {
-	if os.Getenv("KUBECONFIG") != "" {
-		return os.Getenv("KUBECONFIG")
-	}
-	return path.Join(homedir.HomeDir(), ".kube/config")
 }
