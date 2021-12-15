@@ -100,7 +100,7 @@ clean:
 
 .PHONY: download-gocache
 download-gocache:
-	@./hack/ci-download-gocache.sh
+	@./hack/ci/download-gocache.sh
 
 .PHONY: docker-image
 docker-image:
