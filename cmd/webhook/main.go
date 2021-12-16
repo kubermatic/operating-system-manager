@@ -53,8 +53,8 @@ func main() {
 	opt := &options{}
 
 	flag.StringVar(&opt.admissionListenAddress, "listen-address", ":9876", "The address on which the MutatingWebhook will listen on")
-	flag.StringVar(&opt.admissionTLSCertPath, "tls-cert-path", "/home/waleed/src/local/osm/cert/cert.pem", "The path of the TLS cert for the MutatingWebhook")
-	flag.StringVar(&opt.admissionTLSKeyPath, "tls-key-path", "/home/waleed/src/local/osm/cert/key.pem", "The path of the TLS key for the MutatingWebhook")
+	flag.StringVar(&opt.admissionTLSCertPath, "tls-cert-path", "/tmp/cert/cert.pem", "The path of the TLS cert for the MutatingWebhook")
+	flag.StringVar(&opt.admissionTLSKeyPath, "tls-key-path", "/tmp/cert/key.pem", "The path of the TLS key for the MutatingWebhook")
 	flag.StringVar(&opt.ospNamespace, "osp-namespace", "kubermatic", "The namespace where the OSPs will exist")
 	flag.Parse()
 
