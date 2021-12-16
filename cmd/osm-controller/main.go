@@ -46,6 +46,7 @@ import (
 type options struct {
 	workerCount           int
 	namespace             string
+	ospNamespace          string
 	clusterName           string
 	containerRuntime      string
 	externalCloudProvider bool
@@ -87,6 +88,7 @@ func main() {
 	flag.IntVar(&opt.workerCount, "worker-count", 10, "Number of workers which process reconciliation in parallel.")
 	flag.StringVar(&opt.clusterName, "cluster-name", "", "The cluster where the OSC will run.")
 	flag.StringVar(&opt.namespace, "namespace", "", "The namespace where the OSC controller will run.")
+	flag.StringVar(&opt.ospNamespace, "osp-namespace", "kubermatic", "The namespace where the OSPs will exist")
 	flag.StringVar(&opt.containerRuntime, "container-runtime", "containerd", "container runtime to deploy.")
 	flag.BoolVar(&opt.externalCloudProvider, "external-cloud-provider", false, "cloud-provider Kubelet flag set to external.")
 	flag.StringVar(&opt.clusterDNSIPs, "cluster-dns", "10.10.10.10", "Comma-separated list of DNS server IP address.")
@@ -126,9 +128,6 @@ func main() {
 		klog.Fatalf("failed to create runtime manager: %v", err)
 	}
 
-	// Instantiate ConfigVarResolver
-	providerconfig.SetConfigVarResolver(context.Background(), mgr.GetClient(), opt.namespace)
-
 	logger, err := zap.NewProduction()
 	if err != nil {
 		klog.Fatal(err)
@@ -148,6 +147,9 @@ func main() {
 		klog.Fatalf("failed to build seed client: %v", err)
 	}
 
+	// Instantiate ConfigVarResolver
+	providerconfig.SetConfigVarResolver(context.Background(), clusterClient, opt.namespace)
+
 	// Setup OSC controller
 	if err = (&osc.Reconciler{
 		Client:                clusterClient,
@@ -155,6 +157,7 @@ func main() {
 		UserClient:            mgr.GetClient(),
 		WorkerCount:           opt.workerCount,
 		Namespace:             opt.namespace,
+		OSPNamespace:          opt.ospNamespace,
 		ClusterAddress:        opt.clusterName,
 		ContainerRuntime:      opt.containerRuntime,
 		ExternalCloudProvider: opt.externalCloudProvider,

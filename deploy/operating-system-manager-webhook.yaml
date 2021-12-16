@@ -83,7 +83,7 @@ spec:
             secretName: operating-system-manager-admission-cert
 ---
 apiVersion: admissionregistration.k8s.io/v1
-kind: MutatingWebhookConfiguration
+kind: ValidatingWebhookConfiguration
 metadata:
   name: operatingsystemmanager.k8c.io
 webhooks:
@@ -105,7 +105,7 @@ webhooks:
       service:
         namespace: kube-system
         name: operating-system-manager-webhook
-        path: /mutate-machine-deployment
+        path: /valiate-machine-deployment
       caBundle: __admission_ca_cert__
   - name: operatingsystemprofiles.operatingsystemmanager.k8c.io
     failurePolicy: Fail
@@ -125,7 +125,7 @@ webhooks:
       service:
         namespace: kube-system
         name: operating-system-manager-webhook
-        path: /mutate-operating-system-profile
+        path: /valiate-operating-system-profile
       caBundle: __admission_ca_cert__
   - name: operatingsystemconfigs.operatingsystemmanager.k8c.io
     failurePolicy: Fail
@@ -145,5 +145,5 @@ webhooks:
       service:
         namespace: kube-system
         name: operating-system-manager-webhook
-        path: /mutate-operating-system-config
+        path: /valiate-operating-system-config
       caBundle: __admission_ca_cert__

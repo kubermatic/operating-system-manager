@@ -25,7 +25,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
-func (ad *admissionData) mutateOperatingSystemProfiles(ar admissionv1.AdmissionRequest) (*admissionv1.AdmissionResponse, error) {
+func (ad *admissionData) validateOperatingSystemProfiles(ar admissionv1.AdmissionRequest) (*admissionv1.AdmissionResponse, error) {
 	osp := osmv1alpha1.OperatingSystemProfile{}
 	if err := json.Unmarshal(ar.Object.Raw, &osp); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal: %v", err)
@@ -41,5 +41,5 @@ func (ad *admissionData) mutateOperatingSystemProfiles(ar admissionv1.AdmissionR
 			return nil, fmt.Errorf("validation failed for update: %v", errs)
 		}
 	}
-	return createAdmissionResponse(&osp, osp.DeepCopy())
+	return createAdmissionResponse(true), nil
 }

@@ -26,5 +26,5 @@ COPY --from=builder \
     /go/src/k8c.io/operating-system-manager/_build/osm-controller \
     /go/src/k8c.io/operating-system-manager/_build/webhook \
     /usr/local/bin/
-    
+
 USER nobody

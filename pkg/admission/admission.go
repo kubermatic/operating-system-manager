@@ -21,36 +21,30 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"reflect"
 	"time"
 
 	"github.com/pkg/errors"
-	"gomodules.xyz/jsonpatch/v2"
 	admissionv1 "k8s.io/api/admission/v1"
-	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
 	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type admissionData struct {
-	client           ctrlruntimeclient.Client
-	clusterNamespace string
+	client       ctrlruntimeclient.Client
+	ospNamespace string
 }
 
-var jsonPatch = admissionv1.PatchTypeJSONPatch
-
-func New(listenAddress, clusterNamespace string, client ctrlruntimeclient.Client) (*http.Server, error) {
+func New(listenAddress, ospNamespace string, client ctrlruntimeclient.Client) (*http.Server, error) {
 	mux := http.NewServeMux()
 	ad := &admissionData{
-		client:           client,
-		clusterNamespace: clusterNamespace,
+		client:       client,
+		ospNamespace: ospNamespace,
 	}
 
-	mux.HandleFunc("/mutate-machine-deployment", handleFuncFactory(ad.mutateMachineDeployments))
-	mux.HandleFunc("/mutate-operating-system-profile", handleFuncFactory(ad.mutateOperatingSystemProfiles))
-	mux.HandleFunc("/mutate-operating-system-config", handleFuncFactory(ad.mutateOperatingSystemConfigs))
+	mux.HandleFunc("/validate-machine-deployment", handleFuncFactory(ad.validateMachineDeployments))
+	mux.HandleFunc("/validate-operating-system-profile", handleFuncFactory(ad.validateOperatingSystemProfiles))
+	mux.HandleFunc("/validate-operating-system-config", handleFuncFactory(ad.validateOperatingSystemConfigs))
 	mux.HandleFunc("/healthz", healthZHandler)
 
 	return &http.Server{
@@ -63,49 +57,15 @@ func healthZHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func createAdmissionResponse(original, mutated runtime.Object) (*admissionv1.AdmissionResponse, error) {
-	response := &admissionv1.AdmissionResponse{}
-	response.Allowed = true
-	if !apiequality.Semantic.DeepEqual(original, mutated) {
-		patchOpts, err := newJSONPatch(original, mutated)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create json patch: %v", err)
-		}
-
-		patchRaw, err := json.Marshal(patchOpts)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal json patch: %v", err)
-		}
-		klog.V(3).Infof("Produced jsonpatch: %s", string(patchRaw))
-
-		response.Patch = patchRaw
-		response.PatchType = &jsonPatch
+func createAdmissionResponse(resp bool) *admissionv1.AdmissionResponse {
+	return &admissionv1.AdmissionResponse{
+		Allowed: resp,
 	}
-	return response, nil
 }
 
-func newJSONPatch(original, current runtime.Object) ([]jsonpatch.JsonPatchOperation, error) {
-	originalGVK := original.GetObjectKind().GroupVersionKind()
-	currentGVK := current.GetObjectKind().GroupVersionKind()
-	if !reflect.DeepEqual(originalGVK, currentGVK) {
-		return nil, fmt.Errorf("GroupVersionKind %#v is expected to match %#v", originalGVK, currentGVK)
-	}
-	ori, err := json.Marshal(original)
-	if err != nil {
-		return nil, err
-	}
-	klog.V(6).Infof("jsonpatch: Marshaled original: %s", string(ori))
-	cur, err := json.Marshal(current)
-	if err != nil {
-		return nil, err
-	}
-	klog.V(6).Infof("jsonpatch: Marshaled target: %s", string(cur))
-	return jsonpatch.CreatePatch(ori, cur)
-}
+type validator func(admissionv1.AdmissionRequest) (*admissionv1.AdmissionResponse, error)
 
-type mutator func(admissionv1.AdmissionRequest) (*admissionv1.AdmissionResponse, error)
-
-func handleFuncFactory(mutate mutator) func(http.ResponseWriter, *http.Request) {
+func handleFuncFactory(validate validator) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		review, err := readReview(r)
 		if err != nil {
@@ -120,8 +80,8 @@ func handleFuncFactory(mutate mutator) func(http.ResponseWriter, *http.Request) 
 			return
 		}
 
-		// run the mutation logic
-		response, err := mutate(*review.Request)
+		// run the validation logic
+		response, err := validate(*review.Request)
 		if err != nil {
 			response = &admissionv1.AdmissionResponse{}
 			response.Result = &metav1.Status{Message: err.Error()}
