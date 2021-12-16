@@ -35,23 +35,22 @@ import (
 )
 
 type admissionData struct {
-	userClient       ctrlruntimeclient.Client
-	seedClient       ctrlruntimeclient.Client
+	client           ctrlruntimeclient.Client
 	clusterNamespace string
 }
 
 var jsonPatch = admissionv1.PatchTypeJSONPatch
 
-func New(listenAddress, clusterNamespace string, userClient, seedClient ctrlruntimeclient.Client) (*http.Server, error) {
+func New(listenAddress, clusterNamespace string, client ctrlruntimeclient.Client) (*http.Server, error) {
 	mux := http.NewServeMux()
 	ad := &admissionData{
-		userClient:       userClient,
-		seedClient:       seedClient,
+		client:           client,
 		clusterNamespace: clusterNamespace,
 	}
 
 	mux.HandleFunc("/mutate-machine-deployment", handleFuncFactory(ad.mutateMachineDeployments))
 	mux.HandleFunc("/mutate-operating-system-profile", handleFuncFactory(ad.mutateOperatingSystemProfiles))
+	mux.HandleFunc("/mutate-operating-system-config", handleFuncFactory(ad.mutateOperatingSystemConfigs))
 	mux.HandleFunc("/healthz", healthZHandler)
 
 	return &http.Server{

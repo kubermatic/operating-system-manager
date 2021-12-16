@@ -1,3 +1,11 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: operating-system-manager-admission-cert
+  namespace: kube-system
+data:
+  "cert.pem": __admission_cert__
+  "key.pem": __admission_key__
 ---
 apiVersion: v1
 kind: Service
@@ -64,24 +72,15 @@ spec:
             periodSeconds: 5
           resources:
             requests:
-              memory: 500Mi
-              cpu: 500m
+              memory: 256Mi
+              cpu: 100m
             limits:
-              memory: 500Mi
-              cpu: 500m
+              memory: 256Mi
+              cpu: 100m
       volumes:
         - name: operating-system-manager-admission-cert
           secret:
             secretName: operating-system-manager-admission-cert
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: operating-system-manager-admission-cert
-  namespace: kube-system
-data:
-  "cert.pem": __admission_cert__
-  "key.pem": __admission_key__
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
@@ -121,10 +120,30 @@ webhooks:
           - CREATE
           - UPDATE
         resources:
-          - operatingsystemprofile
+          - operatingsystemprofiles
     clientConfig:
       service:
         namespace: kube-system
         name: operating-system-manager-webhook
         path: /mutate-operating-system-profile
+      caBundle: __admission_ca_cert__
+  - name: operatingsystemconfigs.operatingsystemmanager.k8c.io
+    failurePolicy: Fail
+    sideEffects: None
+    admissionReviewVersions: ["v1", "v1beta1"]
+    rules:
+      - apiGroups:
+          - "operatingsystemmanager.k8c.io"
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - operatingsystemconfigs
+    clientConfig:
+      service:
+        namespace: kube-system
+        name: operating-system-manager-webhook
+        path: /mutate-operating-system-config
       caBundle: __admission_ca_cert__

@@ -22,28 +22,25 @@ import (
 	"fmt"
 	"net"
 	"strings"
-	"time"
 
 	"go.uber.org/zap"
 
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/controllers/osc"
-	"k8c.io/operating-system-manager/pkg/controllers/osp"
 	"k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/generator"
 	providerconfig "k8c.io/operating-system-manager/pkg/providerconfig/config"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
+	ctrl "sigs.k8s.io/controller-runtime"
 	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 )
 
 type options struct {
@@ -66,15 +63,17 @@ type options struct {
 	metricsAddress     string
 }
 
-const (
-	defaultLeaderElectionNamespace = "kube-system"
-)
-
 var (
 	scheme = runtime.NewScheme()
 )
 
+const (
+	defaultLeaderElectionNamespace = "kube-system"
+)
+
 func init() {
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 	utilruntime.Must(clusterv1alpha1.AddToScheme(scheme))
 }
@@ -122,7 +121,7 @@ func main() {
 		klog.Fatalf("invalid cluster dns specified: %v", err)
 	}
 
-	mgr, err := createManager(opt)
+	mgr, err := createManager(opt, opt.userClusterKubeconfig)
 	if err != nil {
 		klog.Fatalf("failed to create runtime manager: %v", err)
 	}
@@ -136,48 +135,26 @@ func main() {
 	}
 	log := logger.Sugar()
 
-	// Setup OSP controller
-	if err = (&osp.Reconciler{
-		Client:      mgr.GetClient(),
-		Log:         log,
-		WorkerCount: opt.workerCount,
-	}).SetupWithManager(mgr); err != nil {
-		klog.Fatalf("unable to create osp controller with err: %v", err)
+	// Build config for in-cluster cluster
+	// Out of cluster config can be provided using `KUBECONFIG` env variable or `-kubeconfig` flag
+	clusterCfg, err := config.GetConfig()
+	if err != nil {
+		klog.Fatalf("error building kubeconfig: %v", err)
 	}
 
-	// Build config for user cluster
-	userCfg, err := clientcmd.BuildConfigFromFlags("", opt.userClusterKubeconfig)
+	// Build client against in-cluster config
+	clusterClient, err := ctrlruntimeclient.New(clusterCfg, ctrlruntimeclient.Options{})
 	if err != nil {
-		klog.Fatalf("error building user cluster kubeconfig: %v", err)
-	}
-
-	// Build client for user cluster
-	userClient, err := ctrlruntimeclient.New(userCfg, ctrlruntimeclient.Options{})
-	if err != nil {
-		klog.Fatalf("failed to build user client: %v", err)
-	}
-
-	// Build dedicated clientset for informers
-	userClientset := kubernetes.NewForConfigOrDie(userCfg)
-
-	// Build informers for OSC controller
-	userInformerFactory := informers.NewSharedInformerFactory(userClientset, time.Minute*30)
-	err = mgr.Add(manager.RunnableFunc(func(ctx context.Context) error {
-		userInformerFactory.Start(ctx.Done())
-		userInformerFactory.WaitForCacheSync(ctx.Done())
-		return nil
-	}))
-	if err != nil {
-		klog.Fatalf("error adding InformerFactory to the manager: %v", err)
+		klog.Fatalf("failed to build seed client: %v", err)
 	}
 
 	// Setup OSC controller
 	if err = (&osc.Reconciler{
-		Client:                mgr.GetClient(),
+		Client:                clusterClient,
 		Log:                   log,
-		UserClient:            userClient,
+		UserClient:            mgr.GetClient(),
 		WorkerCount:           opt.workerCount,
-		Namespace:             osc.CloudInitSettingsNamespace,
+		Namespace:             opt.namespace,
 		ClusterAddress:        opt.clusterName,
 		ContainerRuntime:      opt.containerRuntime,
 		ExternalCloudProvider: opt.externalCloudProvider,
@@ -195,26 +172,30 @@ func main() {
 	}
 
 	log.Info("starting manager")
-	if err := mgr.Start(signals.SetupSignalHandler()); err != nil {
+	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		klog.Fatalf("Failed to start OSC controller: %v", zap.Error(err))
 	}
 }
 
-func createManager(opt *options) (manager.Manager, error) {
+func createManager(opt *options, kubeconfigPath string) (manager.Manager, error) {
 	// Manager options
 	options := manager.Options{
-		Scheme: scheme,
-		// TODO(waleed) make it work
-		LeaderElection:          false,
+		Scheme:                  scheme,
+		LeaderElection:          true,
 		LeaderElectionID:        "operating-system-manager",
 		LeaderElectionNamespace: defaultLeaderElectionNamespace,
 		HealthProbeBindAddress:  opt.healthProbeAddress,
 		MetricsBindAddress:      opt.metricsAddress,
 		Port:                    9443,
-		Namespace:               opt.namespace, // namespaced-scope when the value is not an empty string
 	}
 
-	mgr, err := manager.New(config.GetConfigOrDie(), options)
+	// Build config for user cluster
+	cfg, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath)
+	if err != nil {
+		return nil, fmt.Errorf("error building user cluster kubeconfig: %v", err)
+	}
+
+	mgr, err := manager.New(cfg, options)
 	if err != nil {
 		return nil, fmt.Errorf("error building ctrlruntime manager: %v", err)
 	}

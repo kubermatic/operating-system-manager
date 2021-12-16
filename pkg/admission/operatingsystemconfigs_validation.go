@@ -23,18 +23,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
-func (ad *admissionData) validateOperatingSystemProfileUpdate(ospOld osmv1alpha1.OperatingSystemProfile, ospNew osmv1alpha1.OperatingSystemProfile) field.ErrorList {
+func (ad *admissionData) validateOperatingSystemConfigUpdate(oscOld osmv1alpha1.OperatingSystemConfig, oscNew osmv1alpha1.OperatingSystemConfig) field.ErrorList {
 	allErrs := field.ErrorList{}
 
-	if equal := apiequality.Semantic.DeepEqual(ospOld.Spec, ospNew.Spec); equal {
-		// There is no change in spec so no validation is required
-		return allErrs
-	}
-
-	// OSP is immutable by nature and to make modifications a version bump is mandatory
-	if ospOld.Spec.Version == ospNew.Spec.Version {
-		allErrs = append(allErrs, field.Invalid(field.NewPath("spec"), ospNew.Spec.Version, "OperatingSystemProfile is immutable. For updates .spec.version needs to be updated"))
-		return allErrs
+	// Updates for OperatingSystemConfig are not allowed
+	if equal := apiequality.Semantic.DeepEqual(oscOld.Spec, oscNew.Spec); !equal {
+		allErrs = append(allErrs, field.Invalid(field.NewPath("spec"), oscNew.Name, "OperatingSystemConfig is immutable and updates are not alloed"))
 	}
 	return allErrs
 }

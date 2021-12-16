@@ -565,7 +565,7 @@ spec:
           data: |
             [Unit]
             Requires=kubelet.service
-            After=kubelet.service
+            After=kubelet.service 
 
             [Service]
             ExecStart=/opt/bin/health-monitor.sh kubelet

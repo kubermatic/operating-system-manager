@@ -25,21 +25,21 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
-func (ad *admissionData) mutateOperatingSystemProfiles(ar admissionv1.AdmissionRequest) (*admissionv1.AdmissionResponse, error) {
-	osp := osmv1alpha1.OperatingSystemProfile{}
-	if err := json.Unmarshal(ar.Object.Raw, &osp); err != nil {
+func (ad *admissionData) mutateOperatingSystemConfigs(ar admissionv1.AdmissionRequest) (*admissionv1.AdmissionResponse, error) {
+	osc := osmv1alpha1.OperatingSystemConfig{}
+	if err := json.Unmarshal(ar.Object.Raw, &osc); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal: %v", err)
 	}
 
 	// Do not validate the spec if it hasn't changed
 	if ar.Operation == admissionv1.Update {
-		var ospOld osmv1alpha1.OperatingSystemProfile
-		if err := json.Unmarshal(ar.OldObject.Raw, &ospOld); err != nil {
+		var oscOld osmv1alpha1.OperatingSystemConfig
+		if err := json.Unmarshal(ar.OldObject.Raw, &oscOld); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal OldObject: %v", err)
 		}
-		if errs := ad.validateOperatingSystemProfileUpdate(ospOld, osp); len(errs) > 0 {
+		if errs := ad.validateOperatingSystemConfigUpdate(oscOld, osc); len(errs) > 0 {
 			return nil, fmt.Errorf("validation failed for update: %v", errs)
 		}
 	}
-	return createAdmissionResponse(&osp, osp.DeepCopy())
+	return createAdmissionResponse(&osc, osc.DeepCopy())
 }

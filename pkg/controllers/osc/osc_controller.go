@@ -92,11 +92,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrlruntime.Request) (re
 		return reconcile.Result{}, nil
 	}
 
-	if machineDeployment.Annotations[resources.MachineDeploymentOSPAnnotation] == "" {
-		r.Log.Warnw("Ignoring OSM request: no OperatingSystemProfile found. This could influence the provisioning of the machine")
-		return reconcile.Result{}, nil
-	}
-
 	// Add finalizer if it doesn't exist
 	if !kuberneteshelper.HasFinalizer(machineDeployment, MachineDeploymentCleanupFinalizer) {
 		kuberneteshelper.AddFinalizer(machineDeployment, MachineDeploymentCleanupFinalizer)
@@ -157,7 +152,7 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
 	oscName := fmt.Sprintf(resources.MachineDeploymentSubresourceNamePattern, md.Name, resources.ProvisioningCloudConfig)
 	osc := &osmv1alpha1.OperatingSystemConfig{}
-	if err := r.Get(ctx, types.NamespacedName{Namespace: CloudInitSettingsNamespace, Name: oscName}, osc); err != nil {
+	if err := r.Get(ctx, types.NamespacedName{Namespace: r.Namespace, Name: oscName}, osc); err != nil {
 		return fmt.Errorf("failed to list OperatingSystemConfigs: %v", err)
 	}
 
@@ -168,7 +163,7 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.M
 
 	if err := reconciling.ReconcileSecrets(ctx, []reconciling.NamedSecretCreatorGetter{
 		resources.CloudConfigSecretCreator(md.Name, resources.ProvisioningCloudConfig, provisionData),
-	}, r.Namespace, r.UserClient); err != nil {
+	}, CloudInitSettingsNamespace, r.UserClient); err != nil {
 		return fmt.Errorf("failed to reconcile provisioning secrets: %v", err)
 	}
 	r.Log.Infof("successfully generated provisioning secret: %v", fmt.Sprintf(resources.MachineDeploymentSubresourceNamePattern, md.Name, resources.ProvisioningCloudConfig))
@@ -234,6 +229,7 @@ func (r *Reconciler) deleteGeneratedSecrets(ctx context.Context, md *clusterv1al
 }
 
 func (r *Reconciler) SetupWithManager(mgr manager.Manager) error {
+	r.Log.Info("Reconciling OSC resource..")
 	return ctrlruntime.NewControllerManagedBy(mgr).
 		For(&clusterv1alpha1.MachineDeployment{}).
 		WithEventFilter(filterMachineDeploymentPredicate()).

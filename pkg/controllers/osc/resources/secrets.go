@@ -35,8 +35,13 @@ func CloudConfigSecretCreator(mdName string, oscType CloudConfigSecret, data []b
 			sec.Data["cloud-config"] = data
 
 			// Cloud config secret is immutable
-			*sec.Immutable = true
+			sec.Immutable = truePtr()
 			return sec, nil
 		}
 	}
+}
+
+func truePtr() *bool {
+	b := true
+	return &b
 }

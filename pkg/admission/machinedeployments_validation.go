@@ -43,7 +43,7 @@ func (ad *admissionData) validateMachineDeployment(md clusterv1alpha1.MachineDep
 	}
 
 	osp := &osmv1alpha1.OperatingSystemProfile{}
-	err := ad.seedClient.Get(context.TODO(), client.ObjectKey{Name: ospName, Namespace: ad.clusterNamespace}, osp)
+	err := ad.client.Get(context.TODO(), client.ObjectKey{Name: ospName, Namespace: ad.clusterNamespace}, osp)
 	if err != nil && !kerrors.IsNotFound(err) {
 		if kerrors.IsNotFound(err) {
 			allErrs = append(allErrs, field.Invalid(field.NewPath("metadata", "annotations", resources.MachineDeploymentOSPAnnotation), ospName, "OperatingSystemProfile  not found"))
