@@ -23,6 +23,6 @@ OSM_KUBECONFIG=${MC_KUBECONFIG:-$(dirname $0)/../.kubeconfig}
 rm -rf $(dirname $0)/../_build/
 make -C $(dirname $0)/.. build
 $(dirname $0)/../_build/osm-controller \
-  -user-cluster-kubeconfig=/home/waleed/.kube/interim \
+  -external-cluster-kubeconfig=$OSM_KUBECONFIG \
   -namespace=cloud-init-settings \
   -worker-count=50

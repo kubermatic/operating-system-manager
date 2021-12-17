@@ -18,7 +18,7 @@ data:
   kubeconfig: __user_cluster_kubeconfig__
 kind: Secret
 metadata:
-  name: user-cluster-kubeconfig
+  name: external-cluster-kubeconfig
   namespace: kube-system
 type: Opaque
 ---
@@ -156,10 +156,10 @@ spec:
             - -metrics-address=0.0.0.0:8080
             - -health-probe-address=0.0.0.0:8085
             - -namespace=kube-system
-            - -user-cluster-kubeconfig=/etc/kubernetes/kubeconfig/kubeconfig
+            - -external-cluster-kubeconfig=/etc/kubernetes/kubeconfig/kubeconfig
           volumeMounts:
             - mountPath: /etc/kubernetes/kubeconfig
-              name: user-cluster-kubeconfig
+              name: external-cluster-kubeconfig
               readOnly: true
           ports:
             - containerPort: 8085
@@ -182,7 +182,7 @@ spec:
               memory: 256Mi
               cpu: 100m
       volumes:
-        - name: user-cluster-kubeconfig
+        - name: external-cluster-kubeconfig
           secret:
             defaultMode: 420
-            secretName: user-cluster-kubeconfig
+            secretName: external-cluster-kubeconfig

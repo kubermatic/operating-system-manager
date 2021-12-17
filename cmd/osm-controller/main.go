@@ -27,12 +27,12 @@ import (
 
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/controllers/osc"
-	"k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
+	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/generator"
 	providerconfig "k8c.io/operating-system-manager/pkg/providerconfig/config"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/kubernetes/scheme"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
@@ -57,26 +57,21 @@ type options struct {
 	nodePortRange         string
 	podCidr               string
 
-	clusterDNSIPs         string
-	userClusterKubeconfig string
+	clusterDNSIPs             string
+	externalClusterKubeconfig string
 
 	healthProbeAddress string
 	metricsAddress     string
 }
-
-var (
-	scheme = runtime.NewScheme()
-)
 
 const (
 	defaultLeaderElectionNamespace = "kube-system"
 )
 
 func init() {
-	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-
-	utilruntime.Must(v1alpha1.AddToScheme(scheme))
-	utilruntime.Must(clusterv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme.Scheme))
+	utilruntime.Must(osmv1alpha1.AddToScheme(scheme.Scheme))
+	utilruntime.Must(clusterv1alpha1.AddToScheme(scheme.Scheme))
 }
 
 func main() {
@@ -84,7 +79,7 @@ func main() {
 
 	opt := &options{}
 
-	flag.StringVar(&opt.userClusterKubeconfig, "user-cluster-kubeconfig", "", "Path to a user cluster kubeconfig where provisioning secrets are created")
+	flag.StringVar(&opt.externalClusterKubeconfig, "external-cluster-kubeconfig", "", "Path to kubeconfig of cluster where provisioning secrets are created")
 	flag.IntVar(&opt.workerCount, "worker-count", 10, "Number of workers which process reconciliation in parallel.")
 	flag.StringVar(&opt.clusterName, "cluster-name", "", "The cluster where the OSC will run.")
 	flag.StringVar(&opt.namespace, "namespace", "", "The namespace where the OSC controller will run.")
@@ -108,22 +103,22 @@ func main() {
 		klog.Fatal("-namespace is required")
 	}
 
-	if len(opt.userClusterKubeconfig) == 0 {
-		klog.Fatal("-user-cluster-kubeconfig is required")
+	if len(opt.externalClusterKubeconfig) == 0 {
+		klog.Fatal("-external-cluster-kubeconfig is required")
 	}
 
 	if !(opt.containerRuntime == "docker" || opt.containerRuntime == "containerd") {
 		klog.Fatalf("%s not supported; containerd, docker are the supported container runtimes", opt.containerRuntime)
 	}
 
-	opt.userClusterKubeconfig = flag.Lookup("user-cluster-kubeconfig").Value.(flag.Getter).Get().(string)
+	opt.externalClusterKubeconfig = flag.Lookup("external-cluster-kubeconfig").Value.(flag.Getter).Get().(string)
 
 	parsedClusterDNSIPs, err := parseClusterDNSIPs(opt.clusterDNSIPs)
 	if err != nil {
 		klog.Fatalf("invalid cluster dns specified: %v", err)
 	}
 
-	mgr, err := createManager(opt, opt.userClusterKubeconfig)
+	mgr, err := createManager(opt, opt.externalClusterKubeconfig)
 	if err != nil {
 		klog.Fatalf("failed to create runtime manager: %v", err)
 	}
@@ -152,24 +147,24 @@ func main() {
 
 	// Setup OSC controller
 	if err = (&osc.Reconciler{
-		Client:                clusterClient,
-		Log:                   log,
-		UserClient:            mgr.GetClient(),
-		WorkerCount:           opt.workerCount,
-		Namespace:             opt.namespace,
-		OSPNamespace:          opt.ospNamespace,
-		ClusterAddress:        opt.clusterName,
-		ContainerRuntime:      opt.containerRuntime,
-		ExternalCloudProvider: opt.externalCloudProvider,
-		PauseImage:            opt.pauseImage,
-		InitialTaints:         opt.initialTaints,
-		Generator:             generator.NewDefaultCloudConfigGenerator(""),
-		ClusterDNSIPs:         parsedClusterDNSIPs,
-		UserClusterKubeconfig: opt.userClusterKubeconfig,
-		NodeHTTPProxy:         opt.nodeHTTPProxy,
-		NodeNoProxy:           opt.nodeNoProxy,
-		PodCIDR:               opt.podCidr,
-		NodePortRange:         opt.nodePortRange,
+		Client:                    clusterClient,
+		Log:                       log,
+		ExternalClient:            mgr.GetClient(),
+		WorkerCount:               opt.workerCount,
+		Namespace:                 opt.namespace,
+		OSPNamespace:              opt.ospNamespace,
+		ClusterAddress:            opt.clusterName,
+		ContainerRuntime:          opt.containerRuntime,
+		ExternalCloudProvider:     opt.externalCloudProvider,
+		PauseImage:                opt.pauseImage,
+		InitialTaints:             opt.initialTaints,
+		Generator:                 generator.NewDefaultCloudConfigGenerator(""),
+		ClusterDNSIPs:             parsedClusterDNSIPs,
+		ExternalClusterKubeconfig: opt.externalClusterKubeconfig,
+		NodeHTTPProxy:             opt.nodeHTTPProxy,
+		NodeNoProxy:               opt.nodeNoProxy,
+		PodCIDR:                   opt.podCidr,
+		NodePortRange:             opt.nodePortRange,
 	}).SetupWithManager(mgr); err != nil {
 		klog.Fatalf("unable to create osc controller with err: %v", err)
 	}
@@ -183,7 +178,6 @@ func main() {
 func createManager(opt *options, kubeconfigPath string) (manager.Manager, error) {
 	// Manager options
 	options := manager.Options{
-		Scheme:                  scheme,
 		LeaderElection:          true,
 		LeaderElectionID:        "operating-system-manager",
 		LeaderElectionNamespace: defaultLeaderElectionNamespace,

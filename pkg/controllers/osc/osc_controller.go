@@ -51,24 +51,24 @@ const (
 
 type Reconciler struct {
 	client.Client
-	UserClient  client.Client
-	Log         *zap.SugaredLogger
-	WorkerCount int
+	ExternalClient client.Client
+	Log            *zap.SugaredLogger
+	WorkerCount    int
 
-	Namespace             string
-	OSPNamespace          string
-	ClusterAddress        string
-	ContainerRuntime      string
-	ExternalCloudProvider bool
-	PauseImage            string
-	InitialTaints         string
-	Generator             generator.CloudConfigGenerator
-	ClusterDNSIPs         []net.IP
-	UserClusterKubeconfig string
-	NodeHTTPProxy         string
-	NodeNoProxy           string
-	PodCIDR               string
-	NodePortRange         string
+	Namespace                 string
+	OSPNamespace              string
+	ClusterAddress            string
+	ContainerRuntime          string
+	ExternalCloudProvider     bool
+	PauseImage                string
+	InitialTaints             string
+	Generator                 generator.CloudConfigGenerator
+	ClusterDNSIPs             []net.IP
+	ExternalClusterKubeconfig string
+	NodeHTTPProxy             string
+	NodeNoProxy               string
+	PodCIDR                   string
+	NodePortRange             string
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrlruntime.Request) (reconcile.Result, error) {
@@ -76,7 +76,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrlruntime.Request) (re
 	log.Info("Reconciling OSC resource..")
 
 	machineDeployment := &clusterv1alpha1.MachineDeployment{}
-	if err := r.Get(ctx, req.NamespacedName, machineDeployment); err != nil {
+	if err := r.ExternalClient.Get(ctx, req.NamespacedName, machineDeployment); err != nil {
 		if kerrors.IsNotFound(err) {
 			return reconcile.Result{}, nil
 		}
@@ -96,7 +96,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrlruntime.Request) (re
 	// Add finalizer if it doesn't exist
 	if !kuberneteshelper.HasFinalizer(machineDeployment, MachineDeploymentCleanupFinalizer) {
 		kuberneteshelper.AddFinalizer(machineDeployment, MachineDeploymentCleanupFinalizer)
-		if err := r.Client.Update(ctx, machineDeployment); err != nil {
+		if err := r.ExternalClient.Update(ctx, machineDeployment); err != nil {
 			return reconcile.Result{}, fmt.Errorf("failed to add finalizer: %w", err)
 		}
 	}
@@ -132,7 +132,7 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 		resources.OperatingSystemConfigCreator(
 			md,
 			osp,
-			r.UserClusterKubeconfig,
+			r.ExternalClusterKubeconfig,
 			r.ClusterDNSIPs,
 			r.ContainerRuntime,
 			r.ExternalCloudProvider,
@@ -164,7 +164,7 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.M
 
 	if err := reconciling.ReconcileSecrets(ctx, []reconciling.NamedSecretCreatorGetter{
 		resources.CloudConfigSecretCreator(md.Name, resources.ProvisioningCloudConfig, provisionData),
-	}, CloudInitSettingsNamespace, r.UserClient); err != nil {
+	}, CloudInitSettingsNamespace, r.ExternalClient); err != nil {
 		return fmt.Errorf("failed to reconcile provisioning secrets: %v", err)
 	}
 	r.Log.Infof("successfully generated provisioning secret: %v", fmt.Sprintf(resources.MachineDeploymentSubresourceNamePattern, md.Name, resources.ProvisioningCloudConfig))
@@ -230,7 +230,6 @@ func (r *Reconciler) deleteGeneratedSecrets(ctx context.Context, md *clusterv1al
 }
 
 func (r *Reconciler) SetupWithManager(mgr manager.Manager) error {
-	r.Log.Info("Reconciling OSC resource..")
 	return ctrlruntime.NewControllerManagedBy(mgr).
 		For(&clusterv1alpha1.MachineDeployment{}).
 		WithEventFilter(filterMachineDeploymentPredicate()).
