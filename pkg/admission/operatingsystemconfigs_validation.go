@@ -28,7 +28,7 @@ func (ad *admissionData) validateOperatingSystemConfigUpdate(oscOld osmv1alpha1.
 
 	// Updates for OperatingSystemConfig are not allowed
 	if equal := apiequality.Semantic.DeepEqual(oscOld.Spec, oscNew.Spec); !equal {
-		allErrs = append(allErrs, field.Invalid(field.NewPath("spec"), oscNew.Name, "OperatingSystemConfig is immutable and updates are not alloed"))
+		allErrs = append(allErrs, field.Invalid(field.NewPath("spec"), oscNew.Name, "OperatingSystemConfig is immutable and updates are not allowed"))
 	}
 	return allErrs
 }

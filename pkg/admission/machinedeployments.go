@@ -30,7 +30,7 @@ func (ad *admissionData) validateMachineDeployments(ar admissionv1.AdmissionRequ
 		return nil, fmt.Errorf("failed to unmarshal: %v", err)
 	}
 
-	if errs := ad.validateMachineDeployment(machineDeployment); len(errs) > 0 {
+	if errs := ValidateMachineDeployment(machineDeployment, ad.client, ad.ospNamespace); len(errs) > 0 {
 		return nil, fmt.Errorf("validation failed: %v", errs)
 	}
 

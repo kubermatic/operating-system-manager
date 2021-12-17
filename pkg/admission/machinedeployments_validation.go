@@ -22,17 +22,18 @@ import (
 	"fmt"
 
 	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
+	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"k8c.io/operating-system-manager/pkg/controllers/osc/resources"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (ad *admissionData) validateMachineDeployment(md clusterv1alpha1.MachineDeployment) field.ErrorList {
+func ValidateMachineDeployment(md clusterv1alpha1.MachineDeployment, client ctrlruntimeclient.Client, ospNamespace string) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	ospName := md.Annotations[resources.MachineDeploymentOSPAnnotation]
@@ -43,7 +44,7 @@ func (ad *admissionData) validateMachineDeployment(md clusterv1alpha1.MachineDep
 	}
 
 	osp := &osmv1alpha1.OperatingSystemProfile{}
-	err := ad.client.Get(context.TODO(), client.ObjectKey{Name: ospName, Namespace: ad.ospNamespace}, osp)
+	err := client.Get(context.TODO(), types.NamespacedName{Name: ospName, Namespace: ospNamespace}, osp)
 	if err != nil && !kerrors.IsNotFound(err) {
 		if kerrors.IsNotFound(err) {
 			allErrs = append(allErrs, field.Invalid(field.NewPath("metadata", "annotations", resources.MachineDeploymentOSPAnnotation), ospName, "OperatingSystemProfile  not found"))
