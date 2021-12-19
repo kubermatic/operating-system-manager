@@ -10,7 +10,7 @@ require (
 	github.com/kubermatic/machine-controller v1.36.1
 	github.com/onsi/ginkgo v1.15.0
 	github.com/open-policy-agent/frameworks/constraint v0.0.0-20210802220920-c000ec35322e // indirect
-	github.com/pkg/errors v0.9.1
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0
 	go.uber.org/zap v1.16.0
 	gopkg.in/yaml.v2 v2.4.0 // indirect
