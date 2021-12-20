@@ -56,6 +56,10 @@ This controller was designed by keeping air-gapped environments in mind. Custome
 
 More work is being done to make it even easier to use OSM in air-gapped environments.
 
+## Support
+
+Information about supported OS versions can be found [here](./docs/compatibility-matrix.md).
+
 ## Deploy OSM
 
 [TBD]

@@ -24,8 +24,8 @@ spec:
     - name: "aws"
     - name: "azure"
     - name: "digitalocean"
-    - name: "equinixmetal"
     - name: "hetzner"
+    - name: "kubevirt"
     - name: "openstack"
     - name: "vsphere"
   supportedContainerRuntimes:
