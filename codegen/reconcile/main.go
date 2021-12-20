@@ -46,6 +46,11 @@ func main() {
 				ResourceImportPath: "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1",
 			},
 			{
+				ResourceName:       "OperatingSystemProfile",
+				ImportAlias:        "osmv1alpha1",
+				ResourceImportPath: "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1",
+			},
+			{
 				ResourceName:       "ClusterRoleBinding",
 				ImportAlias:        "rbacv1",
 				ResourceImportPath: "k8s.io/api/rbac/v1",

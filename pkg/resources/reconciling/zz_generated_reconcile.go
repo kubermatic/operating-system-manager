@@ -87,6 +87,43 @@ func ReconcileOperatingSystemConfigs(ctx context.Context, namedGetters []NamedOp
 	return nil
 }
 
+// OperatingSystemProfileCreator defines an interface to create/update OperatingSystemProfiles
+type OperatingSystemProfileCreator = func(existing *osmv1alpha1.OperatingSystemProfile) (*osmv1alpha1.OperatingSystemProfile, error)
+
+// NamedOperatingSystemProfileCreatorGetter returns the name of the resource and the corresponding creator function
+type NamedOperatingSystemProfileCreatorGetter = func() (name string, create OperatingSystemProfileCreator)
+
+// OperatingSystemProfileObjectWrapper adds a wrapper so the OperatingSystemProfileCreator matches ObjectCreator.
+// This is needed as Go does not support function interface matching.
+func OperatingSystemProfileObjectWrapper(create OperatingSystemProfileCreator) ObjectCreator {
+	return func(existing ctrlruntimeclient.Object) (ctrlruntimeclient.Object, error) {
+		if existing != nil {
+			return create(existing.(*osmv1alpha1.OperatingSystemProfile))
+		}
+		return create(&osmv1alpha1.OperatingSystemProfile{})
+	}
+}
+
+// ReconcileOperatingSystemProfiles will create and update the OperatingSystemProfiles coming from the passed OperatingSystemProfileCreator slice
+func ReconcileOperatingSystemProfiles(ctx context.Context, namedGetters []NamedOperatingSystemProfileCreatorGetter, namespace string, client ctrlruntimeclient.Client, objectModifiers ...ObjectModifier) error {
+	for _, get := range namedGetters {
+		name, create := get()
+		createObject := OperatingSystemProfileObjectWrapper(create)
+		createObject = createWithNamespace(createObject, namespace)
+		createObject = createWithName(createObject, name)
+
+		for _, objectModifier := range objectModifiers {
+			createObject = objectModifier(createObject)
+		}
+
+		if err := EnsureNamedObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, createObject, client, &osmv1alpha1.OperatingSystemProfile{}, false); err != nil {
+			return fmt.Errorf("failed to ensure OperatingSystemProfile %s/%s: %v", namespace, name, err)
+		}
+	}
+
+	return nil
+}
+
 // ClusterRoleBindingCreator defines an interface to create/update ClusterRoleBindings
 type ClusterRoleBindingCreator = func(existing *rbacv1.ClusterRoleBinding) (*rbacv1.ClusterRoleBinding, error)
 

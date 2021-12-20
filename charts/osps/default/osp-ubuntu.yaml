@@ -16,7 +16,7 @@ apiVersion: operatingsystemmanager.k8c.io/v1alpha1
 kind: OperatingSystemProfile
 metadata:
   name: osp-ubuntu
-  namespace: cloud-init-settings
+  namespace: cluster-x2qc8nrhqf
 spec:
   osName: "ubuntu"
   osVersion: "20.04"
