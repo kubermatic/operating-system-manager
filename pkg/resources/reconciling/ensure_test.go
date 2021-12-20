@@ -76,8 +76,9 @@ func TestEnsureObjectByAnnotation(t *testing.T) {
 			name: "Object gets updated",
 			existingObject: &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      testResourceName,
-					Namespace: testNamespace,
+					Name:            testResourceName,
+					Namespace:       testNamespace,
+					ResourceVersion: "0",
 				},
 				Data: map[string]string{
 					"foo": "hopefully-gets-overwritten",
@@ -116,8 +117,9 @@ func TestEnsureObjectByAnnotation(t *testing.T) {
 			name: "Object does not get updated",
 			existingObject: &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      testResourceName,
-					Namespace: testNamespace,
+					Name:            testResourceName,
+					Namespace:       testNamespace,
+					ResourceVersion: "0",
 				},
 				Data: map[string]string{
 					"foo": "bar",
@@ -143,8 +145,9 @@ func TestEnsureObjectByAnnotation(t *testing.T) {
 					Kind:       "ConfigMap",
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      testResourceName,
-					Namespace: testNamespace,
+					Name:            testResourceName,
+					Namespace:       testNamespace,
+					ResourceVersion: "0",
 				},
 				Data: map[string]string{
 					"foo": "bar",

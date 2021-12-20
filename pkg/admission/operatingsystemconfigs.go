@@ -37,7 +37,7 @@ func (ad *admissionData) validateOperatingSystemConfigs(ar admissionv1.Admission
 		if err := json.Unmarshal(ar.OldObject.Raw, &oscOld); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal OldObject: %v", err)
 		}
-		if errs := ad.validateOperatingSystemConfigUpdate(oscOld, osc); len(errs) > 0 {
+		if errs := ValidateOperatingSystemConfigUpdate(oscOld, osc); errs != nil {
 			return nil, fmt.Errorf("validation failed for update: %v", errs)
 		}
 	}

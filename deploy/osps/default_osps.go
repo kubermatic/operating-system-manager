@@ -14,20 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package admission
+package osps
 
-import (
-	"fmt"
+import "embed"
 
-	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
-
-	apiequality "k8s.io/apimachinery/pkg/api/equality"
-)
-
-func ValidateOperatingSystemConfigUpdate(oscOld osmv1alpha1.OperatingSystemConfig, oscNew osmv1alpha1.OperatingSystemConfig) error {
-	// Updates for OperatingSystemConfig are not allowed
-	if equal := apiequality.Semantic.DeepEqual(oscOld.Spec, oscNew.Spec); !equal {
-		return fmt.Errorf("OperatingSystemConfig is immutable and updates are not allowed")
-	}
-	return nil
-}
+//go:embed *
+var FS embed.FS
