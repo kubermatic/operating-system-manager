@@ -31,7 +31,7 @@ import (
 )
 
 type options struct {
-	ospNamespace string
+	namespace string
 
 	admissionListenAddress string
 	admissionTLSCertPath   string
@@ -55,8 +55,12 @@ func main() {
 	flag.StringVar(&opt.admissionListenAddress, "listen-address", ":9876", "The address on which the MutatingWebhook will listen on")
 	flag.StringVar(&opt.admissionTLSCertPath, "tls-cert-path", "/tmp/cert/cert.pem", "The path of the TLS cert for the MutatingWebhook")
 	flag.StringVar(&opt.admissionTLSKeyPath, "tls-key-path", "/tmp/cert/key.pem", "The path of the TLS key for the MutatingWebhook")
-	flag.StringVar(&opt.ospNamespace, "osp-namespace", "kubermatic", "The namespace where the OSPs will exist")
+	flag.StringVar(&opt.namespace, "namespace", "", "The namespace where the OSC webhook will run.")
 	flag.Parse()
+
+	if len(opt.namespace) == 0 {
+		klog.Fatal("-namespace is required")
+	}
 
 	// Build config for in-cluster cluster
 	cfg, err := config.GetConfig()
@@ -72,7 +76,7 @@ func main() {
 		klog.Fatalf("failed to build seed client: %v", err)
 	}
 
-	srv, err := admission.New(opt.admissionListenAddress, opt.ospNamespace, client)
+	srv, err := admission.New(opt.admissionListenAddress, opt.namespace, client)
 	if err != nil {
 		klog.Fatalf("failed to create admission hook: %v", err)
 	}

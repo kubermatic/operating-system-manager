@@ -45,8 +45,8 @@ func TestMachineDeploymentValidation(t *testing.T) {
 		Build()
 
 	ad := admissionData{
-		client:       fakeClient,
-		ospNamespace: "default",
+		client:    fakeClient,
+		namespace: "default",
 	}
 
 	tests := []struct {
@@ -83,7 +83,7 @@ func TestMachineDeploymentValidation(t *testing.T) {
 	for _, tc := range tests {
 		tc := tc // scopelint fix
 		t.Run(tc.name, func(t *testing.T) {
-			errs := ValidateMachineDeployment(tc.machineDeployment, ad.client, ad.ospNamespace)
+			errs := ValidateMachineDeployment(tc.machineDeployment, ad.client, ad.namespace)
 			if errs != nil && len(tc.expectedError) == 0 {
 				t.Errorf("didn't expect err but got %v", errs)
 				return

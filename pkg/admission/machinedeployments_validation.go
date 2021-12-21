@@ -32,7 +32,7 @@ import (
 	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func ValidateMachineDeployment(md clusterv1alpha1.MachineDeployment, client ctrlruntimeclient.Client, ospNamespace string) field.ErrorList {
+func ValidateMachineDeployment(md clusterv1alpha1.MachineDeployment, client ctrlruntimeclient.Client, namespace string) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	ospName := md.Annotations[resources.MachineDeploymentOSPAnnotation]
@@ -43,7 +43,7 @@ func ValidateMachineDeployment(md clusterv1alpha1.MachineDeployment, client ctrl
 	}
 
 	osp := &osmv1alpha1.OperatingSystemProfile{}
-	err := client.Get(context.TODO(), types.NamespacedName{Name: ospName, Namespace: ospNamespace}, osp)
+	err := client.Get(context.TODO(), types.NamespacedName{Name: ospName, Namespace: namespace}, osp)
 	if err != nil && !kerrors.IsNotFound(err) {
 		if kerrors.IsNotFound(err) {
 			allErrs = append(allErrs, field.Invalid(field.NewPath("metadata", "annotations", resources.MachineDeploymentOSPAnnotation), ospName, "OperatingSystemProfile  not found"))

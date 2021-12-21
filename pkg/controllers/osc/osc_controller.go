@@ -57,7 +57,6 @@ type Reconciler struct {
 	log          *zap.SugaredLogger
 
 	namespace               string
-	ospNamespace            string
 	clusterAddress          string
 	containerRuntime        string
 	externalCloudProvider   bool
@@ -78,7 +77,6 @@ func Add(
 	client client.Client,
 	workerClusterKubeconfig string,
 	namespace string,
-	ospNamespace string,
 	clusterName string,
 	workerCount int,
 	clusterDNSIPs []net.IP,
@@ -97,7 +95,6 @@ func Add(
 		Client:                  client,
 		workerClusterKubeconfig: workerClusterKubeconfig,
 		namespace:               namespace,
-		ospNamespace:            ospNamespace,
 		clusterAddress:          clusterName,
 		generator:               generator,
 		clusterDNSIPs:           clusterDNSIPs,
@@ -177,7 +174,7 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 	ospName := md.Annotations[resources.MachineDeploymentOSPAnnotation]
 	osp := &osmv1alpha1.OperatingSystemProfile{}
 
-	if err := r.Get(ctx, types.NamespacedName{Name: ospName, Namespace: r.ospNamespace}, osp); err != nil {
+	if err := r.Get(ctx, types.NamespacedName{Name: ospName, Namespace: r.namespace}, osp); err != nil {
 		return fmt.Errorf("failed to get OperatingSystemProfile: %v", err)
 	}
 

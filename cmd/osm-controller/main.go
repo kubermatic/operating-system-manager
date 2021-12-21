@@ -49,7 +49,6 @@ import (
 type options struct {
 	workerCount           int
 	namespace             string
-	ospNamespace          string
 	clusterName           string
 	containerRuntime      string
 	externalCloudProvider bool
@@ -92,7 +91,6 @@ func main() {
 	flag.IntVar(&opt.workerCount, "worker-count", 10, "Number of workers which process reconciliation in parallel.")
 	flag.StringVar(&opt.clusterName, "cluster-name", "", "The cluster where the OSC will run.")
 	flag.StringVar(&opt.namespace, "namespace", "", "The namespace where the OSC controller will run.")
-	flag.StringVar(&opt.ospNamespace, "osp-namespace", "kubermatic", "The namespace where the OSPs will exist")
 	flag.StringVar(&opt.containerRuntime, "container-runtime", "containerd", "container runtime to deploy.")
 	flag.BoolVar(&opt.externalCloudProvider, "external-cloud-provider", false, "cloud-provider Kubelet flag set to external.")
 	flag.StringVar(&opt.clusterDNSIPs, "cluster-dns", "10.10.10.10", "Comma-separated list of DNS server IP address.")
@@ -172,7 +170,7 @@ func main() {
 		opt.kubeconfig = opt.workerClusterKubeconfig
 
 		if err := mgr.Add(workerMgr); err != nil {
-			klog.Fatal("Failed to add workers cluster mgr to main mgr", zap.Error(err))
+			klog.Fatal("failed to add workers cluster mgr to main mgr", zap.Error(err))
 		}
 	}
 
@@ -180,7 +178,7 @@ func main() {
 	providerconfig.SetConfigVarResolver(context.Background(), workerMgr.GetClient(), opt.namespace)
 
 	// Setup OSP controller
-	if err := osp.Add(mgr, log, opt.namespace, opt.ospNamespace, opt.workerCount); err != nil {
+	if err := osp.Add(mgr, log, opt.namespace, opt.workerCount); err != nil {
 		klog.Fatal(err)
 	}
 
@@ -191,7 +189,6 @@ func main() {
 		mgr.GetClient(),
 		opt.kubeconfig,
 		opt.namespace,
-		opt.ospNamespace,
 		opt.clusterName,
 		opt.workerCount,
 		parsedClusterDNSIPs,

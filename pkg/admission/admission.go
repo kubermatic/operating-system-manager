@@ -32,15 +32,15 @@ import (
 )
 
 type admissionData struct {
-	client       ctrlruntimeclient.Client
-	ospNamespace string
+	client    ctrlruntimeclient.Client
+	namespace string
 }
 
-func New(listenAddress, ospNamespace string, client ctrlruntimeclient.Client) (*http.Server, error) {
+func New(listenAddress, namespace string, client ctrlruntimeclient.Client) (*http.Server, error) {
 	mux := http.NewServeMux()
 	ad := &admissionData{
-		client:       client,
-		ospNamespace: ospNamespace,
+		client:    client,
+		namespace: namespace,
 	}
 
 	mux.HandleFunc("/machinedeployment", handleFuncFactory(ad.validateMachineDeployments))

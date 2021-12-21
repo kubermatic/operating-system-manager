@@ -430,7 +430,6 @@ func buildReconciler(fakeClient client.Client, config testConfig) Reconciler {
 		log:                     testUtil.DefaultLogger,
 		generator:               generator.NewDefaultCloudConfigGenerator(""),
 		namespace:               config.namespace,
-		ospNamespace:            CloudInitSettingsNamespace,
 		clusterAddress:          config.clusterAddress,
 		workerClusterKubeconfig: kubeconfigPath,
 		containerRuntime:        config.containerRuntime,
