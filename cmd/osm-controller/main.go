@@ -143,7 +143,7 @@ func main() {
 	}
 
 	// Start with assuming that current cluster will be used as worker cluster
-	workerClient := mgr.GetClient()
+	workerMgr := mgr
 
 	// Handling for worker cluster
 	if opt.workerClusterKubeconfig != "" {
@@ -154,7 +154,7 @@ func main() {
 			klog.Fatal(err)
 		}
 
-		workerClusterMgr, err := manager.New(workerClusterConfig, manager.Options{
+		workerMgr, err = manager.New(workerClusterConfig, manager.Options{
 			LeaderElection:          true,
 			LeaderElectionID:        "operating-system-manager-worker-manager",
 			LeaderElectionNamespace: defaultLeaderElectionNamespace,
@@ -168,29 +168,27 @@ func main() {
 
 		// "-worker-cluster-kubeconfig" was not empty and a valid kubeconfig was provided,
 		// point workerClient to the external cluster
-		workerClient = workerClusterMgr.GetClient()
-
 		// Use workerClusterKubeconfig since the machines will exist on that cluster
 		opt.kubeconfig = opt.workerClusterKubeconfig
 
-		if err := mgr.Add(workerClusterMgr); err != nil {
+		if err := mgr.Add(workerMgr); err != nil {
 			klog.Fatal("Failed to add workers cluster mgr to main mgr", zap.Error(err))
 		}
 	}
 
 	// Instantiate ConfigVarResolver
-	providerconfig.SetConfigVarResolver(context.Background(), mgr.GetClient(), opt.namespace)
+	providerconfig.SetConfigVarResolver(context.Background(), workerMgr.GetClient(), opt.namespace)
 
 	// Setup OSP controller
-	if err := osp.Add(mgr, log, opt.namespace, opt.workerCount); err != nil {
+	if err := osp.Add(mgr, log, opt.namespace, opt.ospNamespace, opt.workerCount); err != nil {
 		klog.Fatal(err)
 	}
 
 	// Setup OSC controller
 	if err := osc.Add(
-		mgr,
+		workerMgr,
 		log,
-		workerClient,
+		mgr.GetClient(),
 		opt.kubeconfig,
 		opt.namespace,
 		opt.ospNamespace,

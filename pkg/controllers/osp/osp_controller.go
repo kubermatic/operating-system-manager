@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io/fs"
 	"path/filepath"
+	"strings"
 
 	"go.uber.org/zap"
 
@@ -52,10 +53,11 @@ type Reconciler struct {
 	log             *zap.SugaredLogger
 	defaultOSPFiles map[string][]byte
 
-	namespace string
+	namespace    string
+	ospNamespace string
 }
 
-func Add(mgr manager.Manager, log *zap.SugaredLogger, namespace string, workerCount int) error {
+func Add(mgr manager.Manager, log *zap.SugaredLogger, namespace, ospNamespace string, workerCount int) error {
 	ospDefaultDir, err := osps.FS.ReadDir(ospsDefaultDirName)
 	if err != nil {
 		return fmt.Errorf("failed to read osps default directory: %v", err)
@@ -76,12 +78,15 @@ func Add(mgr manager.Manager, log *zap.SugaredLogger, namespace string, workerCo
 		log:             log,
 		defaultOSPFiles: defaultOSPFiles,
 		namespace:       namespace,
+		ospNamespace:    ospNamespace,
 	}
 
 	c, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: reconciler, MaxConcurrentReconciles: workerCount})
 	if err != nil {
 		return err
 	}
+
+	log.Info("Reconciling OSP resource..")
 
 	// Since the osp controller cares about only creating the default osp resources, we need to watch for the creation
 	// of any random resource in the underlying namespace where osm is deployed. machine controller deployment was picked
@@ -114,12 +119,15 @@ func (r *Reconciler) reconcile(ctx context.Context) error {
 			return fmt.Errorf("failed to parse osp %s: %v", name, err)
 		}
 
+		// Remove file extension .yaml from the OSP name
+		name = strings.ReplaceAll(name, ".yaml", "")
+
 		ospCreators = append(ospCreators, ospCreator(name, osp))
 	}
 
 	if err := reconciling.ReconcileOperatingSystemProfiles(ctx,
 		ospCreators,
-		r.namespace, r.Client); err != nil {
+		r.ospNamespace, r.Client); err != nil {
 		return fmt.Errorf("failed to reconcile osps: %v", err)
 	}
 

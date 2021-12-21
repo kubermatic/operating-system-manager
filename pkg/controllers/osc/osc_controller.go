@@ -75,7 +75,7 @@ type Reconciler struct {
 func Add(
 	mgr manager.Manager,
 	log *zap.SugaredLogger,
-	workerClient client.Client,
+	client client.Client,
 	workerClusterKubeconfig string,
 	namespace string,
 	ospNamespace string,
@@ -93,8 +93,8 @@ func Add(
 	nodePortRange string) error {
 	reconciler := &Reconciler{
 		log:                     log,
-		workerClient:            workerClient,
-		Client:                  mgr.GetClient(),
+		workerClient:            mgr.GetClient(),
+		Client:                  client,
 		workerClusterKubeconfig: workerClusterKubeconfig,
 		namespace:               namespace,
 		ospNamespace:            ospNamespace,
@@ -176,6 +176,7 @@ func (r *Reconciler) reconcile(ctx context.Context, md *clusterv1alpha1.MachineD
 func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
 	ospName := md.Annotations[resources.MachineDeploymentOSPAnnotation]
 	osp := &osmv1alpha1.OperatingSystemProfile{}
+
 	if err := r.Get(ctx, types.NamespacedName{Name: ospName, Namespace: r.ospNamespace}, osp); err != nil {
 		return fmt.Errorf("failed to get OperatingSystemProfile: %v", err)
 	}
