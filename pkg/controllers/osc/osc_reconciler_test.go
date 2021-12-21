@@ -425,13 +425,14 @@ func loadFile(obj runtime.Object, name string) error {
 
 func buildReconciler(fakeClient client.Client, config testConfig) Reconciler {
 	return Reconciler{
-		Client:           fakeClient,
-		log:              testUtil.DefaultLogger,
-		generator:        generator.NewDefaultCloudConfigGenerator(""),
-		namespace:        config.namespace,
-		clusterAddress:   config.clusterAddress,
-		kubeconfig:       kubeconfigPath,
-		containerRuntime: config.containerRuntime,
-		clusterDNSIPs:    config.clusterDNSIPs,
+		Client:                  fakeClient,
+		workerClient:            fakeClient,
+		log:                     testUtil.DefaultLogger,
+		generator:               generator.NewDefaultCloudConfigGenerator(""),
+		namespace:               config.namespace,
+		clusterAddress:          config.clusterAddress,
+		workerClusterKubeconfig: kubeconfigPath,
+		containerRuntime:        config.containerRuntime,
+		clusterDNSIPs:           config.clusterDNSIPs,
 	}
 }

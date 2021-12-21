@@ -46,6 +46,8 @@ type OperatingSystemProfileSpec struct {
 	OSName OperatingSystem `json:"osName"`
 	// OSVersion the version of the operating system
 	OSVersion string `json:"osVersion"`
+	// Version is the version of the operating System Profile
+	Version string `json:"version"`
 	// SupportedCloudProviders represent the cloud providers that support the given operating system version
 	SupportedCloudProviders []CloudProviderSpec `json:"supportedCloudProviders"`
 	// SupportedContainerRuntimes represents the container runtimes supported by the given OS

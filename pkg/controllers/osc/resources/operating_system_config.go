@@ -54,7 +54,7 @@ const (
 func OperatingSystemConfigCreator(
 	md *v1alpha1.MachineDeployment,
 	osp *osmv1alpha1.OperatingSystemProfile,
-	kubeconfig string,
+	workerClusterKubeconfig string,
 	clusterDNSIPs []net.IP,
 	containerRuntime string,
 	externalCloudProvider bool,
@@ -88,12 +88,12 @@ func OperatingSystemConfigCreator(
 				}
 			}
 
-			CACert, err := resources.GetCACert(kubeconfig)
+			CACert, err := resources.GetCACert(workerClusterKubeconfig)
 			if err != nil {
 				return nil, err
 			}
 
-			kubeconfigStr, err := resources.StringifyKubeconfig(kubeconfig)
+			kubeconfigStr, err := resources.StringifyKubeconfig(workerClusterKubeconfig)
 			if err != nil {
 				return nil, err
 			}
@@ -237,7 +237,7 @@ func selectAdditionalFiles(osp *osmv1alpha1.OperatingSystemProfile, containerRun
 	filesToAdd := make([]osmv1alpha1.File, 0)
 	// select container runtime files
 	for _, cr := range osp.Spec.SupportedContainerRuntimes {
-		if cr.Name == containerRuntime {
+		if cr.Name == osmv1alpha1.ContainerRuntime(containerRuntime) {
 			filesToAdd = append(filesToAdd, cr.Files...)
 			break
 		}
@@ -251,7 +251,7 @@ func selectAdditionalTemplates(osp *osmv1alpha1.OperatingSystemProfile, containe
 
 	// select container runtime scripts
 	for _, cr := range osp.Spec.SupportedContainerRuntimes {
-		if cr.Name == containerRuntime {
+		if cr.Name == osmv1alpha1.ContainerRuntime(containerRuntime) {
 			for name, temp := range cr.Templates {
 				templatesToRender[name] = temp
 			}

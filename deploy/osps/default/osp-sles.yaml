@@ -15,61 +15,15 @@
 apiVersion: operatingsystemmanager.k8c.io/v1alpha1
 kind: OperatingSystemProfile
 metadata:
-  name: osp-amazon-linux
+  name: osp-sles
   namespace: cloud-init-settings
 spec:
-  osName: "amzn2"
-  osVersion: "2.0"
+  osName: sles
+  osVersion: "15-SP-1"
+  version: "1.0.0"
   supportedCloudProviders:
-    - name: "aws"
+    - name: aws
   supportedContainerRuntimes:
-    - name: containerd
-      files:
-        - path: "/etc/containerd/config.toml"
-          permissions: 0644
-          content:
-            inline:
-              encoding: b64
-              data: |
-                version = 2
-
-                [metrics]
-                address = "127.0.0.1:1338"
-
-                [plugins]
-                [plugins."io.containerd.grpc.v1.cri"]
-                [plugins."io.containerd.grpc.v1.cri".containerd]
-                [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
-                [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-                runtime_type = "io.containerd.runc.v2"
-                [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
-                SystemdCgroup = true
-                [plugins."io.containerd.grpc.v1.cri".registry]
-                [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
-                [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
-                endpoint = ["https://registry-1.docker.io"]
-      templates:
-        containerRuntimeInstallation: |-
-          mkdir -p /etc/systemd/system/containerd.service.d
-
-          cat <<EOF | tee /etc/systemd/system/containerd.service.d/environment.conf
-          [Service]
-          Restart=always
-          EnvironmentFile=-/etc/environment
-          EOF
-
-          cat <<EOF | tee /etc/crictl.yaml
-          runtime-endpoint: unix:///run/containerd/containerd.sock
-          EOF
-
-          yum install -y \
-          	containerd-1.4* \
-          	yum-plugin-versionlock
-          yum versionlock add containerd
-
-          systemctl daemon-reload
-          systemctl enable --now containerd
-
     - name: docker
       files:
         - path: /etc/docker/daemon.json
@@ -79,28 +33,16 @@ spec:
               encoding: b64
               data: |-
                 {"exec-opts":["native.cgroupdriver=systemd"],"storage-driver":"overlay2","log-driver":"json-file","log-opts":{"max-file":"5","max-size":"100m"}}
-      templates:
-        containerRuntimeInstallation: |-
-          mkdir -p /etc/systemd/system/containerd.service.d /etc/systemd/system/docker.service.d
-
-          cat <<EOF | tee /etc/systemd/system/containerd.service.d/environment.conf /etc/systemd/system/docker.service.d/environment.conf
-          [Service]
-          Restart=always
-          EnvironmentFile=-/etc/environment
-          EOF
-
-          yum install -y \
-              containerd-1.4* \
-              docker-19.03* \
-              yum-plugin-versionlock
-          yum versionlock add docker containerd
-
-          systemctl daemon-reload
-          systemctl enable --now docker
+        - path: /etc/systemd/system/docker.service.d/10-custom.conf
+          permissions: 0644
+          content:
+            inline:
+              data: |-
+                [Service]
+                EnvironmentFile=-/etc/environment
 
   templates:
     safeDownloadBinariesScript: |-
-      {{- /*setup some common directories */ -}}
       opt_bin=/opt/bin
       usr_local_bin=/usr/local/bin
       cni_bin_dir=/opt/cni/bin
@@ -257,23 +199,6 @@ spec:
             vm.overcommit_memory = 1
             fs.inotify.max_user_watches = 1048576
 
-    - path: "/etc/selinux/config"
-      content:
-        inline:
-          encoding: b64
-          data: |
-            # This file controls the state of SELinux on the system.
-            # SELINUX= can take one of these three values:
-            #     enforcing - SELinux security policy is enforced.
-            #     permissive - SELinux prints warnings instead of enforcing.
-            #     disabled - No SELinux policy is loaded.
-            SELINUX=permissive
-            # SELINUXTYPE= can take one of three two values:
-            #     targeted - Targeted processes are protected,
-            #     minimum - Modification of targeted policy. Only selected processes are protected.
-            #     mls - Multi Level Security protection.
-            SELINUXTYPE=targeted
-
     - path: "/opt/bin/setup"
       permissions: 0755
       content:
@@ -283,42 +208,35 @@ spec:
             #!/bin/bash
             set -xeuo pipefail
 
-            setenforce 0 || true
-
             {{- /* As we added some modules and don't want to reboot, restart the service */}}
             systemctl restart systemd-modules-load.service
             sysctl --system
 
             {{- /* Make sure we always disable swap - Otherwise the kubelet won't start'. */}}
-            sed -i.orig '/.*swap.*/d' /etc/fstab
+            cp /etc/fstab /etc/fstab.orig
+            cat /etc/fstab.orig | awk '$3 ~ /^swap$/ && $1 !~ /^#/ {$0="# commented out by cloudinit\n#"$0} 1' > /etc/fstab.noswap
+            mv /etc/fstab.noswap /etc/fstab
             swapoff -a
 
-            yum install -y \
-              device-mapper-persistent-data \
-              lvm2 \
-              ebtables \
-              ethtool \
-              nfs-utils \
-              bash-completion \
-              sudo \
+
+            zypper --non-interactive --quiet --color install ebtables \
+              ceph-common \
+              e2fsprogs \
+              jq \
               socat \
-              wget \
-              curl \
               {{- if eq .CloudProviderName "vsphere" }}
               open-vm-tools \
               {{- end }}
               ipvsadm
 
-            {{- template "containerRuntimeInstallation" }}
+            {{- template "configureProxyScript" }}
 
             {{- template "safeDownloadBinariesScript" }}
 
-            {{- template "configureProxyScript" }}
-
-            mkdir -p /etc/systemd/system/kubelet.service.d/
             # set kubelet nodeip environment variable
             /opt/bin/setup_net_env.sh
 
+            systemctl enable --now {{ .ContainerRuntime }}
             systemctl enable --now kubelet
             systemctl enable --now --no-block kubelet-healthcheck.service
 
@@ -364,13 +282,15 @@ spec:
               --config=/etc/kubernetes/kubelet.conf \
               --network-plugin=cni \
               --cert-dir=/etc/kubernetes/pki \
-              {{- if or (.ExternalCloudProvider) (eq .CloudProviderName "external") }}
+              {{- if or .ExternalCloudProvider (eq .CloudProviderName "external")}}
               --cloud-provider=external \
               {{- else if .CloudProviderName }}
               --cloud-provider={{- .CloudProviderName}} \
               --cloud-config=/etc/kubernetes/cloud-config \
               {{- end }}
               {{- if ne .CloudProviderName "aws" }}
+              --hostname-override=${KUBELET_HOSTNAME} \
+              {{- else if and (eq .CloudProviderName "aws") (.ExternalCloudProvider) }}
               --hostname-override=${KUBELET_HOSTNAME} \
               {{- end }}
               --dynamic-config-dir=/etc/kubernetes/dynamic-config-dir \
@@ -395,6 +315,14 @@ spec:
 
             [Install]
             WantedBy=multi-user.target
+
+    - path: "/etc/systemd/system/kubelet.service.d/extras.conf"
+      content:
+        inline:
+          encoding: b64
+          data: |
+            [Service]
+            Environment="KUBELET_EXTRA_ARGS=--resolv-conf=/var/run/netconfig/resolv.conf"
 
     - path: "/etc/kubernetes/cloud-config"
       permissions: 0600
@@ -424,11 +352,11 @@ spec:
               exit 1
             fi
 
-            # get the full hostname
+             # get the full hostname
             FULL_HOSTNAME=$(hostname -f)
             # if /etc/hostname is not empty then use the hostname from there
             if [ -s /etc/hostname ]; then
-              FULL_HOSTNAME=$(cat /etc/hostname)
+                FULL_HOSTNAME=$(cat /etc/hostname)
             fi
 
             # write the nodeip_env file
@@ -458,6 +386,14 @@ spec:
           encoding: b64
           data: |
             {{ .KubernetesCACert }}
+
+    - path: "/etc/ssh/trusted-user-ca-keys.pem"
+      content:
+        inline:
+          encoding: b64
+          data: |
+            TrustedUserCAKeys /etc/ssh/trusted-user-ca-keys.pem
+            CASignatureAlgorithms ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,ssh-ed25519,rsa-sha2-512,rsa-sha2-256,ssh-rsa
 
     - path: "/etc/systemd/system/setup.service"
       permissions: 0644
@@ -523,16 +459,6 @@ spec:
               cpu: 200m
               ephemeral-storage: 1Gi
               memory: 200Mi
-            tlsCipherSuites:
-            - TLS_AES_128_GCM_SHA256
-            - TLS_AES_256_GCM_SHA384
-            - TLS_CHACHA20_POLY1305_SHA256
-            - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
-            - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
-            - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
-            - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
-            - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-            - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
             volumePluginDir: /var/lib/kubelet/volumeplugins
 
     - path: /etc/systemd/system/kubelet-healthcheck.service

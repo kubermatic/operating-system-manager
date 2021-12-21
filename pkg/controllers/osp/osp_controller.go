@@ -21,10 +21,11 @@ import (
 	"fmt"
 	"io/fs"
 	"path/filepath"
+	"strings"
 
 	"go.uber.org/zap"
 
-	"k8c.io/operating-system-manager/charts/osps"
+	"k8c.io/operating-system-manager/deploy/osps"
 	"k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/resources/reconciling"
 
@@ -113,6 +114,9 @@ func (r *Reconciler) reconcile(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to parse osp %s: %v", name, err)
 		}
+
+		// Remove file extension .yaml from the OSP name
+		name = strings.ReplaceAll(name, ".yaml", "")
 
 		ospCreators = append(ospCreators, ospCreator(name, osp))
 	}

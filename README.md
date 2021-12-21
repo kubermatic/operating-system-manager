@@ -77,7 +77,7 @@ Simply run `make test`
 To run OSM locally:
 
 - Either use a [kind](https://kind.sigs.k8s.io/docs/user/quick-start/) cluster or actual cluster and make sure that the correct context is loaded
-- Run `kubectl apply -f charts/crd` to install CRDs
+- Run `kubectl apply -f deploy/crds` to install CRDs
 - Create relevant OperatingSystemProfile resources. Check [sample](./examples) for reference.
 - Run `make run`
 

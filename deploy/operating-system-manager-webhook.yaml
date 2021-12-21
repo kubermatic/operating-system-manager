@@ -1,0 +1,163 @@
+# Copyright 2021 The Operating System Manager contributors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: operating-system-manager-admission-cert
+  namespace: kube-system
+data:
+  "cert.pem": __admission_cert__
+  "key.pem": __admission_key__
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: operating-system-manager-webhook
+  namespace: kube-system
+spec:
+  ports:
+    - name: 443-9876
+      port: 443
+      protocol: TCP
+      targetPort: 9876
+  selector:
+    app: operating-system-manager-webhook
+  type: ClusterIP
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: operating-system-manager-webhook
+  namespace: kube-system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: operating-system-manager-webhook
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: operating-system-manager-webhook
+  template:
+    metadata:
+      labels:
+        app: operating-system-manager-webhook
+    spec:
+      serviceAccountName: operating-system-manager-webhook
+      containers:
+        - image: quay.io/kubermatic/operating-system-manager:latest
+          imagePullPolicy: IfNotPresent
+          name: webhook
+          command:
+            - /usr/local/bin/webhook
+            - -logtostderr
+            - -v=6
+            - -listen-address=0.0.0.0:9876
+            - -namespace=kube-system
+          volumeMounts:
+            - name: operating-system-manager-admission-cert
+              mountPath: /tmp/cert
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 9876
+              scheme: HTTPS
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 9876
+              scheme: HTTPS
+            periodSeconds: 5
+          resources:
+            requests:
+              memory: 256Mi
+              cpu: 100m
+            limits:
+              memory: 256Mi
+              cpu: 100m
+      volumes:
+        - name: operating-system-manager-admission-cert
+          secret:
+            secretName: operating-system-manager-admission-cert
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: operatingsystemmanager.k8c.io
+webhooks:
+  - name: machinedeployments.cluster.k8s.io
+    failurePolicy: Fail
+    sideEffects: None
+    admissionReviewVersions: ["v1", "v1beta1"]
+    rules:
+      - apiGroups:
+          - "cluster.k8s.io"
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - machinedeployments
+    clientConfig:
+      service:
+        namespace: kube-system
+        name: operating-system-manager-webhook
+        path: /machinedeployment
+      caBundle: __admission_ca_cert__
+  - name: operatingsystemprofiles.operatingsystemmanager.k8c.io
+    failurePolicy: Fail
+    sideEffects: None
+    admissionReviewVersions: ["v1", "v1beta1"]
+    rules:
+      - apiGroups:
+          - "operatingsystemmanager.k8c.io"
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - operatingsystemprofiles
+    clientConfig:
+      service:
+        namespace: kube-system
+        name: operating-system-manager-webhook
+        path: /operatingsystemprofile
+      caBundle: __admission_ca_cert__
+  - name: operatingsystemconfigs.operatingsystemmanager.k8c.io
+    failurePolicy: Fail
+    sideEffects: None
+    admissionReviewVersions: ["v1", "v1beta1"]
+    rules:
+      - apiGroups:
+          - "operatingsystemmanager.k8c.io"
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - operatingsystemconfigs
+    clientConfig:
+      service:
+        namespace: kube-system
+        name: operating-system-manager-webhook
+        path: /operatingsystemconfig
+      caBundle: __admission_ca_cert__
