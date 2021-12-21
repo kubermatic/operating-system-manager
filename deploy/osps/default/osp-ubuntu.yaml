@@ -16,7 +16,7 @@ apiVersion: operatingsystemmanager.k8c.io/v1alpha1
 kind: OperatingSystemProfile
 metadata:
   name: osp-ubuntu
-  namespace: cluster-x2qc8nrhqf
+  namespace: cloud-init-settings
 spec:
   osName: "ubuntu"
   osVersion: "20.04"
@@ -565,7 +565,7 @@ spec:
           data: |
             [Unit]
             Requires=kubelet.service
-            After=kubelet.service 
+            After=kubelet.service
 
             [Service]
             ExecStart=/opt/bin/health-monitor.sh kubelet

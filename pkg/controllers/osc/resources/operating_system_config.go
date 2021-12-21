@@ -54,7 +54,7 @@ const (
 func OperatingSystemConfigCreator(
 	md *v1alpha1.MachineDeployment,
 	osp *osmv1alpha1.OperatingSystemProfile,
-	externalClusterKubeconfig string,
+	workerClusterKubeconfig string,
 	clusterDNSIPs []net.IP,
 	containerRuntime string,
 	externalCloudProvider bool,
@@ -88,12 +88,12 @@ func OperatingSystemConfigCreator(
 				}
 			}
 
-			CACert, err := resources.GetCACert(externalClusterKubeconfig)
+			CACert, err := resources.GetCACert(workerClusterKubeconfig)
 			if err != nil {
 				return nil, err
 			}
 
-			kubeconfigStr, err := resources.StringifyKubeconfig(externalClusterKubeconfig)
+			kubeconfigStr, err := resources.StringifyKubeconfig(workerClusterKubeconfig)
 			if err != nil {
 				return nil, err
 			}

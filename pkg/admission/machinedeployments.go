@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
+
 	admissionv1 "k8s.io/api/admission/v1"
 )
 

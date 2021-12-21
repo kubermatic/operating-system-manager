@@ -21,6 +21,8 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"os"
+	"path"
 	"strings"
 
 	"go.uber.org/zap"
@@ -36,9 +38,9 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/homedir"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
-	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -58,11 +60,14 @@ type options struct {
 	nodePortRange         string
 	podCidr               string
 
-	clusterDNSIPs             string
-	externalClusterKubeconfig string
+	clusterDNSIPs           string
+	workerClusterKubeconfig string
+	kubeconfig              string
 
-	healthProbeAddress string
-	metricsAddress     string
+	healthProbeAddress       string
+	metricsAddress           string
+	workerHealthProbeAddress string
+	workerMetricsAddress     string
 }
 
 const (
@@ -80,7 +85,10 @@ func main() {
 
 	opt := &options{}
 
-	flag.StringVar(&opt.externalClusterKubeconfig, "external-cluster-kubeconfig", "", "Path to kubeconfig of cluster where provisioning secrets are created")
+	if flag.Lookup("kubeconfig") == nil {
+		flag.StringVar(&opt.kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
+	}
+	flag.StringVar(&opt.workerClusterKubeconfig, "worker-cluster-kubeconfig", "", "Path to kubeconfig of cluster where provisioning secrets are created")
 	flag.IntVar(&opt.workerCount, "worker-count", 10, "Number of workers which process reconciliation in parallel.")
 	flag.StringVar(&opt.clusterName, "cluster-name", "", "The cluster where the OSC will run.")
 	flag.StringVar(&opt.namespace, "namespace", "", "The namespace where the OSC controller will run.")
@@ -98,30 +106,28 @@ func main() {
 	flag.StringVar(&opt.healthProbeAddress, "health-probe-address", "127.0.0.1:8085", "The address on which the liveness check on /healthz and readiness check on /readyz will be available")
 	flag.StringVar(&opt.metricsAddress, "metrics-address", "127.0.0.1:8080", "The address on which Prometheus metrics will be available under /metrics")
 
+	flag.StringVar(&opt.workerHealthProbeAddress, "worker-health-probe-address", "127.0.0.1:8086", "For worker manager, the address on which the liveness check on /healthz and readiness check on /readyz will be available")
+	flag.StringVar(&opt.workerMetricsAddress, "worker-metrics-address", "127.0.0.1:8081", "For worker manager, the address on which Prometheus metrics will be available under /metrics")
 	flag.Parse()
 
 	if len(opt.namespace) == 0 {
 		klog.Fatal("-namespace is required")
 	}
 
-	if len(opt.externalClusterKubeconfig) == 0 {
-		klog.Fatal("-external-cluster-kubeconfig is required")
-	}
-
 	if !(opt.containerRuntime == "docker" || opt.containerRuntime == "containerd") {
 		klog.Fatalf("%s not supported; containerd, docker are the supported container runtimes", opt.containerRuntime)
 	}
 
-	opt.externalClusterKubeconfig = flag.Lookup("external-cluster-kubeconfig").Value.(flag.Getter).Get().(string)
+	opt.kubeconfig = flag.Lookup("kubeconfig").Value.(flag.Getter).Get().(string)
+
+	// out-of-cluster config was not provided using the flag, try to use the in-cluster config.
+	if opt.kubeconfig == "" {
+		opt.kubeconfig = getKubeConfigPath()
+	}
 
 	parsedClusterDNSIPs, err := parseClusterDNSIPs(opt.clusterDNSIPs)
 	if err != nil {
 		klog.Fatalf("invalid cluster dns specified: %v", err)
-	}
-
-	mgr, err := createManager(opt, opt.externalClusterKubeconfig)
-	if err != nil {
-		klog.Fatalf("failed to create runtime manager: %v", err)
 	}
 
 	logger, err := zap.NewProduction()
@@ -130,21 +136,50 @@ func main() {
 	}
 	log := logger.Sugar()
 
-	// Build config for in-cluster cluster
-	// Out of cluster config can be provided using `KUBECONFIG` env variable or `-kubeconfig` flag
-	clusterCfg, err := config.GetConfig()
+	// Create manager with client against in-cluster config
+	mgr, err := createManager(opt)
 	if err != nil {
-		klog.Fatalf("error building kubeconfig: %v", err)
+		klog.Fatalf("failed to create runtime manager: %v", err)
 	}
 
-	// Build client against in-cluster config
-	clusterClient, err := ctrlruntimeclient.New(clusterCfg, ctrlruntimeclient.Options{})
-	if err != nil {
-		klog.Fatalf("failed to build seed client: %v", err)
+	// Start with assuming that current cluster will be used as worker cluster
+	workerClient := mgr.GetClient()
+
+	// Handling for worker cluster
+	if opt.workerClusterKubeconfig != "" {
+		workerClusterConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+			&clientcmd.ClientConfigLoadingRules{ExplicitPath: opt.workerClusterKubeconfig},
+			&clientcmd.ConfigOverrides{}).ClientConfig()
+		if err != nil {
+			klog.Fatal(err)
+		}
+
+		workerClusterMgr, err := manager.New(workerClusterConfig, manager.Options{
+			LeaderElection:          true,
+			LeaderElectionID:        "operating-system-manager-worker-manager",
+			LeaderElectionNamespace: defaultLeaderElectionNamespace,
+			HealthProbeBindAddress:  opt.workerHealthProbeAddress,
+			MetricsBindAddress:      opt.workerMetricsAddress,
+			Port:                    9444,
+		})
+		if err != nil {
+			klog.Fatal(err)
+		}
+
+		// "-worker-cluster-kubeconfig" was not empty and a valid kubeconfig was provided,
+		// point workerClient to the external cluster
+		workerClient = workerClusterMgr.GetClient()
+
+		// Use workerClusterKubeconfig since the machines will exist on that cluster
+		opt.kubeconfig = opt.workerClusterKubeconfig
+
+		if err := mgr.Add(workerClusterMgr); err != nil {
+			klog.Fatal("Failed to add workers cluster mgr to main mgr", zap.Error(err))
+		}
 	}
 
 	// Instantiate ConfigVarResolver
-	providerconfig.SetConfigVarResolver(context.Background(), clusterClient, opt.namespace)
+	providerconfig.SetConfigVarResolver(context.Background(), mgr.GetClient(), opt.namespace)
 
 	// Setup OSP controller
 	if err := osp.Add(mgr, log, opt.namespace, opt.workerCount); err != nil {
@@ -152,27 +187,27 @@ func main() {
 	}
 
 	// Setup OSC controller
-	if err = (&osc.Reconciler{
-		Client:                    clusterClient,
-		Log:                       log,
-		ExternalClient:            mgr.GetClient(),
-		WorkerCount:               opt.workerCount,
-		Namespace:                 opt.namespace,
-		OSPNamespace:              opt.ospNamespace,
-		ClusterAddress:            opt.clusterName,
-		ContainerRuntime:          opt.containerRuntime,
-		ExternalCloudProvider:     opt.externalCloudProvider,
-		PauseImage:                opt.pauseImage,
-		InitialTaints:             opt.initialTaints,
-		Generator:                 generator.NewDefaultCloudConfigGenerator(""),
-		ClusterDNSIPs:             parsedClusterDNSIPs,
-		ExternalClusterKubeconfig: opt.externalClusterKubeconfig,
-		NodeHTTPProxy:             opt.nodeHTTPProxy,
-		NodeNoProxy:               opt.nodeNoProxy,
-		PodCIDR:                   opt.podCidr,
-		NodePortRange:             opt.nodePortRange,
-	}).SetupWithManager(mgr); err != nil {
-		klog.Fatalf("unable to create osc controller with err: %v", err)
+	if err := osc.Add(
+		mgr,
+		log,
+		workerClient,
+		opt.kubeconfig,
+		opt.namespace,
+		opt.ospNamespace,
+		opt.clusterName,
+		opt.workerCount,
+		parsedClusterDNSIPs,
+		generator.NewDefaultCloudConfigGenerator(""),
+		opt.containerRuntime,
+		opt.externalCloudProvider,
+		opt.pauseImage,
+		opt.initialTaints,
+		opt.nodeHTTPProxy,
+		opt.nodeNoProxy,
+		opt.nodePortRange,
+		opt.podCidr,
+	); err != nil {
+		klog.Fatal(err)
 	}
 
 	log.Info("starting manager")
@@ -181,7 +216,7 @@ func main() {
 	}
 }
 
-func createManager(opt *options, kubeconfigPath string) (manager.Manager, error) {
+func createManager(opt *options) (manager.Manager, error) {
 	// Manager options
 	options := manager.Options{
 		LeaderElection:          true,
@@ -192,13 +227,7 @@ func createManager(opt *options, kubeconfigPath string) (manager.Manager, error)
 		Port:                    9443,
 	}
 
-	// Build config for user cluster
-	cfg, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath)
-	if err != nil {
-		return nil, fmt.Errorf("error building user cluster kubeconfig: %v", err)
-	}
-
-	mgr, err := manager.New(cfg, options)
+	mgr, err := manager.New(config.GetConfigOrDie(), options)
 	if err != nil {
 		return nil, fmt.Errorf("error building ctrlruntime manager: %v", err)
 	}
@@ -224,4 +253,12 @@ func parseClusterDNSIPs(s string) ([]net.IP, error) {
 		ips = append(ips, ip)
 	}
 	return ips, nil
+}
+
+// getKubeConfigPath returns the path to the kubeconfig file.
+func getKubeConfigPath() string {
+	if os.Getenv("KUBECONFIG") != "" {
+		return os.Getenv("KUBECONFIG")
+	}
+	return path.Join(homedir.HomeDir(), ".kube/config")
 }

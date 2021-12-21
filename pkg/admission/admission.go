@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
@@ -42,9 +43,9 @@ func New(listenAddress, ospNamespace string, client ctrlruntimeclient.Client) (*
 		ospNamespace: ospNamespace,
 	}
 
-	mux.HandleFunc("/validate-machine-deployment", handleFuncFactory(ad.validateMachineDeployments))
-	mux.HandleFunc("/validate-operating-system-profile", handleFuncFactory(ad.validateOperatingSystemProfiles))
-	mux.HandleFunc("/validate-operating-system-config", handleFuncFactory(ad.validateOperatingSystemConfigs))
+	mux.HandleFunc("/machinedeployment", handleFuncFactory(ad.validateMachineDeployments))
+	mux.HandleFunc("/operatingsystemprofile", handleFuncFactory(ad.validateOperatingSystemProfiles))
+	mux.HandleFunc("/operatingsystemconfig", handleFuncFactory(ad.validateOperatingSystemConfigs))
 	mux.HandleFunc("/healthz", healthZHandler)
 
 	return &http.Server{

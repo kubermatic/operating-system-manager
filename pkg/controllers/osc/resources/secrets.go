@@ -22,6 +22,7 @@ import (
 	"k8c.io/operating-system-manager/pkg/resources/reconciling"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/pointer"
 )
 
 // CloudConfigSecretCreator returns a function to create a secret that contains the cloud-init or ignition configurations.
@@ -35,13 +36,8 @@ func CloudConfigSecretCreator(mdName string, oscType CloudConfigSecret, data []b
 			sec.Data["cloud-config"] = data
 
 			// Cloud config secret is immutable
-			sec.Immutable = truePtr()
+			sec.Immutable = pointer.Bool(true)
 			return sec, nil
 		}
 	}
-}
-
-func truePtr() *bool {
-	b := true
-	return &b
 }

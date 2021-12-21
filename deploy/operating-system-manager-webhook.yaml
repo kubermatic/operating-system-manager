@@ -119,7 +119,7 @@ webhooks:
       service:
         namespace: kube-system
         name: operating-system-manager-webhook
-        path: /valiate-machine-deployment
+        path: /machinedeployment
       caBundle: __admission_ca_cert__
   - name: operatingsystemprofiles.operatingsystemmanager.k8c.io
     failurePolicy: Fail
@@ -139,7 +139,7 @@ webhooks:
       service:
         namespace: kube-system
         name: operating-system-manager-webhook
-        path: /valiate-operating-system-profile
+        path: /operatingsystemprofile
       caBundle: __admission_ca_cert__
   - name: operatingsystemconfigs.operatingsystemmanager.k8c.io
     failurePolicy: Fail
@@ -159,5 +159,5 @@ webhooks:
       service:
         namespace: kube-system
         name: operating-system-manager-webhook
-        path: /valiate-operating-system-config
+        path: /operatingsystemconfig
       caBundle: __admission_ca_cert__
