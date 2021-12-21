@@ -26,9 +26,7 @@ echodate "Creating vendor directory"
 go mod vendor
 chmod +x vendor/k8s.io/code-generator/generate-groups.sh
 
-# -trimpath would cause the code generation to fail, so undo the
-# Makefile's value and also force mod=readonly here
-export "GOFLAGS=-mod=readonly"
+export "GOFLAGS=-mod=vendor"
 
 echodate "Generating osm:v1alpha1"
 ./vendor/k8s.io/code-generator/generate-groups.sh deepcopy \

@@ -15,19 +15,14 @@
 apiVersion: operatingsystemmanager.k8c.io/v1alpha1
 kind: OperatingSystemProfile
 metadata:
-  name: osp-centos
+  name: osp-amazon-linux
   namespace: cloud-init-settings
 spec:
-  osName: "centos"
-  osVersion: "7.7"
+  osName: "amzn2"
+  osVersion: "2.0"
+  version: "1.0.0"
   supportedCloudProviders:
     - name: "aws"
-    - name: "azure"
-    - name: "digitalocean"
-    - name: "equinixmetal"
-    - name: "hetzner"
-    - name: "openstack"
-    - name: "vsphere"
   supportedContainerRuntimes:
     - name: containerd
       files:
@@ -56,27 +51,22 @@ spec:
                 endpoint = ["https://registry-1.docker.io"]
       templates:
         containerRuntimeInstallation: |-
-          yum install -y yum-utils
-          yum-config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
-          {{- /*
-              Due to DNF modules we have to do this on docker-ce repo
-              More info at: https://bugzilla.redhat.com/show_bug.cgi?id=1756473
-          */}}
-          yum-config-manager --save --setopt=docker-ce-stable.module_hotfixes=true
-
-          cat <<EOF | tee /etc/crictl.yaml
-          runtime-endpoint: unix:///run/containerd/containerd.sock
-          EOF
-
           mkdir -p /etc/systemd/system/containerd.service.d
+
           cat <<EOF | tee /etc/systemd/system/containerd.service.d/environment.conf
           [Service]
           Restart=always
           EnvironmentFile=-/etc/environment
           EOF
 
-          yum install -y containerd.io-1.4* yum-plugin-versionlock
-          yum versionlock add containerd.io
+          cat <<EOF | tee /etc/crictl.yaml
+          runtime-endpoint: unix:///run/containerd/containerd.sock
+          EOF
+
+          yum install -y \
+          	containerd-1.4* \
+          	yum-plugin-versionlock
+          yum versionlock add containerd
 
           systemctl daemon-reload
           systemctl enable --now containerd
@@ -92,10 +82,6 @@ spec:
                 {"exec-opts":["native.cgroupdriver=systemd"],"storage-driver":"overlay2","log-driver":"json-file","log-opts":{"max-file":"5","max-size":"100m"}}
       templates:
         containerRuntimeInstallation: |-
-          yum install -y yum-utils
-          yum-config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
-          yum-config-manager --save --setopt=docker-ce-stable.module_hotfixes=true
-
           mkdir -p /etc/systemd/system/containerd.service.d /etc/systemd/system/docker.service.d
 
           cat <<EOF | tee /etc/systemd/system/containerd.service.d/environment.conf /etc/systemd/system/docker.service.d/environment.conf
@@ -105,11 +91,10 @@ spec:
           EOF
 
           yum install -y \
-              docker-ce-cli-19.03* \
-              containerd.io-1.4* \
-              docker-ce-19.03* \
+              containerd-1.4* \
+              docker-19.03* \
               yum-plugin-versionlock
-          yum versionlock add docker-ce* containerd.io
+          yum versionlock add docker containerd
 
           systemctl daemon-reload
           systemctl enable --now docker
@@ -325,19 +310,15 @@ spec:
               {{- end }}
               ipvsadm
 
-            {{- template "configureProxyScript" }}
-
             {{- template "containerRuntimeInstallation" }}
 
             {{- template "safeDownloadBinariesScript" }}
 
+            {{- template "configureProxyScript" }}
+
             mkdir -p /etc/systemd/system/kubelet.service.d/
             # set kubelet nodeip environment variable
             /opt/bin/setup_net_env.sh
-
-            {{ if eq .CloudProviderName "vsphere" }}
-            systemctl enable --now vmtoolsd.service
-            {{ end -}}
 
             systemctl enable --now kubelet
             systemctl enable --now --no-block kubelet-healthcheck.service
@@ -448,7 +429,7 @@ spec:
             FULL_HOSTNAME=$(hostname -f)
             # if /etc/hostname is not empty then use the hostname from there
             if [ -s /etc/hostname ]; then
-                FULL_HOSTNAME=$(cat /etc/hostname)
+              FULL_HOSTNAME=$(cat /etc/hostname)
             fi
 
             # write the nodeip_env file

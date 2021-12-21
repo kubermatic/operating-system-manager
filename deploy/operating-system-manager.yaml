@@ -1,0 +1,188 @@
+# Copyright 2021 The Operating System Manager contributors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+apiVersion: v1
+data:
+  kubeconfig: __user_cluster_kubeconfig__
+kind: Secret
+metadata:
+  name: external-cluster-kubeconfig
+  namespace: kube-system
+type: Opaque
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: operating-system-manager
+rules:
+  - apiGroups:
+      - "cluster.k8s.io"
+    resources:
+      - "machinedeployments"
+    verbs:
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: operating-system-manager
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: operating-system-manager
+subjects:
+  - kind: ServiceAccount
+    name: operating-system-manager
+    namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: operating-system-manager
+  namespace: kube-system
+rules:
+  - apiGroups:
+      - operatingsystemmanager.k8c.io
+    resources:
+      - operatingsystemprofiles
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - operatingsystemmanager.k8c.io
+    resources:
+      - operatingsystemprofiles/status
+    verbs:
+      - get
+  - apiGroups:
+      - operatingsystemmanager.k8c.io
+    resources:
+      - operatingsystemconfigs
+    verbs:
+      - "*"
+  - apiGroups:
+      - operatingsystemmanager.k8c.io
+    resources:
+      - operatingsystemconfigs/status
+    verbs:
+      - get
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - create
+      - update
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+  - apiGroups:
+      - "coordination.k8s.io"
+    resources:
+      - leases
+    verbs:
+      - "*"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: operating-system-manager
+  namespace: kube-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: operating-system-manager
+subjects:
+  - kind: ServiceAccount
+    name: operating-system-manager
+    namespace: kube-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: operating-system-manager
+  namespace: kube-system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: operating-system-manager
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: operating-system-manager
+  template:
+    metadata:
+      annotations:
+        "prometheus.io/scrape": "true"
+        "prometheus.io/port": "8080"
+        "prometheus.io/path": "/metrics"
+      labels:
+        app: operating-system-manager
+    spec:
+      serviceAccountName: operating-system-manager
+      containers:
+        - image: quay.io/kubermatic/operating-system-manager:latest
+          imagePullPolicy: IfNotPresent
+          name: operating-system-manager
+          command:
+            - /usr/local/bin/osm-controller
+            - -logtostderr
+            - -v=3
+            - -worker-count=5
+            - -cluster-dns=10.10.10.10
+            - -metrics-address=0.0.0.0:8080
+            - -health-probe-address=0.0.0.0:8085
+            - -namespace=kube-system
+            - -external-cluster-kubeconfig=/etc/kubernetes/kubeconfig/kubeconfig
+          volumeMounts:
+            - mountPath: /etc/kubernetes/kubeconfig
+              name: external-cluster-kubeconfig
+              readOnly: true
+          ports:
+            - containerPort: 8085
+          livenessProbe:
+            httpGet:
+              path: /readyz
+              port: 8085
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8085
+            periodSeconds: 5
+          resources:
+            requests:
+              memory: 256Mi
+              cpu: 100m
+            limits:
+              memory: 256Mi
+              cpu: 100m
+      volumes:
+        - name: external-cluster-kubeconfig
+          secret:
+            defaultMode: 420
+            secretName: external-cluster-kubeconfig

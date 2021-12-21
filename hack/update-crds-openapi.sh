@@ -27,6 +27,6 @@ go mod vendor
 
 echodate "Generating OpenAPI 3 schema for CRDs"
 go run sigs.k8s.io/controller-tools/cmd/controller-gen \
-    schemapatch:manifests=./charts/crd \
-    output:dir=./charts/crd \
+    schemapatch:manifests=./deploy/crd \
+    output:dir=./deploy/crd \
     paths=./pkg/crd/...
