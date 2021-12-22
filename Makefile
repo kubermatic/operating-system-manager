@@ -82,7 +82,7 @@ build: $(CMD)
 .PHONY: $(CMD)
 $(CMD): %: $(BUILD_DEST)/%
 
-$(BUILD_DEST)/%: cmd/% 
+$(BUILD_DEST)/%: cmd/%
 	go build -o $@ ./cmd/$*
 
 .PHONY: run
@@ -106,7 +106,14 @@ download-gocache:
 docker-image:
 	docker build --build-arg GO_VERSION=$(GO_VERSION) -t $(IMAGE_NAME) .
 
-
 .PHONY: docker-image-publish
 docker-image-publish: docker-image
 	docker push $(IMAGE_NAME)
+	if [[ -n "$(GIT_TAG)" ]]; then \
+		$(eval IMAGE_TAG = $(GIT_TAG)) \
+		docker build -t $(IMAGE_NAME) . && \
+		docker push $(IMAGE_NAME) && \
+		$(eval IMAGE_TAG = latest) \
+		docker build -t $(IMAGE_NAME) . ;\
+		docker push $(IMAGE_NAME) ;\
+	fi
