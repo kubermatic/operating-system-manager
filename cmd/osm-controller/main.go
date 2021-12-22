@@ -89,7 +89,6 @@ func main() {
 	}
 	flag.StringVar(&opt.workerClusterKubeconfig, "worker-cluster-kubeconfig", "", "Path to kubeconfig of cluster where provisioning secrets are created")
 	flag.IntVar(&opt.workerCount, "worker-count", 10, "Number of workers which process reconciliation in parallel.")
-	flag.StringVar(&opt.clusterName, "cluster-name", "", "The cluster where the OSC will run.")
 	flag.StringVar(&opt.namespace, "namespace", "", "The namespace where the OSC controller will run.")
 	flag.StringVar(&opt.containerRuntime, "container-runtime", "containerd", "container runtime to deploy.")
 	flag.BoolVar(&opt.externalCloudProvider, "external-cloud-provider", false, "cloud-provider Kubelet flag set to external.")
@@ -189,7 +188,6 @@ func main() {
 		mgr.GetClient(),
 		opt.kubeconfig,
 		opt.namespace,
-		opt.clusterName,
 		opt.workerCount,
 		parsedClusterDNSIPs,
 		generator.NewDefaultCloudConfigGenerator(""),

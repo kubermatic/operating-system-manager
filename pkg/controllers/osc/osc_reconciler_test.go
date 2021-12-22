@@ -69,7 +69,6 @@ func init() {
 
 type testConfig struct {
 	namespace        string
-	clusterAddress   string
 	containerRuntime string
 	kubeVersion      string
 	clusterDNSIPs    []net.IP
@@ -100,7 +99,6 @@ func TestReconciler_Reconcile(t *testing.T) {
 			secretFile:      "secret-ubuntu-20.04-aws-containerd.yaml",
 			config: testConfig{
 				namespace:        "cloud-init-settings",
-				clusterAddress:   "http://127.0.0.1/configs",
 				containerRuntime: "containerd",
 				kubeVersion:      "1.22.1",
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
@@ -119,7 +117,6 @@ func TestReconciler_Reconcile(t *testing.T) {
 			secretFile:      "secret-ubuntu-20.04-aws-docker.yaml",
 			config: testConfig{
 				namespace:        "cloud-init-settings",
-				clusterAddress:   "http://127.0.0.1/configs",
 				containerRuntime: "docker",
 				kubeVersion:      "1.22.1",
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
@@ -138,7 +135,6 @@ func TestReconciler_Reconcile(t *testing.T) {
 			secretFile:      "secret-flatcar-aws-containerd.yaml",
 			config: testConfig{
 				namespace:        "cloud-init-settings",
-				clusterAddress:   "http://127.0.0.1/configs",
 				containerRuntime: "containerd",
 				kubeVersion:      "1.22.1",
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
@@ -157,7 +153,6 @@ func TestReconciler_Reconcile(t *testing.T) {
 			secretFile:      "secret-flatcar-aws-docker.yaml",
 			config: testConfig{
 				namespace:        "cloud-init-settings",
-				clusterAddress:   "http://127.0.0.1/configs",
 				containerRuntime: "docker",
 				kubeVersion:      "1.22.1",
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
@@ -176,7 +171,6 @@ func TestReconciler_Reconcile(t *testing.T) {
 			secretFile:      "secret-rhel-8.x-containerd.yaml",
 			config: testConfig{
 				namespace:        "cloud-init-settings",
-				clusterAddress:   "http://127.0.0.1/configs",
 				containerRuntime: "containerd",
 				kubeVersion:      "1.22.1",
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
@@ -277,7 +271,6 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 			secretFile:      "secret-ubuntu-20.04-aws-containerd.yaml",
 			config: testConfig{
 				namespace:        "cloud-init-settings",
-				clusterAddress:   "http://127.0.0.1/configs",
 				containerRuntime: "containerd",
 			},
 			cloudProvider:     "aws",
@@ -430,7 +423,6 @@ func buildReconciler(fakeClient client.Client, config testConfig) Reconciler {
 		log:                     testUtil.DefaultLogger,
 		generator:               generator.NewDefaultCloudConfigGenerator(""),
 		namespace:               config.namespace,
-		clusterAddress:          config.clusterAddress,
 		workerClusterKubeconfig: kubeconfigPath,
 		containerRuntime:        config.containerRuntime,
 		clusterDNSIPs:           config.clusterDNSIPs,

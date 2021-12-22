@@ -57,7 +57,6 @@ type Reconciler struct {
 	log          *zap.SugaredLogger
 
 	namespace               string
-	clusterAddress          string
 	containerRuntime        string
 	externalCloudProvider   bool
 	pauseImage              string
@@ -77,7 +76,6 @@ func Add(
 	client client.Client,
 	workerClusterKubeconfig string,
 	namespace string,
-	clusterName string,
 	workerCount int,
 	clusterDNSIPs []net.IP,
 	generator generator.CloudConfigGenerator,
@@ -95,7 +93,6 @@ func Add(
 		Client:                  client,
 		workerClusterKubeconfig: workerClusterKubeconfig,
 		namespace:               namespace,
-		clusterAddress:          clusterName,
 		generator:               generator,
 		clusterDNSIPs:           clusterDNSIPs,
 		containerRuntime:        containerRuntime,
