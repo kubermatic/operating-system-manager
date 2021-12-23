@@ -15,10 +15,10 @@
 ---
 apiVersion: v1
 data:
-  kubeconfig: __user_cluster_kubeconfig__
+  kubeconfig: __worker_cluster_kubeconfig__
 kind: Secret
 metadata:
-  name: external-cluster-kubeconfig
+  name: worker-cluster-kubeconfig
   namespace: kube-system
 type: Opaque
 ---
@@ -60,9 +60,7 @@ rules:
     resources:
       - operatingsystemprofiles
     verbs:
-      - get
-      - list
-      - watch
+      - "*"
   - apiGroups:
       - operatingsystemmanager.k8c.io
     resources:
@@ -81,6 +79,13 @@ rules:
       - operatingsystemconfigs/status
     verbs:
       - get
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+    verbs:
+      - watch
+      - list
   - apiGroups:
       - ""
     resources:
@@ -156,10 +161,10 @@ spec:
             - -metrics-address=0.0.0.0:8080
             - -health-probe-address=0.0.0.0:8085
             - -namespace=kube-system
-            - -external-cluster-kubeconfig=/etc/kubernetes/kubeconfig/kubeconfig
+            - -worker-cluster-kubeconfig=/etc/kubernetes/kubeconfig/kubeconfig
           volumeMounts:
             - mountPath: /etc/kubernetes/kubeconfig
-              name: external-cluster-kubeconfig
+              name: worker-cluster-kubeconfig
               readOnly: true
           ports:
             - containerPort: 8085
@@ -182,7 +187,7 @@ spec:
               memory: 256Mi
               cpu: 100m
       volumes:
-        - name: external-cluster-kubeconfig
+        - name: worker-cluster-kubeconfig
           secret:
             defaultMode: 420
-            secretName: external-cluster-kubeconfig
+            secretName: worker-cluster-kubeconfig

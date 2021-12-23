@@ -57,7 +57,6 @@ type Reconciler struct {
 	log          *zap.SugaredLogger
 
 	namespace               string
-	clusterAddress          string
 	containerRuntime        string
 	externalCloudProvider   bool
 	pauseImage              string
@@ -74,10 +73,10 @@ type Reconciler struct {
 func Add(
 	mgr manager.Manager,
 	log *zap.SugaredLogger,
+	workerClient client.Client,
 	client client.Client,
 	workerClusterKubeconfig string,
 	namespace string,
-	clusterName string,
 	workerCount int,
 	clusterDNSIPs []net.IP,
 	generator generator.CloudConfigGenerator,
@@ -91,11 +90,10 @@ func Add(
 	nodePortRange string) error {
 	reconciler := &Reconciler{
 		log:                     log,
-		workerClient:            mgr.GetClient(),
+		workerClient:            workerClient,
 		Client:                  client,
 		workerClusterKubeconfig: workerClusterKubeconfig,
 		namespace:               namespace,
-		clusterAddress:          clusterName,
 		generator:               generator,
 		clusterDNSIPs:           clusterDNSIPs,
 		containerRuntime:        containerRuntime,
