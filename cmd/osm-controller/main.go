@@ -47,18 +47,18 @@ import (
 )
 
 type options struct {
-	workerCount           int
-	namespace             string
-	clusterName           string
-	containerRuntime      string
-	externalCloudProvider bool
-	pauseImage            string
-	initialTaints         string
-	nodeHTTPProxy         string
-	nodeNoProxy           string
-	nodePortRange         string
-	podCidr               string
-
+	workerCount             int
+	namespace               string
+	clusterName             string
+	containerRuntime        string
+	externalCloudProvider   bool
+	pauseImage              string
+	initialTaints           string
+	nodeHTTPProxy           string
+	nodeNoProxy             string
+	nodePortRange           string
+	podCidr                 string
+	enableLeaderElection    bool
 	clusterDNSIPs           string
 	workerClusterKubeconfig string
 	kubeconfig              string
@@ -68,10 +68,6 @@ type options struct {
 	workerHealthProbeAddress string
 	workerMetricsAddress     string
 }
-
-const (
-	defaultLeaderElectionNamespace = "kube-system"
-)
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme.Scheme))
@@ -105,6 +101,8 @@ func main() {
 
 	flag.StringVar(&opt.workerHealthProbeAddress, "worker-health-probe-address", "127.0.0.1:8086", "For worker manager, the address on which the liveness check on /healthz and readiness check on /readyz will be available")
 	flag.StringVar(&opt.workerMetricsAddress, "worker-metrics-address", "127.0.0.1:8081", "For worker manager, the address on which Prometheus metrics will be available under /metrics")
+	flag.BoolVar(&opt.enableLeaderElection, "leader-elect", true, "Enable leader election for controller manager.")
+
 	flag.Parse()
 
 	if len(opt.namespace) == 0 {
@@ -152,9 +150,10 @@ func main() {
 		}
 
 		workerMgr, err = manager.New(workerClusterConfig, manager.Options{
-			LeaderElection:          true,
-			LeaderElectionID:        "operating-system-manager-worker-manager",
-			LeaderElectionNamespace: defaultLeaderElectionNamespace,
+			LeaderElection:   opt.enableLeaderElection,
+			LeaderElectionID: "operating-system-manager-worker-manager",
+			// We use hard-coded namespace kube-system here since manager uses worker cluster config
+			LeaderElectionNamespace: "kube-system",
 			HealthProbeBindAddress:  opt.workerHealthProbeAddress,
 			MetricsBindAddress:      opt.workerMetricsAddress,
 			Port:                    9444,
@@ -212,12 +211,13 @@ func main() {
 func createManager(opt *options) (manager.Manager, error) {
 	// Manager options
 	options := manager.Options{
-		LeaderElection:          true,
+		LeaderElection:          opt.enableLeaderElection,
 		LeaderElectionID:        "operating-system-manager",
-		LeaderElectionNamespace: defaultLeaderElectionNamespace,
+		LeaderElectionNamespace: opt.namespace,
 		HealthProbeBindAddress:  opt.healthProbeAddress,
 		MetricsBindAddress:      opt.metricsAddress,
 		Port:                    9443,
+		Namespace:               opt.namespace,
 	}
 
 	mgr, err := manager.New(config.GetConfigOrDie(), options)
