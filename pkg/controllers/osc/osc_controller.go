@@ -73,6 +73,7 @@ type Reconciler struct {
 func Add(
 	mgr manager.Manager,
 	log *zap.SugaredLogger,
+	workerClient client.Client,
 	client client.Client,
 	workerClusterKubeconfig string,
 	namespace string,
@@ -89,7 +90,7 @@ func Add(
 	nodePortRange string) error {
 	reconciler := &Reconciler{
 		log:                     log,
-		workerClient:            mgr.GetClient(),
+		workerClient:            workerClient,
 		Client:                  client,
 		workerClusterKubeconfig: workerClusterKubeconfig,
 		namespace:               namespace,
