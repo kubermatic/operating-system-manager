@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+SHELL = /bin/bash -eu -o pipefail
+
 export GOPATH?=$(shell go env GOPATH)
 export CGO_ENABLED=0
 export GOPROXY?=https://proxy.golang.org
@@ -82,7 +84,7 @@ build: $(CMD)
 .PHONY: $(CMD)
 $(CMD): %: $(BUILD_DEST)/%
 
-$(BUILD_DEST)/%: cmd/% 
+$(BUILD_DEST)/%: cmd/%
 	go build -o $@ ./cmd/$*
 
 .PHONY: run
