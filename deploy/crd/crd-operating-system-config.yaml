@@ -71,7 +71,7 @@ spec:
                         - kubevirt
                         - linode
                         - openstack
-                        - packet
+                        - equinixmetal
                         - vsphere
                         - fake
                         - alibaba

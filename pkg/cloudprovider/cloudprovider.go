@@ -50,7 +50,7 @@ func GetCloudConfig(pconfig providerconfigtypes.Config, kubeletVersion string) (
 
 	// cloud-config is not required for these cloud providers
 	case osmv1alpha1.CloudProviderAlibaba, osmv1alpha1.CloudProviderAnexia, osmv1alpha1.CloudProviderDigitalocean,
-		osmv1alpha1.CloudProviderHetzner, osmv1alpha1.CloudProviderLinode, osmv1alpha1.CloudProviderPacket,
+		osmv1alpha1.CloudProviderHetzner, osmv1alpha1.CloudProviderLinode, osmv1alpha1.CloudProviderEquinixMetal,
 		osmv1alpha1.CloudProviderScaleway:
 		return "", nil
 	}
@@ -68,7 +68,7 @@ func KubeletCloudProviderName(cloudProvider providerconfigtypes.CloudProvider) (
 		return osmv1alpha1.CloudProviderExternal, nil
 
 	case osmv1alpha1.CloudProviderAlibaba, osmv1alpha1.CloudProviderAnexia, osmv1alpha1.CloudProviderDigitalocean,
-		osmv1alpha1.CloudProviderHetzner, osmv1alpha1.CloudProviderLinode, osmv1alpha1.CloudProviderPacket,
+		osmv1alpha1.CloudProviderHetzner, osmv1alpha1.CloudProviderLinode, osmv1alpha1.CloudProviderEquinixMetal,
 		osmv1alpha1.CloudProviderScaleway:
 		return "", nil
 	}
