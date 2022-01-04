@@ -544,10 +544,9 @@ spec:
             authorization:
               mode: Webhook
             cgroupDriver: systemd
-            {{- if ne (len .ClusterDNSIPs) 0 }}
             clusterDNS:
-            {{range .ClusterDNSIPs}}- {{.}}
-            {{- end }}
+            {{- range .ClusterDNSIPs }}
+            - "{{ . }}"
             {{- end }}
             clusterDomain: cluster.local
             featureGates:
@@ -565,6 +564,11 @@ spec:
               cpu: 200m
               ephemeral-storage: 1Gi
               memory: 200Mi
+            evictionHard:
+              imagefs.available: 15%
+              memory.available: 100Mi
+              nodefs.available: 10%
+              nodefs.inodesFree: 5%
             tlsCipherSuites:
             - TLS_AES_128_GCM_SHA256
             - TLS_AES_256_GCM_SHA384

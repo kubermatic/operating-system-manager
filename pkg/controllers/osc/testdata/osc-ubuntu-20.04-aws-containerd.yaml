@@ -389,6 +389,11 @@ spec:
             cpu: 200m
             ephemeral-storage: 1Gi
             memory: 200Mi
+          evictionHard:
+            imagefs.available: 15%
+            memory.available: 100Mi
+            nodefs.available: 10%
+            nodefs.inodesFree: 5%
           volumePluginDir: /var/lib/kubelet/volumeplugins
         encoding: b64
     path: /etc/kubernetes/kubelet.conf

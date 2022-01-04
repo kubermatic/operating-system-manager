@@ -459,6 +459,21 @@ spec:
               cpu: 200m
               ephemeral-storage: 1Gi
               memory: 200Mi
+            evictionHard:
+              imagefs.available: 15%
+              memory.available: 100Mi
+              nodefs.available: 10%
+              nodefs.inodesFree: 5%
+            tlsCipherSuites:
+            - TLS_AES_128_GCM_SHA256
+            - TLS_AES_256_GCM_SHA384
+            - TLS_CHACHA20_POLY1305_SHA256
+            - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+            - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+            - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
+            - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+            - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+            - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
             volumePluginDir: /var/lib/kubelet/volumeplugins
 
     - path: /etc/systemd/system/kubelet-healthcheck.service
