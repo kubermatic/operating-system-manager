@@ -26,6 +26,7 @@ import (
 	"text/template"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/kubermatic/machine-controller/pkg/apis/cluster/common"
 	"github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
 
@@ -144,6 +145,9 @@ func OperatingSystemConfigCreator(
 				return nil, fmt.Errorf("failed to add operating system spec: %v", err)
 			}
 
+			// Handling for kubelet configuration
+			data.kubeletConfig = kubeletResourceManagementConfig(md.Annotations)
+
 			// Handle files
 			osp.Spec.Files = append(osp.Spec.Files, selectAdditionalFiles(osp, containerRuntime)...)
 			additionalTemplates, err := selectAdditionalTemplates(osp, containerRuntime, data)
@@ -186,7 +190,6 @@ type filesData struct {
 	ContainerRuntime      string
 	CloudProviderName     osmv1alpha1.CloudProvider
 	NetworkConfig         *providerconfigtypes.NetworkConfig
-	ExtraKubeletFlags     []string
 	ExternalCloudProvider bool
 	PauseImage            string
 	InitialTaints         string
@@ -194,6 +197,8 @@ type filesData struct {
 	NoProxy               *string
 	PodCIDR               string
 	NodePortRange         string
+
+	kubeletConfig
 	OperatingSystemConfig
 }
 
@@ -204,6 +209,12 @@ type OperatingSystemConfig struct {
 	RhelConfig        rhel.Config
 	SlesConfig        sles.Config
 	UbuntuConfig      ubuntu.Config
+}
+
+type kubeletConfig struct {
+	KubeReserved   *map[string]string
+	SystemReserved *map[string]string
+	EvictionHard   *map[string]string
 }
 
 func populateFilesList(files []osmv1alpha1.File, additionalTemplates []string, d filesData) ([]osmv1alpha1.File, error) {
@@ -332,4 +343,44 @@ func setOperatingSystemConfig(os providerconfigtypes.OperatingSystem, operatingS
 		return nil
 	}
 	return errors.New("unknown OperatingSystem")
+}
+
+func kubeletResourceManagementConfig(annotations map[string]string) kubeletConfig {
+
+	var cfg kubeletConfig
+	kubeletConfigs := common.GetKubeletConfigs(annotations)
+	if len(kubeletConfigs) == 0 {
+		return cfg
+	}
+
+	if kubeReserved, ok := kubeletConfigs[common.KubeReservedKubeletConfig]; ok {
+		for _, krPair := range strings.Split(kubeReserved, ",") {
+			krKV := strings.SplitN(krPair, "=", 2)
+			if len(krKV) != 2 {
+				continue
+			}
+			(*cfg.KubeReserved)[krKV[0]] = krKV[1]
+		}
+	}
+
+	if systemReserved, ok := kubeletConfigs[common.SystemReservedKubeletConfig]; ok {
+		for _, srPair := range strings.Split(systemReserved, ",") {
+			srKV := strings.SplitN(srPair, "=", 2)
+			if len(srKV) != 2 {
+				continue
+			}
+			(*cfg.SystemReserved)[srKV[0]] = srKV[1]
+		}
+	}
+
+	if evictionHard, ok := kubeletConfigs[common.EvictionHardKubeletConfig]; ok {
+		for _, ehPair := range strings.Split(evictionHard, ",") {
+			ehKV := strings.SplitN(ehPair, "<", 2)
+			if len(ehKV) != 2 {
+				continue
+			}
+			(*cfg.EvictionHard)[ehKV[0]] = ehKV[1]
+		}
+	}
+	return cfg
 }
