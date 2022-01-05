@@ -169,6 +169,14 @@ func (r *Reconciler) reconcile(ctx context.Context, md *clusterv1alpha1.MachineD
 }
 
 func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
+	// Check if OSC already exists, in that case we don't need to do anything since OSC are immutable
+	oscName := fmt.Sprintf(resources.MachineDeploymentSubresourceNamePattern, md.Name, resources.ProvisioningCloudConfig)
+	osc := &osmv1alpha1.OperatingSystemConfig{}
+	if err := r.Get(ctx, types.NamespacedName{Name: oscName, Namespace: r.namespace}, osc); err == nil {
+		// Early return since the object already exists
+		return nil
+	}
+
 	ospName := md.Annotations[resources.MachineDeploymentOSPAnnotation]
 	osp := &osmv1alpha1.OperatingSystemProfile{}
 
@@ -200,6 +208,14 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 
 func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
 	oscName := fmt.Sprintf(resources.MachineDeploymentSubresourceNamePattern, md.Name, resources.ProvisioningCloudConfig)
+
+	// Check if secret already exists, in that case we don't need to do anything since secrets are immutable
+	secret := &corev1.Secret{}
+	if err := r.Get(ctx, types.NamespacedName{Name: oscName, Namespace: CloudInitSettingsNamespace}, secret); err == nil {
+		// Early return since the object already exists
+		return nil
+	}
+
 	osc := &osmv1alpha1.OperatingSystemConfig{}
 	if err := r.Get(ctx, types.NamespacedName{Namespace: r.namespace, Name: oscName}, osc); err != nil {
 		return fmt.Errorf("failed to list OperatingSystemConfigs: %v", err)

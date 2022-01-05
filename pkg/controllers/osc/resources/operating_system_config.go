@@ -354,33 +354,27 @@ func kubeletResourceManagementConfig(annotations map[string]string) kubeletConfi
 	}
 
 	if kubeReserved, ok := kubeletConfigs[common.KubeReservedKubeletConfig]; ok {
-		for _, krPair := range strings.Split(kubeReserved, ",") {
-			krKV := strings.SplitN(krPair, "=", 2)
-			if len(krKV) != 2 {
-				continue
-			}
-			(*cfg.KubeReserved)[krKV[0]] = krKV[1]
-		}
+		cfg.KubeReserved = getKeyValueMap(kubeReserved, "=")
 	}
 
 	if systemReserved, ok := kubeletConfigs[common.SystemReservedKubeletConfig]; ok {
-		for _, srPair := range strings.Split(systemReserved, ",") {
-			srKV := strings.SplitN(srPair, "=", 2)
-			if len(srKV) != 2 {
-				continue
-			}
-			(*cfg.SystemReserved)[srKV[0]] = srKV[1]
-		}
+		cfg.SystemReserved = getKeyValueMap(systemReserved, "=")
 	}
 
 	if evictionHard, ok := kubeletConfigs[common.EvictionHardKubeletConfig]; ok {
-		for _, ehPair := range strings.Split(evictionHard, ",") {
-			ehKV := strings.SplitN(ehPair, "<", 2)
-			if len(ehKV) != 2 {
-				continue
-			}
-			(*cfg.EvictionHard)[ehKV[0]] = ehKV[1]
-		}
+		cfg.EvictionHard = getKeyValueMap(evictionHard, "<")
 	}
 	return cfg
+}
+
+func getKeyValueMap(value string, kvDelimeter string) *map[string]string {
+	res := make(map[string]string)
+	for _, pair := range strings.Split(value, ",") {
+		kvPair := strings.SplitN(pair, kvDelimeter, 2)
+		if len(kvPair) != 2 {
+			continue
+		}
+		res[kvPair[0]] = kvPair[1]
+	}
+	return &res
 }
