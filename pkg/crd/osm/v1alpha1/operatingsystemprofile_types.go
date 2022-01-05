@@ -36,7 +36,7 @@ type OperatingSystemProfile struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// OperatingSystemProfileSpec represents the operating system confuration spec.
+	// OperatingSystemProfileSpec represents the operating system configuration spec.
 	Spec OperatingSystemProfileSpec `json:"spec"`
 }
 
