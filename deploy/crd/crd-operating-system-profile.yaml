@@ -46,7 +46,7 @@ spec:
             metadata:
               type: object
             spec:
-              description: OperatingSystemProfileSpec represents the operating system confuration spec.
+              description: OperatingSystemProfileSpec represents the operating system configuration spec.
               type: object
               required:
                 - osName
