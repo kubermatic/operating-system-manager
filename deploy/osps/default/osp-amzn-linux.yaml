@@ -517,13 +517,36 @@ spec:
             serverTLSBootstrap: true
             staticPodPath: /etc/kubernetes/manifests
             kubeReserved:
+            {{- if .KubeReserved -}}
+              {{ range $key, $val := .KubeReserved }}
+              {{ $key }}: {{ $val }}
+              {{- end -}}
+            {{- else }}
               cpu: 200m
               ephemeral-storage: 1Gi
               memory: 200Mi
+            {{- end }}
             systemReserved:
+            {{- if .SystemReserved -}}
+              {{ range $key, $val := .SystemReserved }}
+              {{ $key }}: {{ $val }}
+              {{- end -}}
+            {{- else }}
               cpu: 200m
               ephemeral-storage: 1Gi
               memory: 200Mi
+            {{- end }}
+            evictionHard:
+            {{- if .EvictionHard -}}
+              {{ range $key, $val := .EvictionHard }}
+              {{ $key }}: {{ $val }}
+              {{- end -}}
+            {{- else }}
+              imagefs.available: 15%
+              memory.available: 100Mi
+              nodefs.available: 10%
+              nodefs.inodesFree: 5%
+            {{- end }}
             tlsCipherSuites:
             - TLS_AES_128_GCM_SHA256
             - TLS_AES_256_GCM_SHA384
