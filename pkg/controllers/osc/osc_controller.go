@@ -211,7 +211,7 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.M
 
 	// Check if secret already exists, in that case we don't need to do anything since secrets are immutable
 	secret := &corev1.Secret{}
-	if err := r.Get(ctx, types.NamespacedName{Name: oscName, Namespace: CloudInitSettingsNamespace}, secret); err == nil {
+	if err := r.workerClient.Get(ctx, types.NamespacedName{Name: oscName, Namespace: CloudInitSettingsNamespace}, secret); err == nil {
 		// Early return since the object already exists
 		return nil
 	}
@@ -252,7 +252,7 @@ func (r *Reconciler) handleMachineDeploymentCleanup(ctx context.Context, md *clu
 	kuberneteshelper.RemoveFinalizer(md, MachineDeploymentCleanupFinalizer)
 
 	// Update instance
-	err := r.Client.Update(ctx, md)
+	err := r.workerClient.Update(ctx, md)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to remove finalizer: %w", err)
 	}
@@ -280,14 +280,14 @@ func (r *Reconciler) deleteOperatingSystemConfig(ctx context.Context, md *cluste
 func (r *Reconciler) deleteGeneratedSecrets(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
 	secretName := fmt.Sprintf(resources.MachineDeploymentSubresourceNamePattern, md.Name, resources.ProvisioningCloudConfig)
 	secret := &corev1.Secret{}
-	if err := r.Get(ctx, types.NamespacedName{Name: secretName, Namespace: r.namespace}, secret); err != nil {
+	if err := r.workerClient.Get(ctx, types.NamespacedName{Name: secretName, Namespace: r.namespace}, secret); err != nil {
 		if kerrors.IsNotFound(err) {
 			return nil
 		}
 		return fmt.Errorf("failed to retrieve secret %s against MachineDeployment %s: %v", secret, md.Name, err)
 	}
 
-	if err := r.Delete(ctx, secret); err != nil {
+	if err := r.workerClient.Delete(ctx, secret); err != nil {
 		return fmt.Errorf("failed to delete secret %s against MachineDeployment %s: %v", secret, md.Name, err)
 	}
 	return nil
