@@ -280,7 +280,7 @@ func (r *Reconciler) deleteOperatingSystemConfig(ctx context.Context, md *cluste
 func (r *Reconciler) deleteGeneratedSecrets(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
 	secretName := fmt.Sprintf(resources.MachineDeploymentSubresourceNamePattern, md.Name, resources.ProvisioningCloudConfig)
 	secret := &corev1.Secret{}
-	if err := r.workerClient.Get(ctx, types.NamespacedName{Name: secretName, Namespace: r.namespace}, secret); err != nil {
+	if err := r.workerClient.Get(ctx, types.NamespacedName{Name: secretName, Namespace: CloudInitSettingsNamespace}, secret); err != nil {
 		if kerrors.IsNotFound(err) {
 			return nil
 		}
