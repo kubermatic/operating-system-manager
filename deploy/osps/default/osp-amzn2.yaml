@@ -15,7 +15,7 @@
 apiVersion: operatingsystemmanager.k8c.io/v1alpha1
 kind: OperatingSystemProfile
 metadata:
-  name: osp-amazon-linux
+  name: osp-amzn2
   namespace: cloud-init-settings
 spec:
   osName: "amzn2"
