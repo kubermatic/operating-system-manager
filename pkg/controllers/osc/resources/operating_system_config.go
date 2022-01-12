@@ -94,11 +94,6 @@ func OperatingSystemConfigCreator(
 				return nil, err
 			}
 
-			kubeconfigStr, err := resources.StringifyKubeconfig(workerClusterKubeconfig)
-			if err != nil {
-				return nil, err
-			}
-
 			// ensure that Kubelet version is prefixed by "v"
 			kubeletVersion, err := semver.NewVersion(md.Spec.Template.Spec.Versions.Kubelet)
 			if err != nil {
@@ -119,7 +114,6 @@ func OperatingSystemConfigCreator(
 				KubeVersion:           kubeletVersionStr,
 				ClusterDNSIPs:         clusterDNSIPs,
 				KubernetesCACert:      CACert,
-				Kubeconfig:            kubeconfigStr,
 				CloudConfig:           cloudConfig,
 				ContainerRuntime:      containerRuntime,
 				CloudProviderName:     cloudProviderName,
@@ -185,7 +179,6 @@ type filesData struct {
 	ClusterDNSIPs         []net.IP
 	KubernetesCACert      string
 	ServerAddress         string
-	Kubeconfig            string
 	CloudConfig           string
 	ContainerRuntime      string
 	CloudProviderName     osmv1alpha1.CloudProvider
