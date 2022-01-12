@@ -444,13 +444,6 @@ spec:
             systemctl enable --now --no-block kubelet-healthcheck.service
             systemctl disable setup.service
 
-    - path: /etc/kubernetes/bootstrap-kubelet.conf
-      permissions: 0600
-      content:
-        inline:
-          data: |
-            {{ .Kubeconfig }}
-
     - path: /etc/kubernetes/pki/ca.crt
       content:
         inline:

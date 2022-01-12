@@ -466,14 +466,6 @@ spec:
               echo -e "[Service]\nEnvironment=\"KUBELET_NODE_IP=${DEFAULT_IFC_IP}\"\nEnvironment=\"KUBELET_HOSTNAME=${FULL_HOSTNAME}\"" > /etc/systemd/system/kubelet.service.d/nodeip.conf
             fi
 
-    - path: "/etc/kubernetes/bootstrap-kubelet.conf"
-      permissions: 0600
-      content:
-        inline:
-          encoding: b64
-          data: |
-            {{ .Kubeconfig }}
-
     - path: "/etc/kubernetes/pki/ca.crt"
       content:
         inline:
