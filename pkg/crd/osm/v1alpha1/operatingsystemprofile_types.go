@@ -47,6 +47,7 @@ type OperatingSystemProfileSpec struct {
 	// OSVersion the version of the operating system
 	OSVersion string `json:"osVersion"`
 	// Version is the version of the operating System Profile
+	// +kubebuilder:validation:Pattern=`v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$`
 	Version string `json:"version"`
 	// SupportedCloudProviders represent the cloud providers that support the given operating system version
 	SupportedCloudProviders []CloudProviderSpec `json:"supportedCloudProviders"`
