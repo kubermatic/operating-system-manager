@@ -20,7 +20,7 @@ metadata:
 spec:
   osName: sles
   osVersion: "15-SP-1"
-  version: "1.0.0"
+  version: "v0.1.0"
   supportedCloudProviders:
     - name: aws
   supportedContainerRuntimes:
