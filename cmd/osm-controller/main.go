@@ -21,6 +21,9 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"os"
+	"path"
+	"strconv"
 	"strings"
 
 	"go.uber.org/zap"
@@ -37,6 +40,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/homedir"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -61,6 +65,7 @@ type options struct {
 	clusterDNSIPs           string
 	workerClusterKubeconfig string
 	kubeconfig              string
+	kubeletFeatureGates     string
 
 	healthProbeAddress       string
 	metricsAddress           string
@@ -94,6 +99,7 @@ func main() {
 	flag.StringVar(&opt.nodeNoProxy, "node-no-proxy", ".svc,.cluster.local,localhost,127.0.0.1", "If set, it configures the 'NO_PROXY' environment variable on the nodes.")
 	flag.StringVar(&opt.podCidr, "pod-cidr", "172.25.0.0/16", "The network ranges from which POD networks are allocated")
 	flag.StringVar(&opt.nodePortRange, "node-port-range", "30000-32767", "A port range to reserve for services with NodePort visibility")
+	flag.StringVar(&opt.kubeletFeatureGates, "node-kubelet-feature-gates", "RotateKubeletServerCertificate=true", "Feature gates to set on the kubelet")
 
 	flag.StringVar(&opt.healthProbeAddress, "health-probe-address", "127.0.0.1:8085", "The address on which the liveness check on /healthz and readiness check on /readyz will be available")
 	flag.StringVar(&opt.metricsAddress, "metrics-address", "127.0.0.1:8080", "The address on which Prometheus metrics will be available under /metrics")
@@ -117,6 +123,11 @@ func main() {
 	parsedClusterDNSIPs, err := parseClusterDNSIPs(opt.clusterDNSIPs)
 	if err != nil {
 		klog.Fatalf("invalid cluster dns specified: %v", err)
+	}
+
+	parsedKubeletFeatureGates, err := parseKubeletFeatureGates(opt.kubeletFeatureGates)
+	if err != nil {
+		klog.Fatalf("invalid kubelet feature gates specified: %v", err)
 	}
 
 	logger, err := zap.NewProduction()
@@ -207,6 +218,7 @@ func main() {
 		opt.nodeNoProxy,
 		opt.nodePortRange,
 		opt.podCidr,
+		parsedKubeletFeatureGates,
 	); err != nil {
 		klog.Fatal(err)
 	}
@@ -255,4 +267,37 @@ func parseClusterDNSIPs(s string) ([]net.IP, error) {
 		ips = append(ips, ip)
 	}
 	return ips, nil
+}
+
+func parseKubeletFeatureGates(s string) (map[string]bool, error) {
+	featureGates := map[string]bool{}
+	sFeatureGates := strings.Split(s, ",")
+
+	for _, featureGate := range sFeatureGates {
+		sFeatureGate := strings.Split(featureGate, "=")
+		if len(sFeatureGate) != 2 {
+			return nil, fmt.Errorf("invalid kubelet feature gate: %q", featureGate)
+		}
+
+		featureGateEnabled, err := strconv.ParseBool(sFeatureGate[1])
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse kubelet feature gate: %q", featureGate)
+		}
+
+		featureGates[sFeatureGate[0]] = featureGateEnabled
+	}
+
+	if _, ok := featureGates["RotateKubeletServerCertificate"]; !ok {
+		featureGates["RotateKubeletServerCertificate"] = true
+	}
+
+	return featureGates, nil
+}
+
+// getKubeConfigPath returns the path to the kubeconfig file.
+func getKubeConfigPath() string {
+	if os.Getenv("KUBECONFIG") != "" {
+		return os.Getenv("KUBECONFIG")
+	}
+	return path.Join(homedir.HomeDir(), ".kube/config")
 }

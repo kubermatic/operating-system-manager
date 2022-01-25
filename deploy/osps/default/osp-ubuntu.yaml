@@ -525,7 +525,13 @@ spec:
             {{- end }}
             clusterDomain: cluster.local
             featureGates:
+            {{- if .KubeletFeatureGates -}}
+              {{ range $key, $val := .KubeletFeatureGates }}
+              {{ $key }}: {{ $val }}
+              {{- end -}}
+            {{- else }}
               RotateKubeletServerCertificate: true
+            {{- end }}
             protectKernelDefaults: true
             readOnlyPort: 0
             rotateCertificates: true

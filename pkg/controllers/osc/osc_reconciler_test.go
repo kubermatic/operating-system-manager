@@ -437,13 +437,14 @@ func loadFile(obj runtime.Object, name string) error {
 
 func buildReconciler(fakeClient client.Client, config testConfig) Reconciler {
 	return Reconciler{
-		Client:           fakeClient,
-		workerClient:     fakeClient,
-		log:              testUtil.DefaultLogger,
-		generator:        generator.NewDefaultCloudConfigGenerator(""),
-		namespace:        config.namespace,
-		caCert:           dummyCACert,
-		containerRuntime: config.containerRuntime,
-		clusterDNSIPs:    config.clusterDNSIPs,
+		Client:              fakeClient,
+		workerClient:        fakeClient,
+		log:                 testUtil.DefaultLogger,
+		generator:           generator.NewDefaultCloudConfigGenerator(""),
+		namespace:           config.namespace,
+		caCert:              dummyCACert,
+		containerRuntime:    config.containerRuntime,
+		clusterDNSIPs:       config.clusterDNSIPs,
+		kubeletFeatureGates: map[string]bool{"GracefulNodeShutdown": true, "IdentifyPodOS": false},
 	}
 }

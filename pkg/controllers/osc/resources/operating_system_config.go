@@ -64,6 +64,7 @@ func OperatingSystemConfigCreator(
 	nodeNoProxy string,
 	nodePortRange string,
 	podCidr string,
+	kubeletFeatureGates map[string]bool,
 ) reconciling.NamedOperatingSystemConfigCreatorGetter {
 	return func() (string, reconciling.OperatingSystemConfigCreator) {
 		var oscName = fmt.Sprintf(MachineDeploymentSubresourceNamePattern, md.Name, ProvisioningCloudConfig)
@@ -116,6 +117,7 @@ func OperatingSystemConfigCreator(
 				InitialTaints:         initialTaints,
 				PodCIDR:               podCidr,
 				NodePortRange:         nodePortRange,
+				KubeletFeatureGates:   kubeletFeatureGates,
 			}
 
 			if len(nodeHTTPProxy) > 0 {
@@ -184,6 +186,7 @@ type filesData struct {
 	NoProxy               *string
 	PodCIDR               string
 	NodePortRange         string
+	KubeletFeatureGates   map[string]bool
 
 	kubeletConfig
 	OperatingSystemConfig
