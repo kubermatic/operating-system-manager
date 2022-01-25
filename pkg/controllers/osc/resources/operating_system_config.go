@@ -105,7 +105,7 @@ func OperatingSystemConfigCreator(
 				kubeletVersionStr = fmt.Sprintf("v%s", kubeletVersionStr)
 			}
 
-			inTreeCCM, external, err := cloudprovider.KubeletCloudProvider(providerConfig.CloudProvider)
+			inTreeCCM, external, err := cloudprovider.KubeletCloudProviderConfig(providerConfig.CloudProvider)
 			if err != nil {
 				return nil, err
 			}
