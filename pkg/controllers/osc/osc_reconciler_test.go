@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
+	"github.com/kubermatic/machine-controller/pkg/containerruntime"
 	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
 	"k8c.io/operating-system-manager/pkg/controllers/osc/resources"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
@@ -199,6 +200,20 @@ func TestReconciler_Reconcile(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			ctx := context.Background()
 			md := generateMachineDeployment(t, testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec)
+
+			// Configure containerRuntimeConfig
+			containerRuntimeOpts := containerruntime.Opts{
+				ContainerRuntime:   testCase.config.containerRuntime,
+				InsecureRegistries: "192.168.100.100:5000, 10.0.0.1:5000",
+				PauseImage:         "192.168.100.100:5000/kubernetes/pause:v3.1",
+				RegistryMirrors:    "https://registry.docker-cn.com",
+			}
+			containerRuntimeConfig, err := containerruntime.GenerateContainerRuntimeConfig(containerRuntimeOpts)
+			if err != nil {
+				t.Fatalf("failed to generate container runtime config: %v", err)
+			}
+
+			reconciler.containerRuntimeConfig = containerRuntimeConfig
 
 			if err := reconciler.reconcile(ctx, md); err != nil {
 				t.Fatalf("failed to reconcile: %v", err)

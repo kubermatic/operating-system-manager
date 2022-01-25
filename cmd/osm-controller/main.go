@@ -19,15 +19,11 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
-	"net"
-	"os"
-	"path"
-	"strings"
 
 	"go.uber.org/zap"
 
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
+	"github.com/kubermatic/machine-controller/pkg/containerruntime"
 	"k8c.io/operating-system-manager/pkg/controllers/osc"
 	"k8c.io/operating-system-manager/pkg/controllers/osp"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
@@ -38,12 +34,9 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/homedir"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
-	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
@@ -55,8 +48,6 @@ type options struct {
 	externalCloudProvider   bool
 	pauseImage              string
 	initialTaints           string
-	nodeHTTPProxy           string
-	nodeNoProxy             string
 	nodePortRange           string
 	podCidr                 string
 	enableLeaderElection    bool
@@ -68,6 +59,16 @@ type options struct {
 	metricsAddress           string
 	workerHealthProbeAddress string
 	workerMetricsAddress     string
+
+	// Flags for configuring CRI
+	nodeInsecureRegistries        string
+	nodeRegistryMirrors           string
+	nodeRegistryCredentialsSecret string
+	nodeContainerdRegistryMirrors containerruntime.RegistryMirrorsFlags
+
+	// Flags for proxy
+	nodeHTTPProxy string
+	nodeNoProxy   string
 }
 
 func init() {
@@ -92,10 +93,14 @@ func main() {
 	flag.StringVar(&opt.clusterDNSIPs, "cluster-dns", "10.10.10.10", "Comma-separated list of DNS server IP address.")
 	flag.StringVar(&opt.pauseImage, "pause-image", "", "pause image to use in Kubelet.")
 	flag.StringVar(&opt.initialTaints, "initial-taints", "", "taints to use when creating the node.")
-	flag.StringVar(&opt.nodeHTTPProxy, "node-http-proxy", "", "If set, it configures the 'HTTP_PROXY' & 'HTTPS_PROXY' environment variable on the nodes.")
-	flag.StringVar(&opt.nodeNoProxy, "node-no-proxy", ".svc,.cluster.local,localhost,127.0.0.1", "If set, it configures the 'NO_PROXY' environment variable on the nodes.")
+
 	flag.StringVar(&opt.podCidr, "pod-cidr", "172.25.0.0/16", "The network ranges from which POD networks are allocated")
 	flag.StringVar(&opt.nodePortRange, "node-port-range", "30000-32767", "A port range to reserve for services with NodePort visibility")
+
+	flag.StringVar(&opt.nodeHTTPProxy, "node-http-proxy", "", "If set, it configures the 'HTTP_PROXY' & 'HTTPS_PROXY' environment variable on the nodes.")
+	flag.StringVar(&opt.nodeNoProxy, "node-no-proxy", ".svc,.cluster.local,localhost,127.0.0.1", "If set, it configures the 'NO_PROXY' environment variable on the nodes.")
+	flag.StringVar(&opt.nodeInsecureRegistries, "node-insecure-registries", "", "Comma separated list of registries which should be configured as insecure on the container runtime")
+	flag.StringVar(&opt.nodeRegistryMirrors, "node-registry-mirrors", "", "Comma separated list of Docker image mirrors")
 
 	flag.StringVar(&opt.healthProbeAddress, "health-probe-address", "127.0.0.1:8085", "The address on which the liveness check on /healthz and readiness check on /readyz will be available")
 	flag.StringVar(&opt.metricsAddress, "metrics-address", "127.0.0.1:8080", "The address on which Prometheus metrics will be available under /metrics")
@@ -121,9 +126,23 @@ func main() {
 		opt.kubeconfig = getKubeConfigPath()
 	}
 
+	// Parse flags
 	parsedClusterDNSIPs, err := parseClusterDNSIPs(opt.clusterDNSIPs)
 	if err != nil {
 		klog.Fatalf("invalid cluster dns specified: %v", err)
+	}
+
+	containerRuntimeOpts := containerruntime.Opts{
+		ContainerRuntime:          opt.containerRuntime,
+		ContainerdRegistryMirrors: opt.nodeContainerdRegistryMirrors,
+		InsecureRegistries:        opt.nodeInsecureRegistries,
+		PauseImage:                opt.pauseImage,
+		RegistryMirrors:           opt.nodeRegistryMirrors,
+		RegistryCredentialsSecret: opt.nodeRegistryCredentialsSecret,
+	}
+	containerRuntimeConfig, err := containerruntime.GenerateContainerRuntimeConfig(containerRuntimeOpts)
+	if err != nil {
+		klog.Fatalf("failed to generate container runtime config: %v", err)
 	}
 
 	logger, err := zap.NewProduction()
@@ -209,6 +228,8 @@ func main() {
 		opt.nodeNoProxy,
 		opt.nodePortRange,
 		opt.podCidr,
+		containerRuntimeConfig,
+		opt.nodeRegistryCredentialsSecret,
 	); err != nil {
 		klog.Fatal(err)
 	}
@@ -217,52 +238,4 @@ func main() {
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		klog.Fatalf("Failed to start OSC controller: %v", zap.Error(err))
 	}
-}
-
-func createManager(opt *options) (manager.Manager, error) {
-	// Manager options
-	options := manager.Options{
-		LeaderElection:          opt.enableLeaderElection,
-		LeaderElectionID:        "operating-system-manager",
-		LeaderElectionNamespace: opt.namespace,
-		HealthProbeBindAddress:  opt.healthProbeAddress,
-		MetricsBindAddress:      opt.metricsAddress,
-		Port:                    9443,
-		Namespace:               opt.namespace,
-	}
-
-	mgr, err := manager.New(config.GetConfigOrDie(), options)
-	if err != nil {
-		return nil, fmt.Errorf("error building ctrlruntime manager: %v", err)
-	}
-
-	// Add health endpoints
-	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
-		return nil, fmt.Errorf("failed to add health check: %v", err)
-	}
-	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
-		return nil, fmt.Errorf("failed to add readiness check: %v", err)
-	}
-	return mgr, nil
-}
-
-func parseClusterDNSIPs(s string) ([]net.IP, error) {
-	var ips []net.IP
-	sips := strings.Split(s, ",")
-	for _, sip := range sips {
-		ip := net.ParseIP(strings.TrimSpace(sip))
-		if ip == nil {
-			return nil, fmt.Errorf("unable to parse ip %s", sip)
-		}
-		ips = append(ips, ip)
-	}
-	return ips, nil
-}
-
-// getKubeConfigPath returns the path to the kubeconfig file.
-func getKubeConfigPath() string {
-	if os.Getenv("KUBECONFIG") != "" {
-		return os.Getenv("KUBECONFIG")
-	}
-	return path.Join(homedir.HomeDir(), ".kube/config")
 }

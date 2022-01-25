@@ -28,6 +28,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/kubermatic/machine-controller/pkg/apis/cluster/common"
 	"github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
+	"github.com/kubermatic/machine-controller/pkg/containerruntime"
 	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
 
 	"k8c.io/operating-system-manager/pkg/cloudprovider"
@@ -65,6 +66,7 @@ func OperatingSystemConfigCreator(
 	nodeNoProxy string,
 	nodePortRange string,
 	podCidr string,
+	containerRuntimeConfig containerruntime.Config,
 ) reconciling.NamedOperatingSystemConfigCreatorGetter {
 	return func() (string, reconciling.OperatingSystemConfigCreator) {
 		var oscName = fmt.Sprintf(MachineDeploymentSubresourceNamePattern, md.Name, ProvisioningCloudConfig)
@@ -110,18 +112,25 @@ func OperatingSystemConfigCreator(
 				return nil, err
 			}
 
+			crEngine := containerRuntimeConfig.Engine(kubeletVersion)
+			crConfig, err := crEngine.Config()
+			if err != nil {
+				return nil, fmt.Errorf("failed to generate container runtime config: %w", err)
+			}
+
 			data := filesData{
-				KubeVersion:           kubeletVersionStr,
-				ClusterDNSIPs:         clusterDNSIPs,
-				KubernetesCACert:      CACert,
-				CloudConfig:           cloudConfig,
-				ContainerRuntime:      containerRuntime,
-				CloudProviderName:     cloudProviderName,
-				ExternalCloudProvider: externalCloudProvider,
-				PauseImage:            pauseImage,
-				InitialTaints:         initialTaints,
-				PodCIDR:               podCidr,
-				NodePortRange:         nodePortRange,
+				KubeVersion:            kubeletVersionStr,
+				ClusterDNSIPs:          clusterDNSIPs,
+				KubernetesCACert:       CACert,
+				CloudConfig:            cloudConfig,
+				ContainerRuntime:       containerRuntime,
+				CloudProviderName:      cloudProviderName,
+				ExternalCloudProvider:  externalCloudProvider,
+				PauseImage:             pauseImage,
+				InitialTaints:          initialTaints,
+				PodCIDR:                podCidr,
+				NodePortRange:          nodePortRange,
+				ContainerRuntimeConfig: crConfig,
 			}
 
 			if len(nodeHTTPProxy) > 0 {
@@ -172,24 +181,25 @@ func OperatingSystemConfigCreator(
 }
 
 type filesData struct {
-	KubeVersion           string
-	KubeletConfiguration  string
-	KubeletSystemdUnit    string
-	CNIVersion            string
-	ClusterDNSIPs         []net.IP
-	KubernetesCACert      string
-	ServerAddress         string
-	CloudConfig           string
-	ContainerRuntime      string
-	CloudProviderName     osmv1alpha1.CloudProvider
-	NetworkConfig         *providerconfigtypes.NetworkConfig
-	ExternalCloudProvider bool
-	PauseImage            string
-	InitialTaints         string
-	HTTPProxy             *string
-	NoProxy               *string
-	PodCIDR               string
-	NodePortRange         string
+	KubeVersion            string
+	KubeletConfiguration   string
+	KubeletSystemdUnit     string
+	CNIVersion             string
+	ClusterDNSIPs          []net.IP
+	KubernetesCACert       string
+	ServerAddress          string
+	CloudConfig            string
+	ContainerRuntime       string
+	CloudProviderName      osmv1alpha1.CloudProvider
+	NetworkConfig          *providerconfigtypes.NetworkConfig
+	ExternalCloudProvider  bool
+	PauseImage             string
+	InitialTaints          string
+	HTTPProxy              *string
+	NoProxy                *string
+	PodCIDR                string
+	NodePortRange          string
+	ContainerRuntimeConfig string
 
 	kubeletConfig
 	OperatingSystemConfig

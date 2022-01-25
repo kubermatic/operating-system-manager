@@ -358,7 +358,7 @@ spec:
     permissions: 384
   - content:
       inline:
-        data: '{"exec-opts":["native.cgroupdriver=systemd"],"storage-driver":"overlay2","log-driver":"json-file","log-opts":{"max-file":"5","max-size":"100m"}}'
+        data: '{"exec-opts":["native.cgroupdriver=systemd"],"storage-driver":"overlay2","log-driver":"json-file","log-opts":{"max-file":"5","max-size":"10m"},"insecure-registries":["192.168.100.100:5000","10.0.0.1:5000"],"registry-mirrors":["https://registry.docker-cn.com"]}'
     path: /etc/docker/daemon.json
     permissions: 420
   - content:

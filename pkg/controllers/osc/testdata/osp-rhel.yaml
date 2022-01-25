@@ -35,23 +35,7 @@ spec:
             inline:
               encoding: b64
               data: |
-                version = 2
-
-                [metrics]
-                address = "127.0.0.1:1338"
-
-                [plugins]
-                [plugins."io.containerd.grpc.v1.cri"]
-                [plugins."io.containerd.grpc.v1.cri".containerd]
-                [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
-                [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-                runtime_type = "io.containerd.runc.v2"
-                [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
-                SystemdCgroup = true
-                [plugins."io.containerd.grpc.v1.cri".registry]
-                [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
-                [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
-                endpoint = ["https://registry-1.docker.io"]
+                {{ .ContainerRuntimeConfig}}
       templates:
         containerRuntimeInstallation: |-
           yum install -y yum-utils
@@ -87,7 +71,7 @@ spec:
             inline:
               encoding: b64
               data: |-
-                {"exec-opts":["native.cgroupdriver=systemd"],"storage-driver":"overlay2","log-driver":"json-file","log-opts":{"max-file":"5","max-size":"10m"}}
+                {{ .ContainerRuntimeConfig}}
       templates:
         containerRuntimeInstallation: |-
           yum install -y yum-utils
@@ -264,8 +248,6 @@ spec:
             #     minimum - Modification of targeted policy. Only selected processes are protected.
             #     mls - Multi Level Security protection.
             SELINUXTYPE=targeted
-
-
 
     - path: "/opt/bin/setup"
       permissions: 0755
