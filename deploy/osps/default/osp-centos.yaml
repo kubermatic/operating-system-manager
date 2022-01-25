@@ -325,7 +325,15 @@ spec:
               {{- if eq .CloudProviderName "vsphere" }}
               open-vm-tools \
               {{- end }}
+              {{- if eq .CloudProviderName "nutanix" }}
+              iscsi-initiator-utils \
+              {{- end }}
               ipvsadm
+
+            {{- /* iscsid service is required on Nutanix machines for CSI driver to attach volumes. */}}
+            {{- if eq .CloudProviderName "nutanix" }}
+            systemctl enable --now iscsid
+            {{ end }}
 
             {{- template "configureProxyScript" }}
 
@@ -386,13 +394,15 @@ spec:
               --config=/etc/kubernetes/kubelet.conf \
               --network-plugin=cni \
               --cert-dir=/etc/kubernetes/pki \
-              {{- if or (.ExternalCloudProvider) (eq .CloudProviderName "external") }}
+              {{- if .ExternalCloudProvider }}
               --cloud-provider=external \
-              {{- else if .CloudProviderName }}
+              {{- else if not .InTreeCCMAvailable }}
               --cloud-provider={{- .CloudProviderName}} \
               --cloud-config=/etc/kubernetes/cloud-config \
               {{- end }}
               {{- if ne .CloudProviderName "aws" }}
+              --hostname-override=${KUBELET_HOSTNAME} \
+              {{- else if and (eq .CloudProviderName "aws") (.ExternalCloudProvider) }}
               --hostname-override=${KUBELET_HOSTNAME} \
               {{- end }}
               --dynamic-config-dir=/etc/kubernetes/dynamic-config-dir \

@@ -105,18 +105,23 @@ func OperatingSystemConfigCreator(
 				kubeletVersionStr = fmt.Sprintf("v%s", kubeletVersionStr)
 			}
 
-			cloudProviderName, err := cloudprovider.KubeletCloudProviderName(providerConfig.CloudProvider)
+			inTreeCCM, external, err := cloudprovider.KubeletCloudProvider(providerConfig.CloudProvider)
 			if err != nil {
 				return nil, err
+			}
+
+			if external {
+				externalCloudProvider = true
 			}
 
 			data := filesData{
 				KubeVersion:           kubeletVersionStr,
 				ClusterDNSIPs:         clusterDNSIPs,
 				KubernetesCACert:      CACert,
+				InTreeCCMAvailable:    inTreeCCM,
 				CloudConfig:           cloudConfig,
 				ContainerRuntime:      containerRuntime,
-				CloudProviderName:     cloudProviderName,
+				CloudProviderName:     osmv1alpha1.CloudProvider(providerConfig.CloudProvider),
 				ExternalCloudProvider: externalCloudProvider,
 				PauseImage:            pauseImage,
 				InitialTaints:         initialTaints,
@@ -175,6 +180,7 @@ type filesData struct {
 	KubeVersion           string
 	KubeletConfiguration  string
 	KubeletSystemdUnit    string
+	InTreeCCMAvailable    bool
 	CNIVersion            string
 	ClusterDNSIPs         []net.IP
 	KubernetesCACert      string

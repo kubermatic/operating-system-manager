@@ -237,8 +237,6 @@ spec:
             --config=/etc/kubernetes/kubelet.conf \
             --network-plugin=cni \
             --cert-dir=/etc/kubernetes/pki \
-            --cloud-provider=aws \
-            --cloud-config=/etc/kubernetes/cloud-config \
             --dynamic-config-dir=/etc/kubernetes/dynamic-config-dir \
             --feature-gates=DynamicKubeletConfig=true \
             --exit-on-lock-contention \

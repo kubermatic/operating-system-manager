@@ -480,9 +480,9 @@ spec:
               --config=/etc/kubernetes/kubelet.conf \
               --network-plugin=cni \
               --cert-dir=/etc/kubernetes/pki \
-              {{- if or (.ExternalCloudProvider) (eq .CloudProviderName "external") }}
+              {{- if .ExternalCloudProvider }}
               --cloud-provider=external \
-              {{- else if .CloudProviderName }}
+              {{- else if not .InTreeCCMAvailable }}
               --cloud-provider={{- .CloudProviderName}} \
               --cloud-config=/etc/kubernetes/cloud-config \
               {{- end }}
