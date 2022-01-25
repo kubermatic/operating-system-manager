@@ -208,7 +208,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 				PauseImage:         "192.168.100.100:5000/kubernetes/pause:v3.1",
 				RegistryMirrors:    "https://registry.docker-cn.com",
 			}
-			containerRuntimeConfig, err := containerruntime.GenerateContainerRuntimeConfig(containerRuntimeOpts)
+			containerRuntimeConfig, err := containerruntime.BuildConfig(containerRuntimeOpts)
 			if err != nil {
 				t.Fatalf("failed to generate container runtime config: %v", err)
 			}
