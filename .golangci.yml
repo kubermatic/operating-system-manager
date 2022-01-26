@@ -42,7 +42,3 @@ linters:
 linters-settings:
   goimports:
     local-prefixes: k8c.io/operating-system-manager
-
-issues:
-  exclude:
-    - type name will be used as config.ConfigVarResolver by other packages, and that stutters; consider calling this VarResolver
