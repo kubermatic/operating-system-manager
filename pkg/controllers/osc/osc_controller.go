@@ -68,6 +68,7 @@ type Reconciler struct {
 	nodeNoProxy           string
 	podCIDR               string
 	nodePortRange         string
+	kubeletFeatureGates   map[string]bool
 }
 
 func Add(
@@ -87,7 +88,8 @@ func Add(
 	nodeHTTPProxy string,
 	nodeNoProxy string,
 	podCIDR string,
-	nodePortRange string) error {
+	nodePortRange string,
+	kubeletFeatureGates map[string]bool) error {
 	reconciler := &Reconciler{
 		log:                   log,
 		workerClient:          workerClient,
@@ -104,6 +106,7 @@ func Add(
 		nodeNoProxy:           nodeNoProxy,
 		podCIDR:               podCIDR,
 		nodePortRange:         nodePortRange,
+		kubeletFeatureGates:   kubeletFeatureGates,
 	}
 	log.Info("Reconciling OSC resource..")
 	c, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: reconciler, MaxConcurrentReconciles: workerCount})
@@ -198,6 +201,7 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 			r.nodeNoProxy,
 			r.nodePortRange,
 			r.podCIDR,
+			r.kubeletFeatureGates,
 		),
 	}, r.namespace, r.Client); err != nil {
 		return fmt.Errorf("failed to reconcile provisioning operating system config: %v", err)

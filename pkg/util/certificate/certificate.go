@@ -18,6 +18,7 @@ package certificate
 
 import (
 	"fmt"
+	"io/ioutil"
 
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -48,8 +49,17 @@ func GetCACert(kubeconfigPath string, config *rest.Config) (string, error) {
 	if kubeconfigPath != "" {
 		return getCACertFromKubeconfigPath(kubeconfigPath)
 	}
-	if config != nil && config.CAData != nil {
+
+	// CAData takes precedence over CAFile
+	if config != nil && len(config.CAData) > 0 {
 		return string(config.CAData), nil
+	}
+	if config != nil && len(config.CAFile) > 0 {
+		cert, err := ioutil.ReadFile(config.CAFile)
+		if err != nil {
+			return "", fmt.Errorf("failed to load CA certificate %w", err)
+		}
+		return string(cert), nil
 	}
 	return "", fmt.Errorf("no CA certificate found")
 }
