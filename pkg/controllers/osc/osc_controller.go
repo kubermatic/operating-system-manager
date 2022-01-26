@@ -56,18 +56,18 @@ type Reconciler struct {
 	workerClient client.Client
 	log          *zap.SugaredLogger
 
-	namespace               string
-	containerRuntime        string
-	externalCloudProvider   bool
-	pauseImage              string
-	initialTaints           string
-	generator               generator.CloudConfigGenerator
-	clusterDNSIPs           []net.IP
-	workerClusterKubeconfig string
-	nodeHTTPProxy           string
-	nodeNoProxy             string
-	podCIDR                 string
-	nodePortRange           string
+	namespace             string
+	containerRuntime      string
+	externalCloudProvider bool
+	pauseImage            string
+	initialTaints         string
+	generator             generator.CloudConfigGenerator
+	clusterDNSIPs         []net.IP
+	caCert                string
+	nodeHTTPProxy         string
+	nodeNoProxy           string
+	podCIDR               string
+	nodePortRange         string
 }
 
 func Add(
@@ -75,7 +75,7 @@ func Add(
 	log *zap.SugaredLogger,
 	workerClient client.Client,
 	client client.Client,
-	workerClusterKubeconfig string,
+	caCert string,
 	namespace string,
 	workerCount int,
 	clusterDNSIPs []net.IP,
@@ -89,21 +89,21 @@ func Add(
 	podCIDR string,
 	nodePortRange string) error {
 	reconciler := &Reconciler{
-		log:                     log,
-		workerClient:            workerClient,
-		Client:                  client,
-		workerClusterKubeconfig: workerClusterKubeconfig,
-		namespace:               namespace,
-		generator:               generator,
-		clusterDNSIPs:           clusterDNSIPs,
-		containerRuntime:        containerRuntime,
-		pauseImage:              pauseImage,
-		initialTaints:           initialTaints,
-		externalCloudProvider:   externalCloudProvider,
-		nodeHTTPProxy:           nodeHTTPProxy,
-		nodeNoProxy:             nodeNoProxy,
-		podCIDR:                 podCIDR,
-		nodePortRange:           nodePortRange,
+		log:                   log,
+		workerClient:          workerClient,
+		Client:                client,
+		caCert:                caCert,
+		namespace:             namespace,
+		generator:             generator,
+		clusterDNSIPs:         clusterDNSIPs,
+		containerRuntime:      containerRuntime,
+		pauseImage:            pauseImage,
+		initialTaints:         initialTaints,
+		externalCloudProvider: externalCloudProvider,
+		nodeHTTPProxy:         nodeHTTPProxy,
+		nodeNoProxy:           nodeNoProxy,
+		podCIDR:               podCIDR,
+		nodePortRange:         nodePortRange,
 	}
 	log.Info("Reconciling OSC resource..")
 	c, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: reconciler, MaxConcurrentReconciles: workerCount})
@@ -188,7 +188,7 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 		resources.OperatingSystemConfigCreator(
 			md,
 			osp,
-			r.workerClusterKubeconfig,
+			r.caCert,
 			r.clusterDNSIPs,
 			r.containerRuntime,
 			r.externalCloudProvider,

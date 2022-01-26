@@ -21,8 +21,6 @@ import (
 	"flag"
 	"fmt"
 	"net"
-	"os"
-	"path"
 	"strings"
 
 	"go.uber.org/zap"
@@ -33,12 +31,12 @@ import (
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/generator"
 	providerconfig "k8c.io/operating-system-manager/pkg/providerconfig/config"
+	"k8c.io/operating-system-manager/pkg/util/certificate"
 
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/homedir"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -116,11 +114,6 @@ func main() {
 
 	opt.kubeconfig = flag.Lookup("kubeconfig").Value.(flag.Getter).Get().(string)
 
-	// out-of-cluster config was not provided using the flag, try to use the in-cluster config.
-	if opt.kubeconfig == "" {
-		opt.kubeconfig = getKubeConfigPath()
-	}
-
 	parsedClusterDNSIPs, err := parseClusterDNSIPs(opt.clusterDNSIPs)
 	if err != nil {
 		klog.Fatalf("invalid cluster dns specified: %v", err)
@@ -182,6 +175,11 @@ func main() {
 		}
 	}
 
+	caCert, err := certificate.GetCACert(opt.kubeconfig, mgr.GetConfig())
+	if err != nil {
+		klog.Fatal("failed to load CA certificate", zap.Error(err))
+	}
+
 	// Instantiate ConfigVarResolver
 	providerconfig.SetConfigVarResolver(context.Background(), workerMgr.GetClient(), opt.namespace)
 
@@ -196,7 +194,7 @@ func main() {
 		log,
 		workerClient,
 		mgr.GetClient(),
-		opt.kubeconfig,
+		caCert,
 		opt.namespace,
 		opt.workerCount,
 		parsedClusterDNSIPs,
@@ -257,12 +255,4 @@ func parseClusterDNSIPs(s string) ([]net.IP, error) {
 		ips = append(ips, ip)
 	}
 	return ips, nil
-}
-
-// getKubeConfigPath returns the path to the kubeconfig file.
-func getKubeConfigPath() string {
-	if os.Getenv("KUBECONFIG") != "" {
-		return os.Getenv("KUBECONFIG")
-	}
-	return path.Join(homedir.HomeDir(), ".kube/config")
 }
