@@ -506,8 +506,6 @@ spec:
               {{ range $key, $val := .KubeletFeatureGates }}
               {{ $key }}: {{ $val }}
               {{- end -}}
-            {{- else }}
-              RotateKubeletServerCertificate: true
             {{- end }}
             protectKernelDefaults: true
             readOnlyPort: 0
