@@ -38,7 +38,6 @@ import (
 	"k8c.io/operating-system-manager/pkg/providerconfig/rhel"
 	"k8c.io/operating-system-manager/pkg/providerconfig/sles"
 	"k8c.io/operating-system-manager/pkg/providerconfig/ubuntu"
-	"k8c.io/operating-system-manager/pkg/resources"
 	"k8c.io/operating-system-manager/pkg/resources/reconciling"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -55,7 +54,7 @@ const (
 func OperatingSystemConfigCreator(
 	md *v1alpha1.MachineDeployment,
 	osp *osmv1alpha1.OperatingSystemProfile,
-	workerClusterKubeconfig string,
+	caCert string,
 	clusterDNSIPs []net.IP,
 	containerRuntime string,
 	externalCloudProvider bool,
@@ -89,11 +88,6 @@ func OperatingSystemConfigCreator(
 				}
 			}
 
-			CACert, err := resources.GetCACert(workerClusterKubeconfig)
-			if err != nil {
-				return nil, err
-			}
-
 			// ensure that Kubelet version is prefixed by "v"
 			kubeletVersion, err := semver.NewVersion(md.Spec.Template.Spec.Versions.Kubelet)
 			if err != nil {
@@ -117,7 +111,7 @@ func OperatingSystemConfigCreator(
 			data := filesData{
 				KubeVersion:           kubeletVersionStr,
 				ClusterDNSIPs:         clusterDNSIPs,
-				KubernetesCACert:      CACert,
+				KubernetesCACert:      caCert,
 				InTreeCCMAvailable:    inTreeCCM,
 				CloudConfig:           cloudConfig,
 				ContainerRuntime:      containerRuntime,

@@ -16,7 +16,7 @@ limitations under the License.
 
 package types
 
-import "k8c.io/operating-system-manager/pkg/providerconfig/config/types"
+import "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
 
 // RawConfig is a direct representation of an GCE machine object's configuration
 type RawConfig struct {
