@@ -64,13 +64,14 @@ type Reconciler struct {
 	initialTaints                 string
 	generator                     generator.CloudConfigGenerator
 	clusterDNSIPs                 []net.IP
-	workerClusterKubeconfig       string
+	caCert                        string
 	nodeHTTPProxy                 string
 	nodeNoProxy                   string
 	podCIDR                       string
 	nodePortRange                 string
 	nodeRegistryCredentialsSecret string
 	containerRuntimeConfig        containerruntime.Config
+	kubeletFeatureGates           map[string]bool
 }
 
 func Add(
@@ -78,7 +79,7 @@ func Add(
 	log *zap.SugaredLogger,
 	workerClient client.Client,
 	client client.Client,
-	workerClusterKubeconfig string,
+	caCert string,
 	namespace string,
 	workerCount int,
 	clusterDNSIPs []net.IP,
@@ -92,12 +93,13 @@ func Add(
 	podCIDR string,
 	nodePortRange string,
 	containerRuntimeConfig containerruntime.Config,
-	nodeRegistryCredentialsSecret string) error {
+	nodeRegistryCredentialsSecret string,
+	kubeletFeatureGates map[string]bool) error {
 	reconciler := &Reconciler{
 		log:                           log,
 		workerClient:                  workerClient,
 		Client:                        client,
-		workerClusterKubeconfig:       workerClusterKubeconfig,
+		caCert:                        caCert,
 		namespace:                     namespace,
 		generator:                     generator,
 		clusterDNSIPs:                 clusterDNSIPs,
@@ -111,6 +113,7 @@ func Add(
 		nodePortRange:                 nodePortRange,
 		containerRuntimeConfig:        containerRuntimeConfig,
 		nodeRegistryCredentialsSecret: nodeRegistryCredentialsSecret,
+		kubeletFeatureGates:           kubeletFeatureGates,
 	}
 	log.Info("Reconciling OSC resource..")
 	c, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: reconciler, MaxConcurrentReconciles: workerCount})
@@ -203,7 +206,7 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 		resources.OperatingSystemConfigCreator(
 			md,
 			osp,
-			r.workerClusterKubeconfig,
+			r.caCert,
 			r.clusterDNSIPs,
 			r.containerRuntime,
 			r.externalCloudProvider,
@@ -214,6 +217,7 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 			r.nodePortRange,
 			r.podCIDR,
 			r.containerRuntimeConfig,
+			r.kubeletFeatureGates,
 		),
 	}, r.namespace, r.Client); err != nil {
 		return fmt.Errorf("failed to reconcile provisioning operating system config: %v", err)

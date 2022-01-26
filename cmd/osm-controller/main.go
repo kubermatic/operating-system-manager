@@ -19,6 +19,10 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
+	"net"
+	"strconv"
+	"strings"
 
 	"go.uber.org/zap"
 
@@ -29,6 +33,7 @@ import (
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/generator"
 	providerconfig "k8c.io/operating-system-manager/pkg/providerconfig/config"
+	"k8c.io/operating-system-manager/pkg/util/certificate"
 
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -37,6 +42,8 @@ import (
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
@@ -54,6 +61,7 @@ type options struct {
 	clusterDNSIPs           string
 	workerClusterKubeconfig string
 	kubeconfig              string
+	kubeletFeatureGates     string
 
 	healthProbeAddress       string
 	metricsAddress           string
@@ -96,6 +104,7 @@ func main() {
 
 	flag.StringVar(&opt.podCidr, "pod-cidr", "172.25.0.0/16", "The network ranges from which POD networks are allocated")
 	flag.StringVar(&opt.nodePortRange, "node-port-range", "30000-32767", "A port range to reserve for services with NodePort visibility")
+	flag.StringVar(&opt.kubeletFeatureGates, "node-kubelet-feature-gates", "RotateKubeletServerCertificate=true", "Feature gates to set on the kubelet")
 
 	flag.StringVar(&opt.nodeHTTPProxy, "node-http-proxy", "", "If set, it configures the 'HTTP_PROXY' & 'HTTPS_PROXY' environment variable on the nodes.")
 	flag.StringVar(&opt.nodeNoProxy, "node-no-proxy", ".svc,.cluster.local,localhost,127.0.0.1", "If set, it configures the 'NO_PROXY' environment variable on the nodes.")
@@ -121,15 +130,15 @@ func main() {
 
 	opt.kubeconfig = flag.Lookup("kubeconfig").Value.(flag.Getter).Get().(string)
 
-	// out-of-cluster config was not provided using the flag, try to use the in-cluster config.
-	if opt.kubeconfig == "" {
-		opt.kubeconfig = getKubeConfigPath()
-	}
-
 	// Parse flags
 	parsedClusterDNSIPs, err := parseClusterDNSIPs(opt.clusterDNSIPs)
 	if err != nil {
 		klog.Fatalf("invalid cluster dns specified: %v", err)
+	}
+
+	parsedKubeletFeatureGates, err := parseKubeletFeatureGates(opt.kubeletFeatureGates)
+	if err != nil {
+		klog.Fatalf("invalid kubelet feature gates specified: %v", err)
 	}
 
 	containerRuntimeOpts := containerruntime.Opts{
@@ -201,6 +210,11 @@ func main() {
 		}
 	}
 
+	caCert, err := certificate.GetCACert(opt.kubeconfig, mgr.GetConfig())
+	if err != nil {
+		klog.Fatal("failed to load CA certificate", zap.Error(err))
+	}
+
 	// Instantiate ConfigVarResolver
 	providerconfig.SetConfigVarResolver(context.Background(), workerMgr.GetClient(), opt.namespace)
 
@@ -215,7 +229,7 @@ func main() {
 		log,
 		workerClient,
 		mgr.GetClient(),
-		opt.kubeconfig,
+		caCert,
 		opt.namespace,
 		opt.workerCount,
 		parsedClusterDNSIPs,
@@ -230,6 +244,7 @@ func main() {
 		opt.podCidr,
 		containerRuntimeConfig,
 		opt.nodeRegistryCredentialsSecret,
+		parsedKubeletFeatureGates,
 	); err != nil {
 		klog.Fatal(err)
 	}
@@ -238,4 +253,68 @@ func main() {
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		klog.Fatalf("Failed to start OSC controller: %v", zap.Error(err))
 	}
+}
+
+func createManager(opt *options) (manager.Manager, error) {
+	// Manager options
+	options := manager.Options{
+		LeaderElection:          opt.enableLeaderElection,
+		LeaderElectionID:        "operating-system-manager",
+		LeaderElectionNamespace: opt.namespace,
+		HealthProbeBindAddress:  opt.healthProbeAddress,
+		MetricsBindAddress:      opt.metricsAddress,
+		Port:                    9443,
+		Namespace:               opt.namespace,
+	}
+
+	mgr, err := manager.New(config.GetConfigOrDie(), options)
+	if err != nil {
+		return nil, fmt.Errorf("error building ctrlruntime manager: %v", err)
+	}
+
+	// Add health endpoints
+	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
+		return nil, fmt.Errorf("failed to add health check: %v", err)
+	}
+	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
+		return nil, fmt.Errorf("failed to add readiness check: %v", err)
+	}
+	return mgr, nil
+}
+
+func parseClusterDNSIPs(s string) ([]net.IP, error) {
+	var ips []net.IP
+	sips := strings.Split(s, ",")
+	for _, sip := range sips {
+		ip := net.ParseIP(strings.TrimSpace(sip))
+		if ip == nil {
+			return nil, fmt.Errorf("unable to parse ip %s", sip)
+		}
+		ips = append(ips, ip)
+	}
+	return ips, nil
+}
+
+func parseKubeletFeatureGates(s string) (map[string]bool, error) {
+	featureGates := map[string]bool{}
+	sFeatureGates := strings.Split(s, ",")
+
+	for _, featureGate := range sFeatureGates {
+		sFeatureGate := strings.Split(featureGate, "=")
+		if len(sFeatureGate) != 2 {
+			return nil, fmt.Errorf("invalid kubelet feature gate: %q", featureGate)
+		}
+
+		featureGateEnabled, err := strconv.ParseBool(sFeatureGate[1])
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse kubelet feature gate: %q", featureGate)
+		}
+
+		featureGates[sFeatureGate[0]] = featureGateEnabled
+	}
+	// Feature gate RotateKubeletServerCertificate is always enforced as a default
+	if _, ok := featureGates["RotateKubeletServerCertificate"]; !ok {
+		featureGates["RotateKubeletServerCertificate"] = true
+	}
+	return featureGates, nil
 }

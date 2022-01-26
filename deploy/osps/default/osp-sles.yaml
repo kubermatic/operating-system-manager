@@ -282,9 +282,9 @@ spec:
               --config=/etc/kubernetes/kubelet.conf \
               --network-plugin=cni \
               --cert-dir=/etc/kubernetes/pki \
-              {{- if or .ExternalCloudProvider (eq .CloudProviderName "external")}}
+              {{- if .ExternalCloudProvider }}
               --cloud-provider=external \
-              {{- else if .CloudProviderName }}
+              {{- else if .InTreeCCMAvailable }}
               --cloud-provider={{- .CloudProviderName}} \
               --cloud-config=/etc/kubernetes/cloud-config \
               {{- end }}
@@ -437,7 +437,11 @@ spec:
             {{- end }}
             clusterDomain: cluster.local
             featureGates:
-              RotateKubeletServerCertificate: true
+            {{- if .KubeletFeatureGates -}}
+              {{ range $key, $val := .KubeletFeatureGates }}
+              {{ $key }}: {{ $val }}
+              {{- end -}}
+            {{- end }}
             protectKernelDefaults: true
             readOnlyPort: 0
             rotateCertificates: true

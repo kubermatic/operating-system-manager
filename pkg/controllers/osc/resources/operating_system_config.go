@@ -39,7 +39,6 @@ import (
 	"k8c.io/operating-system-manager/pkg/providerconfig/rhel"
 	"k8c.io/operating-system-manager/pkg/providerconfig/sles"
 	"k8c.io/operating-system-manager/pkg/providerconfig/ubuntu"
-	"k8c.io/operating-system-manager/pkg/resources"
 	"k8c.io/operating-system-manager/pkg/resources/reconciling"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -56,7 +55,7 @@ const (
 func OperatingSystemConfigCreator(
 	md *v1alpha1.MachineDeployment,
 	osp *osmv1alpha1.OperatingSystemProfile,
-	workerClusterKubeconfig string,
+	caCert string,
 	clusterDNSIPs []net.IP,
 	containerRuntime string,
 	externalCloudProvider bool,
@@ -67,6 +66,7 @@ func OperatingSystemConfigCreator(
 	nodePortRange string,
 	podCidr string,
 	containerRuntimeConfig containerruntime.Config,
+	kubeletFeatureGates map[string]bool,
 ) reconciling.NamedOperatingSystemConfigCreatorGetter {
 	return func() (string, reconciling.OperatingSystemConfigCreator) {
 		var oscName = fmt.Sprintf(MachineDeploymentSubresourceNamePattern, md.Name, ProvisioningCloudConfig)
@@ -91,11 +91,6 @@ func OperatingSystemConfigCreator(
 				}
 			}
 
-			CACert, err := resources.GetCACert(workerClusterKubeconfig)
-			if err != nil {
-				return nil, err
-			}
-
 			// ensure that Kubelet version is prefixed by "v"
 			kubeletVersion, err := semver.NewVersion(md.Spec.Template.Spec.Versions.Kubelet)
 			if err != nil {
@@ -107,7 +102,7 @@ func OperatingSystemConfigCreator(
 				kubeletVersionStr = fmt.Sprintf("v%s", kubeletVersionStr)
 			}
 
-			cloudProviderName, err := cloudprovider.KubeletCloudProviderName(providerConfig.CloudProvider)
+			inTreeCCM, external, err := cloudprovider.KubeletCloudProviderConfig(providerConfig.CloudProvider)
 			if err != nil {
 				return nil, err
 			}
@@ -118,19 +113,25 @@ func OperatingSystemConfigCreator(
 				return nil, fmt.Errorf("failed to generate container runtime config: %w", err)
 			}
 
+			if external {
+				externalCloudProvider = true
+			}
+
 			data := filesData{
 				KubeVersion:            kubeletVersionStr,
 				ClusterDNSIPs:          clusterDNSIPs,
-				KubernetesCACert:       CACert,
+				KubernetesCACert:       caCert,
+				InTreeCCMAvailable:     inTreeCCM,
 				CloudConfig:            cloudConfig,
 				ContainerRuntime:       containerRuntime,
-				CloudProviderName:      cloudProviderName,
+				CloudProviderName:      osmv1alpha1.CloudProvider(providerConfig.CloudProvider),
 				ExternalCloudProvider:  externalCloudProvider,
 				PauseImage:             pauseImage,
 				InitialTaints:          initialTaints,
 				PodCIDR:                podCidr,
 				NodePortRange:          nodePortRange,
 				ContainerRuntimeConfig: crConfig,
+				KubeletFeatureGates:    kubeletFeatureGates,
 			}
 
 			if len(nodeHTTPProxy) > 0 {
@@ -184,6 +185,7 @@ type filesData struct {
 	KubeVersion            string
 	KubeletConfiguration   string
 	KubeletSystemdUnit     string
+	InTreeCCMAvailable     bool
 	CNIVersion             string
 	ClusterDNSIPs          []net.IP
 	KubernetesCACert       string
@@ -200,6 +202,7 @@ type filesData struct {
 	PodCIDR                string
 	NodePortRange          string
 	ContainerRuntimeConfig string
+	KubeletFeatureGates    map[string]bool
 
 	kubeletConfig
 	OperatingSystemConfig

@@ -34,26 +34,27 @@ const (
 )
 
 // CloudProvider represents supported cloud provider.
-// +kubebuilder:validation:Enum=aws;azure;digitalocean;gce;hetzner;kubevirt;linode;openstack;equinixmetal;vsphere;fake;alibaba;anexia;scaleway;baremetal;external
+// +kubebuilder:validation:Enum=aws;azure;digitalocean;gce;hetzner;kubevirt;linode;openstack;equinixmetal;vsphere;fake;alibaba;anexia;scaleway;baremetal;external;nutanix
 type CloudProvider string
 
 const (
+	CloudProviderAlibaba      CloudProvider = "alibaba"
+	CloudProviderAnexia       CloudProvider = "anexia"
 	CloudProviderAWS          CloudProvider = "aws"
 	CloudProviderAzure        CloudProvider = "azure"
+	CloudProviderBaremetal    CloudProvider = "baremetal"
 	CloudProviderDigitalocean CloudProvider = "digitalocean"
+	CloudProviderEquinixMetal CloudProvider = "equinixmetal"
+	CloudProviderExternal     CloudProvider = "external"
+	CloudProviderFake         CloudProvider = "fake"
 	CloudProviderGoogle       CloudProvider = "gce"
 	CloudProviderHetzner      CloudProvider = "hetzner"
 	CloudProviderKubeVirt     CloudProvider = "kubevirt"
 	CloudProviderLinode       CloudProvider = "linode"
+	CloudProviderNutanix      CloudProvider = "nutanix"
 	CloudProviderOpenstack    CloudProvider = "openstack"
-	CloudProviderEquinixMetal CloudProvider = "equinixmetal"
 	CloudProviderVsphere      CloudProvider = "vsphere"
-	CloudProviderFake         CloudProvider = "fake"
-	CloudProviderAlibaba      CloudProvider = "alibaba"
-	CloudProviderAnexia       CloudProvider = "anexia"
 	CloudProviderScaleway     CloudProvider = "scaleway"
-	CloudProviderBaremetal    CloudProvider = "baremetal"
-	CloudProviderExternal     CloudProvider = "external"
 )
 
 // ContainerRuntime represents supported container runtime

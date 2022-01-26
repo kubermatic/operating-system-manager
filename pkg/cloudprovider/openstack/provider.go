@@ -71,7 +71,7 @@ func getConfig(pconfig providerconfigtypes.Config, kubeletVersion string) (*type
 		return nil, fmt.Errorf("failed to get the value of \"identityEndpoint\" field, error = %v", err)
 	}
 
-	trustDevicePath, err := config.GetConfigVarResolver().GetConfigVarBoolValue(rawConfig.TrustDevicePath)
+	trustDevicePath, _, err := config.GetConfigVarResolver().GetConfigVarBoolValue(rawConfig.TrustDevicePath)
 	if err != nil {
 		return nil, err
 	}

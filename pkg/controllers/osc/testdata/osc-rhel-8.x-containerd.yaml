@@ -348,7 +348,8 @@ spec:
           - "10.0.0.0"
           clusterDomain: cluster.local
           featureGates:
-            RotateKubeletServerCertificate: true
+            GracefulNodeShutdown: true
+            IdentifyPodOS: false
           protectKernelDefaults: true
           readOnlyPort: 0
           rotateCertificates: true

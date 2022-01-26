@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The Operating System Manager contributors.
+Copyright 2022 The Operating System Manager contributors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,16 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package resources
+package certificate
 
 import (
 	"fmt"
+	"io/ioutil"
 
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
-func GetCACert(kubeconfigPath string) (string, error) {
+func getCACertFromKubeconfigPath(kubeconfigPath string) (string, error) {
 	kubeconfig, err := fileToClientConfig(kubeconfigPath)
 	if err != nil {
 		return "", err
@@ -43,16 +45,21 @@ func fileToClientConfig(kubeconfigPath string) (*clientcmdapi.Config, error) {
 	return clientcmd.LoadFromFile(kubeconfigPath)
 }
 
-// StringifyKubeconfig marshals a kubeconfig to its text form
-func StringifyKubeconfig(kubeconfigPath string) (string, error) {
-	kubeconfig, err := fileToClientConfig(kubeconfigPath)
-	if err != nil {
-		return "", err
-	}
-	kubeconfigBytes, err := clientcmd.Write(*kubeconfig)
-	if err != nil {
-		return "", fmt.Errorf("error writing kubeconfig: %v", err)
+func GetCACert(kubeconfigPath string, config *rest.Config) (string, error) {
+	if kubeconfigPath != "" {
+		return getCACertFromKubeconfigPath(kubeconfigPath)
 	}
 
-	return string(kubeconfigBytes), nil
+	// CAData takes precedence over CAFile
+	if config != nil && len(config.CAData) > 0 {
+		return string(config.CAData), nil
+	}
+	if config != nil && len(config.CAFile) > 0 {
+		cert, err := ioutil.ReadFile(config.CAFile)
+		if err != nil {
+			return "", fmt.Errorf("failed to load CA certificate %w", err)
+		}
+		return string(cert), nil
+	}
+	return "", fmt.Errorf("no CA certificate found")
 }
