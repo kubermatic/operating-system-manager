@@ -58,20 +58,20 @@ func GetCloudConfig(pconfig providerconfigtypes.Config, kubeletVersion string) (
 	return "", errors.New("unknown cloud provider")
 }
 
-func KubeletCloudProviderName(cloudProvider providerconfigtypes.CloudProvider) (osmv1alpha1.CloudProvider, error) {
+func KubeletCloudProviderConfig(cloudProvider providerconfigtypes.CloudProvider) (inTreeCCM bool, external bool, err error) {
 	switch osmv1alpha1.CloudProvider(cloudProvider) {
 	case osmv1alpha1.CloudProviderAWS, osmv1alpha1.CloudProviderAzure, osmv1alpha1.CloudProviderGoogle,
 		osmv1alpha1.CloudProviderOpenstack, osmv1alpha1.CloudProviderVsphere:
-		return osmv1alpha1.CloudProvider(cloudProvider), nil
+		return true, false, nil
 
 	case osmv1alpha1.CloudProviderKubeVirt:
-		return osmv1alpha1.CloudProviderExternal, nil
+		return false, true, nil
 
 	case osmv1alpha1.CloudProviderAlibaba, osmv1alpha1.CloudProviderAnexia, osmv1alpha1.CloudProviderDigitalocean,
 		osmv1alpha1.CloudProviderHetzner, osmv1alpha1.CloudProviderLinode, osmv1alpha1.CloudProviderEquinixMetal,
-		osmv1alpha1.CloudProviderScaleway:
-		return "", nil
+		osmv1alpha1.CloudProviderScaleway, osmv1alpha1.CloudProviderNutanix:
+		return false, false, nil
 	}
 
-	return "", errors.New("unknown cloud provider")
+	return false, false, errors.New("unknown cloud provider")
 }

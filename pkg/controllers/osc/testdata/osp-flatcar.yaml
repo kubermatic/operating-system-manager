@@ -459,7 +459,7 @@ spec:
               --cert-dir=/etc/kubernetes/pki \
               {{- if .ExternalCloudProvider }}
               --cloud-provider=external \
-              {{- else if .CloudProviderName }}
+              {{- else if .InTreeCCMAvailable }}
               --cloud-provider={{- .CloudProviderName}} \
               --cloud-config=/etc/kubernetes/cloud-config \
               {{- end }}
