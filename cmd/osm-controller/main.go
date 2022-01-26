@@ -99,7 +99,7 @@ func main() {
 	flag.StringVar(&opt.nodeNoProxy, "node-no-proxy", ".svc,.cluster.local,localhost,127.0.0.1", "If set, it configures the 'NO_PROXY' environment variable on the nodes.")
 	flag.StringVar(&opt.podCidr, "pod-cidr", "172.25.0.0/16", "The network ranges from which POD networks are allocated")
 	flag.StringVar(&opt.nodePortRange, "node-port-range", "30000-32767", "A port range to reserve for services with NodePort visibility")
-	flag.StringVar(&opt.kubeletFeatureGates, "node-kubelet-feature-gates", "RotateKubeletServerCertificate=true", "Feature gates to set on the kubelet")
+	flag.StringVar(&opt.kubeletFeatureGates, "node-kubelet-feature-gates", "", "Feature gates to set on the kubelet")
 
 	flag.StringVar(&opt.healthProbeAddress, "health-probe-address", "127.0.0.1:8085", "The address on which the liveness check on /healthz and readiness check on /readyz will be available")
 	flag.StringVar(&opt.metricsAddress, "metrics-address", "127.0.0.1:8080", "The address on which Prometheus metrics will be available under /metrics")
@@ -286,11 +286,6 @@ func parseKubeletFeatureGates(s string) (map[string]bool, error) {
 
 		featureGates[sFeatureGate[0]] = featureGateEnabled
 	}
-
-	if _, ok := featureGates["RotateKubeletServerCertificate"]; !ok {
-		featureGates["RotateKubeletServerCertificate"] = true
-	}
-
 	return featureGates, nil
 }
 
