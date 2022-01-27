@@ -17,27 +17,26 @@ limitations under the License.
 package resources
 
 import (
-	"fmt"
-
-	"k8c.io/operating-system-manager/pkg/resources/reconciling"
-
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 )
 
-// CloudConfigSecretCreator returns a function to create a secret that contains the cloud-init or ignition configurations.
-func CloudConfigSecretCreator(mdName string, oscType CloudConfigSecret, data []byte) reconciling.NamedSecretCreatorGetter {
-	return func() (string, reconciling.SecretCreator) {
-		secretName := fmt.Sprintf(MachineDeploymentSubresourceNamePattern, mdName, oscType)
-		return secretName, func(sec *corev1.Secret) (*corev1.Secret, error) {
-			if sec.Data == nil {
-				sec.Data = map[string][]byte{}
-			}
-			sec.Data["cloud-config"] = data
-
-			// Cloud config secret is immutable
-			sec.Immutable = pointer.Bool(true)
-			return sec, nil
-		}
+// GenerateCloudConfigSecret returns a secret that contains the cloud-init or ignition configurations.
+func GenerateCloudConfigSecret(name, namespace string, data []byte) *corev1.Secret {
+	secret := corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Type: corev1.SecretTypeOpaque,
+		// Cloud config secret is immutable
+		Immutable: pointer.Bool(true),
 	}
+
+	if secret.Data == nil {
+		secret.Data = map[string][]byte{}
+	}
+	secret.Data["cloud-config"] = data
+	return &secret
 }

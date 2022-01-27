@@ -29,7 +29,6 @@ import (
 	"k8c.io/operating-system-manager/pkg/controllers/osc/resources"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/generator"
-	"k8c.io/operating-system-manager/pkg/resources/reconciling"
 
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -54,8 +53,10 @@ const (
 
 type Reconciler struct {
 	client.Client
-	workerClient client.Client
-	log          *zap.SugaredLogger
+	workerClient    client.Client
+	workerAPIReader client.Reader
+
+	log *zap.SugaredLogger
 
 	namespace                     string
 	containerRuntime              string
@@ -78,6 +79,7 @@ func Add(
 	mgr manager.Manager,
 	log *zap.SugaredLogger,
 	workerClient client.Client,
+	workerAPIReader client.Reader,
 	client client.Client,
 	caCert string,
 	namespace string,
@@ -98,6 +100,7 @@ func Add(
 	reconciler := &Reconciler{
 		log:                           log,
 		workerClient:                  workerClient,
+		workerAPIReader:               workerAPIReader,
 		Client:                        client,
 		caCert:                        caCert,
 		namespace:                     namespace,
@@ -202,27 +205,34 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 		r.containerRuntimeConfig.RegistryCredentials = registryCredentials
 	}
 
-	if err := reconciling.ReconcileOperatingSystemConfigs(ctx, []reconciling.NamedOperatingSystemConfigCreatorGetter{
-		resources.OperatingSystemConfigCreator(
-			md,
-			osp,
-			r.caCert,
-			r.clusterDNSIPs,
-			r.containerRuntime,
-			r.externalCloudProvider,
-			r.pauseImage,
-			r.initialTaints,
-			r.nodeHTTPProxy,
-			r.nodeNoProxy,
-			r.nodePortRange,
-			r.podCIDR,
-			r.containerRuntimeConfig,
-			r.kubeletFeatureGates,
-		),
-	}, r.namespace, r.Client); err != nil {
-		return fmt.Errorf("failed to reconcile provisioning operating system config: %v", err)
+	// We need to create OSC resource as it doesn't exist
+	osc, err := resources.GenerateOperatingSystemConfig(
+		md,
+		osp,
+		oscName,
+		r.namespace,
+		r.caCert,
+		r.clusterDNSIPs,
+		r.containerRuntime,
+		r.externalCloudProvider,
+		r.pauseImage,
+		r.initialTaints,
+		r.nodeHTTPProxy,
+		r.nodeNoProxy,
+		r.nodePortRange,
+		r.podCIDR,
+		r.containerRuntimeConfig,
+		r.kubeletFeatureGates,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to generate %s osc: %v", oscName, err)
 	}
 
+	// Create resource in cluster
+	if err := r.Create(ctx, osc); err != nil {
+		return fmt.Errorf("failed to create %s osc: %v", oscName, err)
+	}
+	r.log.Infof("successfully generated provisioning osc: %v", oscName)
 	return nil
 }
 
@@ -231,7 +241,7 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.M
 
 	// Check if secret already exists, in that case we don't need to do anything since secrets are immutable
 	secret := &corev1.Secret{}
-	if err := r.workerClient.Get(ctx, types.NamespacedName{Name: oscName, Namespace: CloudInitSettingsNamespace}, secret); err == nil {
+	if err := r.workerAPIReader.Get(ctx, types.NamespacedName{Name: oscName, Namespace: CloudInitSettingsNamespace}, secret); err == nil {
 		// Early return since the object already exists
 		return nil
 	}
@@ -246,13 +256,14 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.M
 		return fmt.Errorf("failed to generate provisioning data")
 	}
 
-	if err := reconciling.ReconcileSecrets(ctx, []reconciling.NamedSecretCreatorGetter{
-		resources.CloudConfigSecretCreator(md.Name, resources.ProvisioningCloudConfig, provisionData),
-	}, CloudInitSettingsNamespace, r.workerClient); err != nil {
-		return fmt.Errorf("failed to reconcile provisioning secrets: %v", err)
-	}
-	r.log.Infof("successfully generated provisioning secret: %v", fmt.Sprintf(resources.MachineDeploymentSubresourceNamePattern, md.Name, resources.ProvisioningCloudConfig))
+	// Generate secret for cloud-config
+	secret = resources.GenerateCloudConfigSecret(oscName, CloudInitSettingsNamespace, provisionData)
 
+	// Create resource in cluster
+	if err := r.workerClient.Create(ctx, secret); err != nil {
+		return fmt.Errorf("failed to create %s provisioning secret: %v", oscName, err)
+	}
+	r.log.Infof("successfully generated provisioning secret: %v", oscName)
 	return nil
 }
 

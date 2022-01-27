@@ -39,8 +39,9 @@ import (
 	"k8c.io/operating-system-manager/pkg/providerconfig/rhel"
 	"k8c.io/operating-system-manager/pkg/providerconfig/sles"
 	"k8c.io/operating-system-manager/pkg/providerconfig/ubuntu"
-	"k8c.io/operating-system-manager/pkg/resources/reconciling"
 	"k8s.io/apimachinery/pkg/runtime"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type CloudConfigSecret string
@@ -52,9 +53,12 @@ const (
 	MachineDeploymentOSPAnnotation          = "k8c.io/operating-system-profile"
 )
 
-func OperatingSystemConfigCreator(
+// GenerateOperatingSystemConfig return an OperatingSystemConfig generated against the input data
+func GenerateOperatingSystemConfig(
 	md *v1alpha1.MachineDeployment,
 	osp *osmv1alpha1.OperatingSystemProfile,
+	oscName string,
+	namespace string,
 	caCert string,
 	clusterDNSIPs []net.IP,
 	containerRuntime string,
@@ -67,118 +71,119 @@ func OperatingSystemConfigCreator(
 	podCidr string,
 	containerRuntimeConfig containerruntime.Config,
 	kubeletFeatureGates map[string]bool,
-) reconciling.NamedOperatingSystemConfigCreatorGetter {
-	return func() (string, reconciling.OperatingSystemConfigCreator) {
-		var oscName = fmt.Sprintf(MachineDeploymentSubresourceNamePattern, md.Name, ProvisioningCloudConfig)
+) (*osmv1alpha1.OperatingSystemConfig, error) {
+	ospOriginal := osp.DeepCopy()
 
-		return oscName, func(osc *osmv1alpha1.OperatingSystemConfig) (*osmv1alpha1.OperatingSystemConfig, error) {
-			ospOriginal := osp.DeepCopy()
+	// Set metadata for OSC
+	osc := &osmv1alpha1.OperatingSystemConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      oscName,
+			Namespace: namespace,
+		},
+	}
 
-			// Get providerConfig from machineDeployment
-			providerConfig := providerconfigtypes.Config{}
-			err := json.Unmarshal(md.Spec.Template.Spec.ProviderSpec.Value.Raw, &providerConfig)
-			if err != nil {
-				return nil, fmt.Errorf("failed to decode provider configs: %v", err)
-			}
+	// Get providerConfig from machineDeployment
+	providerConfig := providerconfigtypes.Config{}
+	err := json.Unmarshal(md.Spec.Template.Spec.ProviderSpec.Value.Raw, &providerConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode provider configs: %v", err)
+	}
 
-			var cloudConfig string
-			if providerConfig.OverwriteCloudConfig != nil {
-				cloudConfig = *providerConfig.OverwriteCloudConfig
-			} else {
-				cloudConfig, err = cloudprovider.GetCloudConfig(providerConfig, md.Spec.Template.Spec.Versions.Kubelet)
-				if err != nil {
-					return nil, fmt.Errorf("failed to fetch cloud-config: %v", err)
-				}
-			}
-
-			// ensure that Kubelet version is prefixed by "v"
-			kubeletVersion, err := semver.NewVersion(md.Spec.Template.Spec.Versions.Kubelet)
-			if err != nil {
-				return nil, fmt.Errorf("invalid kubelet version: %w", err)
-			}
-
-			kubeletVersionStr := kubeletVersion.String()
-			if !strings.HasPrefix(kubeletVersionStr, "v") {
-				kubeletVersionStr = fmt.Sprintf("v%s", kubeletVersionStr)
-			}
-
-			inTreeCCM, external, err := cloudprovider.KubeletCloudProviderConfig(providerConfig.CloudProvider)
-			if err != nil {
-				return nil, err
-			}
-
-			crEngine := containerRuntimeConfig.Engine(kubeletVersion)
-			crConfig, err := crEngine.Config()
-			if err != nil {
-				return nil, fmt.Errorf("failed to generate container runtime config: %w", err)
-			}
-
-			if external {
-				externalCloudProvider = true
-			}
-
-			data := filesData{
-				KubeVersion:            kubeletVersionStr,
-				ClusterDNSIPs:          clusterDNSIPs,
-				KubernetesCACert:       caCert,
-				InTreeCCMAvailable:     inTreeCCM,
-				CloudConfig:            cloudConfig,
-				ContainerRuntime:       containerRuntime,
-				CloudProviderName:      osmv1alpha1.CloudProvider(providerConfig.CloudProvider),
-				ExternalCloudProvider:  externalCloudProvider,
-				PauseImage:             pauseImage,
-				InitialTaints:          initialTaints,
-				PodCIDR:                podCidr,
-				NodePortRange:          nodePortRange,
-				ContainerRuntimeConfig: crConfig,
-				KubeletFeatureGates:    kubeletFeatureGates,
-			}
-
-			if len(nodeHTTPProxy) > 0 {
-				data.HTTPProxy = &nodeHTTPProxy
-			}
-			if len(nodeNoProxy) > 0 {
-				data.NoProxy = &nodeNoProxy
-			}
-			if providerConfig.Network != nil {
-				data.NetworkConfig = providerConfig.Network
-			}
-
-			err = setOperatingSystemConfig(providerConfig.OperatingSystem, providerConfig.OperatingSystemSpec, &data)
-			if err != nil {
-				return nil, fmt.Errorf("failed to add operating system spec: %v", err)
-			}
-
-			// Handling for kubelet configuration
-			data.kubeletConfig = kubeletResourceManagementConfig(md.Annotations)
-
-			// Handle files
-			osp.Spec.Files = append(osp.Spec.Files, selectAdditionalFiles(osp, containerRuntime)...)
-			additionalTemplates, err := selectAdditionalTemplates(osp, containerRuntime, data)
-			if err != nil {
-				return nil, fmt.Errorf("failed to add OSP templates: %v", err)
-			}
-			populatedFiles, err := populateFilesList(osp.Spec.Files, additionalTemplates, data)
-			if err != nil {
-				return nil, fmt.Errorf("failed to populate OSP file template: %v", err)
-			}
-
-			osc.Spec = osmv1alpha1.OperatingSystemConfigSpec{
-				OSName:    ospOriginal.Spec.OSName,
-				OSVersion: ospOriginal.Spec.OSVersion,
-				Units:     ospOriginal.Spec.Units,
-				Files:     populatedFiles,
-				CloudProvider: osmv1alpha1.CloudProviderSpec{
-					Name: osmv1alpha1.CloudProvider(providerConfig.CloudProvider),
-					Spec: providerConfig.CloudProviderSpec,
-				},
-				UserSSHKeys:      providerConfig.SSHPublicKeys,
-				CloudInitModules: osp.Spec.CloudInitModules,
-			}
-
-			return osc, nil
+	var cloudConfig string
+	if providerConfig.OverwriteCloudConfig != nil {
+		cloudConfig = *providerConfig.OverwriteCloudConfig
+	} else {
+		cloudConfig, err = cloudprovider.GetCloudConfig(providerConfig, md.Spec.Template.Spec.Versions.Kubelet)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch cloud-config: %v", err)
 		}
 	}
+
+	// Ensure that Kubelet version is prefixed by "v"
+	kubeletVersion, err := semver.NewVersion(md.Spec.Template.Spec.Versions.Kubelet)
+	if err != nil {
+		return nil, fmt.Errorf("invalid kubelet version: %w", err)
+	}
+
+	kubeletVersionStr := kubeletVersion.String()
+	if !strings.HasPrefix(kubeletVersionStr, "v") {
+		kubeletVersionStr = fmt.Sprintf("v%s", kubeletVersionStr)
+	}
+
+	inTreeCCM, external, err := cloudprovider.KubeletCloudProviderConfig(providerConfig.CloudProvider)
+	if err != nil {
+		return nil, err
+	}
+
+	crEngine := containerRuntimeConfig.Engine(kubeletVersion)
+	crConfig, err := crEngine.Config()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate container runtime config: %w", err)
+	}
+
+	if external {
+		externalCloudProvider = true
+	}
+
+	data := filesData{
+		KubeVersion:            kubeletVersionStr,
+		ClusterDNSIPs:          clusterDNSIPs,
+		KubernetesCACert:       caCert,
+		InTreeCCMAvailable:     inTreeCCM,
+		CloudConfig:            cloudConfig,
+		ContainerRuntime:       containerRuntime,
+		CloudProviderName:      osmv1alpha1.CloudProvider(providerConfig.CloudProvider),
+		ExternalCloudProvider:  externalCloudProvider,
+		PauseImage:             pauseImage,
+		InitialTaints:          initialTaints,
+		PodCIDR:                podCidr,
+		NodePortRange:          nodePortRange,
+		ContainerRuntimeConfig: crConfig,
+		KubeletFeatureGates:    kubeletFeatureGates,
+	}
+
+	if len(nodeHTTPProxy) > 0 {
+		data.HTTPProxy = &nodeHTTPProxy
+	}
+	if len(nodeNoProxy) > 0 {
+		data.NoProxy = &nodeNoProxy
+	}
+	if providerConfig.Network != nil {
+		data.NetworkConfig = providerConfig.Network
+	}
+
+	err = setOperatingSystemConfig(providerConfig.OperatingSystem, providerConfig.OperatingSystemSpec, &data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to add operating system spec: %v", err)
+	}
+
+	// Handling for kubelet configuration
+	data.kubeletConfig = kubeletResourceManagementConfig(md.Annotations)
+
+	// Handle files
+	osp.Spec.Files = append(osp.Spec.Files, selectAdditionalFiles(osp, containerRuntime)...)
+	additionalTemplates, err := selectAdditionalTemplates(osp, containerRuntime, data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to add OSP templates: %v", err)
+	}
+	populatedFiles, err := populateFilesList(osp.Spec.Files, additionalTemplates, data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to populate OSP file template: %v", err)
+	}
+
+	osc.Spec = osmv1alpha1.OperatingSystemConfigSpec{
+		OSName:    ospOriginal.Spec.OSName,
+		OSVersion: ospOriginal.Spec.OSVersion,
+		Units:     ospOriginal.Spec.Units,
+		Files:     populatedFiles,
+		CloudProvider: osmv1alpha1.CloudProviderSpec{
+			Name: osmv1alpha1.CloudProvider(providerConfig.CloudProvider),
+			Spec: providerConfig.CloudProviderSpec,
+		},
+		UserSSHKeys:      providerConfig.SSHPublicKeys,
+		CloudInitModules: osp.Spec.CloudInitModules,
+	}
+	return osc, nil
 }
 
 type filesData struct {
