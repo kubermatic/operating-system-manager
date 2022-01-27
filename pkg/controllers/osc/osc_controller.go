@@ -53,8 +53,7 @@ const (
 
 type Reconciler struct {
 	client.Client
-	workerClient    client.Client
-	workerAPIReader client.Reader
+	workerClient client.Client
 
 	log *zap.SugaredLogger
 
@@ -79,7 +78,6 @@ func Add(
 	mgr manager.Manager,
 	log *zap.SugaredLogger,
 	workerClient client.Client,
-	workerAPIReader client.Reader,
 	client client.Client,
 	caCert string,
 	namespace string,
@@ -100,7 +98,6 @@ func Add(
 	reconciler := &Reconciler{
 		log:                           log,
 		workerClient:                  workerClient,
-		workerAPIReader:               workerAPIReader,
 		Client:                        client,
 		caCert:                        caCert,
 		namespace:                     namespace,
@@ -241,7 +238,7 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.M
 
 	// Check if secret already exists, in that case we don't need to do anything since secrets are immutable
 	secret := &corev1.Secret{}
-	if err := r.workerAPIReader.Get(ctx, types.NamespacedName{Name: oscName, Namespace: CloudInitSettingsNamespace}, secret); err == nil {
+	if err := r.workerClient.Get(ctx, types.NamespacedName{Name: oscName, Namespace: CloudInitSettingsNamespace}, secret); err == nil {
 		// Early return since the object already exists
 		return nil
 	}

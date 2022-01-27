@@ -41,6 +41,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
+	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -168,7 +169,6 @@ func main() {
 	// Start with assuming that current cluster will be used as worker cluster
 	workerMgr := mgr
 	workerClient := mgr.GetClient()
-	workerAPIReader := mgr.GetAPIReader()
 
 	// Handling for worker cluster
 	if opt.workerClusterKubeconfig != "" {
@@ -177,6 +177,14 @@ func main() {
 			&clientcmd.ConfigOverrides{}).ClientConfig()
 		if err != nil {
 			klog.Fatal(err)
+		}
+
+		// Build dedicated client for worker cluster, some read actions fail on the split client created by manager due to informers not syncing in-time
+		workerClient, err = ctrlruntimeclient.New(workerClusterConfig, ctrlruntimeclient.Options{
+			Scheme: scheme.Scheme,
+		})
+		if err != nil {
+			klog.Fatalf("failed to build worker client: %v", err)
 		}
 
 		workerMgr, err = manager.New(workerClusterConfig, manager.Options{
@@ -196,8 +204,6 @@ func main() {
 		// point workerClient to the external cluster
 		// Use workerClusterKubeconfig since the machines will exist on that cluster
 		opt.kubeconfig = opt.workerClusterKubeconfig
-		workerClient = workerMgr.GetClient()
-		workerAPIReader = workerMgr.GetAPIReader()
 
 		if err := mgr.Add(workerMgr); err != nil {
 			klog.Fatal("failed to add workers cluster mgr to main mgr", zap.Error(err))
@@ -222,7 +228,6 @@ func main() {
 		workerMgr,
 		log,
 		workerClient,
-		workerAPIReader,
 		mgr.GetClient(),
 		caCert,
 		opt.namespace,

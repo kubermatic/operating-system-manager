@@ -452,8 +452,9 @@ func loadFile(obj runtime.Object, name string) error {
 
 func buildReconciler(fakeClient client.Client, config testConfig) Reconciler {
 	return Reconciler{
-		Client:              fakeClient,
-		workerClient:        fakeClient,
+		Client:       fakeClient,
+		workerClient: fakeClient,
+
 		log:                 testUtil.DefaultLogger,
 		generator:           generator.NewDefaultCloudConfigGenerator(""),
 		namespace:           config.namespace,
