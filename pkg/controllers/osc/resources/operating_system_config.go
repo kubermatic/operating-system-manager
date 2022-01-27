@@ -49,7 +49,7 @@ type CloudConfigSecret string
 const (
 	ProvisioningCloudConfig CloudConfigSecret = "provisioning"
 
-	MachineDeploymentSubresourceNamePattern = "%s-osc-%s"
+	MachineDeploymentSubresourceNamePattern = "%s-%s-osc-%s"
 	MachineDeploymentOSPAnnotation          = "k8c.io/operating-system-profile"
 )
 
