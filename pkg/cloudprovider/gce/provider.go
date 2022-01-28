@@ -66,11 +66,11 @@ func getConfig(pconfig providerconfigtypes.Config) (*types.CloudConfig, error) {
 		return nil, fmt.Errorf("cannot retrieve zone: %v", err)
 	}
 
-	opts.MultiZone, err = config.GetConfigVarResolver().GetConfigVarBoolValue(rawConfig.MultiZone)
+	opts.MultiZone, _, err = config.GetConfigVarResolver().GetConfigVarBoolValue(rawConfig.MultiZone)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve multizone: %v", err)
 	}
-	opts.Regional, err = config.GetConfigVarResolver().GetConfigVarBoolValue(rawConfig.Regional)
+	opts.Regional, _, err = config.GetConfigVarResolver().GetConfigVarBoolValue(rawConfig.Regional)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve regional: %v", err)
 	}

@@ -2,8 +2,8 @@ apiVersion: operatingsystemmanager.k8c.io/v1alpha1
 kind: OperatingSystemConfig
 metadata:
   creationTimestamp: null
-  name: flatcar-aws-containerd-osc-provisioning
-  namespace: cloud-init-settings
+  name: flatcar-aws-containerd-kube-system-osc-provisioning
+  namespace: kube-system
   resourceVersion: "1"
 spec:
   cloudProvider:
@@ -127,6 +127,17 @@ spec:
           sha256sum -c <<<"$cni_sum"
           tar xvf "$cni_filename"
           rm -f "$cni_filename"
+          cd -
+          CRI_TOOLS_RELEASE="${CRI_TOOLS_RELEASE:-v1.22.0}"
+          cri_tools_base_url="https://github.com/kubernetes-sigs/cri-tools/releases/download/${CRI_TOOLS_RELEASE}"
+          cri_tools_filename="crictl-${CRI_TOOLS_RELEASE}-linux-${arch}.tar.gz"
+          curl -Lfo "$opt_bin/$cri_tools_filename" "$cri_tools_base_url/$cri_tools_filename"
+          cri_tools_sum=$(curl -Lf "$cri_tools_base_url/$cri_tools_filename.sha256" | sed 's/\*\///')
+          cd "$opt_bin"
+          sha256sum -c <<<"$cri_tools_sum"
+          tar xvf "$cri_tools_filename"
+          rm -f "$cri_tools_filename"
+          ln -sf "$opt_bin/crictl" "$usr_local_bin"/crictl || echo "symbolic link is skipped"
           cd -
           KUBE_VERSION="${KUBE_VERSION:-v1.22.1}"
           kube_dir="$opt_bin/kubernetes-$KUBE_VERSION"
@@ -280,6 +291,8 @@ spec:
           clusterDNS:
           - "10.0.0.0"
           clusterDomain: cluster.local
+          containerLogMaxSize: 100Mi
+          containerLogMaxFiles: 5
           featureGates:
             GracefulNodeShutdown: true
             IdentifyPodOS: false
@@ -361,7 +374,7 @@ spec:
     permissions: 384
   - content:
       inline:
-        data: |
+        data: |+
           version = 2
 
           [metrics]
@@ -369,6 +382,7 @@ spec:
 
           [plugins]
           [plugins."io.containerd.grpc.v1.cri"]
+          sandbox_image = "192.168.100.100:5000/kubernetes/pause:v3.1"
           [plugins."io.containerd.grpc.v1.cri".containerd]
           [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
           [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
@@ -378,7 +392,15 @@ spec:
           [plugins."io.containerd.grpc.v1.cri".registry]
           [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
           [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
-          endpoint = ["https://registry-1.docker.io"]
+          endpoint = ["https://registry.docker-cn.com"]
+          [plugins."io.containerd.grpc.v1.cri".registry.configs]
+          [plugins."io.containerd.grpc.v1.cri".registry.configs."10.0.0.1:5000"]
+          [plugins."io.containerd.grpc.v1.cri".registry.configs."10.0.0.1:5000".tls]
+          insecure_skip_verify = true
+          [plugins."io.containerd.grpc.v1.cri".registry.configs."192.168.100.100:5000"]
+          [plugins."io.containerd.grpc.v1.cri".registry.configs."192.168.100.100:5000".tls]
+          insecure_skip_verify = true
+
     path: /etc/containerd/config.toml
     permissions: 420
   - content:

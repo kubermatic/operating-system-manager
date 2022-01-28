@@ -24,5 +24,5 @@ rm -rf $(dirname $0)/../_build/
 make -C $(dirname $0)/.. build
 $(dirname $0)/../_build/osm-controller \
   -worker-cluster-kubeconfig=$OSM_KUBECONFIG \
-  -namespace=cloud-init-settings \
+  -namespace=kube-system \
   -worker-count=50

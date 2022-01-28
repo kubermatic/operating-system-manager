@@ -16,11 +16,12 @@ apiVersion: operatingsystemmanager.k8c.io/v1alpha1
 kind: OperatingSystemProfile
 metadata:
   name: osp-flatcar
-  namespace: cloud-init-settings
+  namespace: kube-system
 spec:
   osName: flatcar
   ## Flatcar Stable (09/11/2021)
   osVersion: "2983.2.0"
+  version: "v0.1.1"
   supportedCloudProviders:
     - name: aws
     - name: azure
@@ -35,23 +36,7 @@ spec:
           content:
             inline:
               data: |
-                version = 2
-
-                [metrics]
-                address = "127.0.0.1:1338"
-
-                [plugins]
-                [plugins."io.containerd.grpc.v1.cri"]
-                [plugins."io.containerd.grpc.v1.cri".containerd]
-                [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
-                [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-                runtime_type = "io.containerd.runc.v2"
-                [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
-                SystemdCgroup = true
-                [plugins."io.containerd.grpc.v1.cri".registry]
-                [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
-                [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
-                endpoint = ["https://registry-1.docker.io"]
+                {{ .ContainerRuntimeConfig}}
         - path: /etc/systemd/system/containerd.service.d/10-custom.conf
           content:
             inline:
@@ -76,7 +61,7 @@ spec:
           content:
             inline:
               data: |-
-                {"exec-opts":["native.cgroupdriver=systemd"],"storage-driver":"overlay2","log-driver":"json-file","log-opts":{"max-file":"5","max-size":"100m"}}
+                {{ .ContainerRuntimeConfig}}
         - path: /etc/systemd/system/docker.service.d/10-custom.conf
           permissions: 0644
           content:
@@ -131,6 +116,28 @@ spec:
       {{- /* unpack CNI */}}
       tar xvf "$cni_filename"
       rm -f "$cni_filename"
+      cd -
+
+      {{- /* # cri-tools variables */}}
+      CRI_TOOLS_RELEASE="${CRI_TOOLS_RELEASE:-v1.22.0}"
+      cri_tools_base_url="https://github.com/kubernetes-sigs/cri-tools/releases/download/${CRI_TOOLS_RELEASE}"
+      cri_tools_filename="crictl-${CRI_TOOLS_RELEASE}-linux-${arch}.tar.gz"
+
+      {{- /* download cri-tools */}}
+      curl -Lfo "$opt_bin/$cri_tools_filename" "$cri_tools_base_url/$cri_tools_filename"
+
+      {{- /* download cri-tools checksum */}}
+      {{- /* the cri-tools checksum file has a filename prefix that breaks sha256sum so we need to drop it with sed */}}
+      cri_tools_sum=$(curl -Lf "$cri_tools_base_url/$cri_tools_filename.sha256" | sed 's/\*\///')
+      cd "$opt_bin"
+
+      {{- /* verify cri-tools checksum */}}
+      sha256sum -c <<<"$cri_tools_sum"
+
+      {{- /* unpack cri-tools and symlink to path so it's available to all users */}}
+      tar xvf "$cri_tools_filename"
+      rm -f "$cri_tools_filename"
+      ln -sf "$opt_bin/crictl" "$usr_local_bin"/crictl || echo "symbolic link is skipped"
       cd -
 
       {{- /* kubelet */}}
@@ -519,6 +526,19 @@ spec:
             - "{{ . }}"
             {{- end }}
             clusterDomain: cluster.local
+            {{- /* containerLogMaxSize and containerLogMaxFiles have no effect for docker  */}}
+            {{- if ne .ContainerRuntime "docker" }}
+            {{- if .ContainerLogMaxSize }}
+            containerLogMaxSize: {{ .ContainerLogMaxSize }}
+            {{- else }}
+            containerLogMaxSize: 100Mi
+            {{- end }}
+            {{- if .ContainerLogMaxFiles }}
+            containerLogMaxFiles: {{ .ContainerLogMaxFiles }}
+            {{- else }}
+            containerLogMaxFiles: 5
+            {{- end }}
+            {{- end }}
             featureGates:
             {{- if .KubeletFeatureGates -}}
               {{ range $key, $val := .KubeletFeatureGates }}

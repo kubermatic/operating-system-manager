@@ -2,8 +2,8 @@ apiVersion: operatingsystemmanager.k8c.io/v1alpha1
 kind: OperatingSystemConfig
 metadata:
   creationTimestamp: null
-  name: flatcar-aws-docker-osc-provisioning
-  namespace: cloud-init-settings
+  name: flatcar-aws-docker-kube-system-osc-provisioning
+  namespace: kube-system
   resourceVersion: "1"
 spec:
   cloudProvider:
@@ -125,6 +125,17 @@ spec:
           sha256sum -c <<<"$cni_sum"
           tar xvf "$cni_filename"
           rm -f "$cni_filename"
+          cd -
+          CRI_TOOLS_RELEASE="${CRI_TOOLS_RELEASE:-v1.22.0}"
+          cri_tools_base_url="https://github.com/kubernetes-sigs/cri-tools/releases/download/${CRI_TOOLS_RELEASE}"
+          cri_tools_filename="crictl-${CRI_TOOLS_RELEASE}-linux-${arch}.tar.gz"
+          curl -Lfo "$opt_bin/$cri_tools_filename" "$cri_tools_base_url/$cri_tools_filename"
+          cri_tools_sum=$(curl -Lf "$cri_tools_base_url/$cri_tools_filename.sha256" | sed 's/\*\///')
+          cd "$opt_bin"
+          sha256sum -c <<<"$cri_tools_sum"
+          tar xvf "$cri_tools_filename"
+          rm -f "$cri_tools_filename"
+          ln -sf "$opt_bin/crictl" "$usr_local_bin"/crictl || echo "symbolic link is skipped"
           cd -
           KUBE_VERSION="${KUBE_VERSION:-v1.22.1}"
           kube_dir="$opt_bin/kubernetes-$KUBE_VERSION"
@@ -359,7 +370,7 @@ spec:
     permissions: 384
   - content:
       inline:
-        data: '{"exec-opts":["native.cgroupdriver=systemd"],"storage-driver":"overlay2","log-driver":"json-file","log-opts":{"max-file":"5","max-size":"100m"}}'
+        data: '{"exec-opts":["native.cgroupdriver=systemd"],"storage-driver":"overlay2","log-driver":"json-file","log-opts":{"max-file":"5","max-size":"100m"},"insecure-registries":["192.168.100.100:5000","10.0.0.1:5000"],"registry-mirrors":["https://registry.docker-cn.com"]}'
     path: /etc/docker/daemon.json
     permissions: 420
   - content:

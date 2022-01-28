@@ -2,8 +2,8 @@ apiVersion: operatingsystemmanager.k8c.io/v1alpha1
 kind: OperatingSystemConfig
 metadata:
   creationTimestamp: null
-  name: ubuntu-20.04-aws-osc-provisioning
-  namespace: cloud-init-settings
+  name: kubelet-configuration-kube-system-osc-provisioning
+  namespace: kube-system
   resourceVersion: "1"
 spec:
   cloudProvider:
@@ -96,22 +96,22 @@ spec:
           curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
           add-apt-repository "deb https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
 
-          mkdir -p /etc/systemd/system/containerd.service.d /etc/systemd/system/docker.service.d
+          cat <<EOF | tee /etc/crictl.yaml
+          runtime-endpoint: unix:///run/containerd/containerd.sock
+          EOF
 
-          cat <<EOF | tee /etc/systemd/system/containerd.service.d/environment.conf /etc/systemd/system/docker.service.d/environment.conf
+          mkdir -p /etc/systemd/system/containerd.service.d
+          cat <<EOF | tee /etc/systemd/system/containerd.service.d/environment.conf
           [Service]
           Restart=always
           EnvironmentFile=-/etc/environment
           EOF
 
-          apt-get install -y \
-              containerd.io=1.4.3* \
-              docker-ce=5:19.03.13* \
-              docker-ce-cli=5:19.03.13*
-          apt-mark hold docker-ce docker-ce-cli containerd.io
+          apt-get install -y --allow-downgrades containerd.io=1.4*
+          apt-mark hold containerd.io
 
           systemctl daemon-reload
-          systemctl enable --now docker
+          systemctl enable --now containerd
           opt_bin=/opt/bin
           cni_bin_dir=/opt/cni/bin
           mkdir -p /etc/cni/net.d /etc/kubernetes/dynamic-config-dir /etc/kubernetes/manifests "$opt_bin" "$cni_bin_dir"
@@ -188,8 +188,8 @@ spec:
       inline:
         data: |
           [Unit]
-          After=docker.service
-          Requires=docker.service
+          After=containerd.service
+          Requires=containerd.service
 
           Description=kubelet: The Kubernetes Node Agent
           Documentation=https://kubernetes.io/docs/home/
@@ -218,8 +218,8 @@ spec:
             --feature-gates=DynamicKubeletConfig=true \
             --exit-on-lock-contention \
             --lock-file=/tmp/kubelet.lock \
-            --container-runtime=docker \
-            --container-runtime-endpoint=unix:///var/run/dockershim.sock \
+            --container-runtime=remote \
+            --container-runtime-endpoint=unix:///run/containerd/containerd.sock \
             --node-ip ${KUBELET_NODE_IP}
 
           [Install]
@@ -353,6 +353,8 @@ spec:
           clusterDNS:
           - "10.0.0.0"
           clusterDomain: cluster.local
+          containerLogMaxSize: 300Mi
+          containerLogMaxFiles: 30
           featureGates:
             GracefulNodeShutdown: true
             IdentifyPodOS: false
@@ -362,18 +364,13 @@ spec:
           serverTLSBootstrap: true
           staticPodPath: /etc/kubernetes/manifests
           kubeReserved:
-            cpu: 200m
-            ephemeral-storage: 1Gi
-            memory: 200Mi
+            cpu: 30m
+            ephemeral-storage: 30Gi
           systemReserved:
-            cpu: 200m
-            ephemeral-storage: 1Gi
-            memory: 200Mi
+            cpu: 30m
+            ephemeral-storage: 30Gi
           evictionHard:
-            imagefs.available: 15%
-            memory.available: 100Mi
-            nodefs.available: 10%
-            nodefs.inodesFree: 5%
+            memory.available: 30Mi
           tlsCipherSuites:
           - TLS_AES_128_GCM_SHA256
           - TLS_AES_256_GCM_SHA384
@@ -404,9 +401,35 @@ spec:
     permissions: 420
   - content:
       inline:
-        data: '{"exec-opts":["native.cgroupdriver=systemd"],"storage-driver":"overlay2","log-driver":"json-file","log-opts":{"max-file":"5","max-size":"100m"}}'
+        data: |+
+          version = 2
+
+          [metrics]
+          address = "127.0.0.1:1338"
+
+          [plugins]
+          [plugins."io.containerd.grpc.v1.cri"]
+          sandbox_image = "192.168.100.100:5000/kubernetes/pause:v3.1"
+          [plugins."io.containerd.grpc.v1.cri".containerd]
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+          runtime_type = "io.containerd.runc.v2"
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+          SystemdCgroup = true
+          [plugins."io.containerd.grpc.v1.cri".registry]
+          [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
+          [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
+          endpoint = ["https://registry.docker-cn.com"]
+          [plugins."io.containerd.grpc.v1.cri".registry.configs]
+          [plugins."io.containerd.grpc.v1.cri".registry.configs."10.0.0.1:5000"]
+          [plugins."io.containerd.grpc.v1.cri".registry.configs."10.0.0.1:5000".tls]
+          insecure_skip_verify = true
+          [plugins."io.containerd.grpc.v1.cri".registry.configs."192.168.100.100:5000"]
+          [plugins."io.containerd.grpc.v1.cri".registry.configs."192.168.100.100:5000".tls]
+          insecure_skip_verify = true
+
         encoding: b64
-    path: /etc/docker/daemon.json
+    path: /etc/containerd/config.toml
     permissions: 420
   modules:
     bootcmd:

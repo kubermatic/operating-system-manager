@@ -24,7 +24,7 @@ presubmits:
       preset-goproxy: "true"
     spec:
       containers:
-        - image: quay.io/kubermatic-labs/boilerplate:v0.1.1
+        - image: quay.io/kubermatic-labs/boilerplate:v0.2.0
           command:
             - make
           args:

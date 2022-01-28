@@ -26,14 +26,14 @@ import (
 
 var (
 	// This is shared globally since the enclosing values won't change during the controller lifecycle
-	ConfigVarResolverInstance providerconfig.ConfigVarResolver
+	instance providerconfig.ConfigVarResolver
 )
 
 // SetConfigVarResolver will instantiate the global ConfigVarResolver Instance
 func SetConfigVarResolver(ctx context.Context, client ctrlruntimeclient.Client, namespace string) {
-	ConfigVarResolverInstance = *providerconfig.NewConfigVarResolver(ctx, client)
+	instance = *providerconfig.NewConfigVarResolver(ctx, client)
 }
 
 func GetConfigVarResolver() *providerconfig.ConfigVarResolver {
-	return &ConfigVarResolverInstance
+	return &instance
 }

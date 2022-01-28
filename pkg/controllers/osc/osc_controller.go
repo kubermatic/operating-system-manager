@@ -24,11 +24,11 @@ import (
 	"go.uber.org/zap"
 
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
+	"github.com/kubermatic/machine-controller/pkg/containerruntime"
 	kuberneteshelper "k8c.io/kubermatic/v2/pkg/kubernetes"
 	"k8c.io/operating-system-manager/pkg/controllers/osc/resources"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/generator"
-	"k8c.io/operating-system-manager/pkg/resources/reconciling"
 
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -54,21 +54,24 @@ const (
 type Reconciler struct {
 	client.Client
 	workerClient client.Client
-	log          *zap.SugaredLogger
 
-	namespace             string
-	containerRuntime      string
-	externalCloudProvider bool
-	pauseImage            string
-	initialTaints         string
-	generator             generator.CloudConfigGenerator
-	clusterDNSIPs         []net.IP
-	caCert                string
-	nodeHTTPProxy         string
-	nodeNoProxy           string
-	podCIDR               string
-	nodePortRange         string
-	kubeletFeatureGates   map[string]bool
+	log *zap.SugaredLogger
+
+	namespace                     string
+	containerRuntime              string
+	externalCloudProvider         bool
+	pauseImage                    string
+	initialTaints                 string
+	generator                     generator.CloudConfigGenerator
+	clusterDNSIPs                 []net.IP
+	caCert                        string
+	nodeHTTPProxy                 string
+	nodeNoProxy                   string
+	podCIDR                       string
+	nodePortRange                 string
+	nodeRegistryCredentialsSecret string
+	containerRuntimeConfig        containerruntime.Config
+	kubeletFeatureGates           map[string]bool
 }
 
 func Add(
@@ -89,24 +92,28 @@ func Add(
 	nodeNoProxy string,
 	podCIDR string,
 	nodePortRange string,
+	containerRuntimeConfig containerruntime.Config,
+	nodeRegistryCredentialsSecret string,
 	kubeletFeatureGates map[string]bool) error {
 	reconciler := &Reconciler{
-		log:                   log,
-		workerClient:          workerClient,
-		Client:                client,
-		caCert:                caCert,
-		namespace:             namespace,
-		generator:             generator,
-		clusterDNSIPs:         clusterDNSIPs,
-		containerRuntime:      containerRuntime,
-		pauseImage:            pauseImage,
-		initialTaints:         initialTaints,
-		externalCloudProvider: externalCloudProvider,
-		nodeHTTPProxy:         nodeHTTPProxy,
-		nodeNoProxy:           nodeNoProxy,
-		podCIDR:               podCIDR,
-		nodePortRange:         nodePortRange,
-		kubeletFeatureGates:   kubeletFeatureGates,
+		log:                           log,
+		workerClient:                  workerClient,
+		Client:                        client,
+		caCert:                        caCert,
+		namespace:                     namespace,
+		generator:                     generator,
+		clusterDNSIPs:                 clusterDNSIPs,
+		containerRuntime:              containerRuntime,
+		pauseImage:                    pauseImage,
+		initialTaints:                 initialTaints,
+		externalCloudProvider:         externalCloudProvider,
+		nodeHTTPProxy:                 nodeHTTPProxy,
+		nodeNoProxy:                   nodeNoProxy,
+		podCIDR:                       podCIDR,
+		nodePortRange:                 nodePortRange,
+		containerRuntimeConfig:        containerRuntimeConfig,
+		nodeRegistryCredentialsSecret: nodeRegistryCredentialsSecret,
+		kubeletFeatureGates:           kubeletFeatureGates,
 	}
 	log.Info("Reconciling OSC resource..")
 	c, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: reconciler, MaxConcurrentReconciles: workerCount})
@@ -128,6 +135,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrlruntime.Request) (re
 	machineDeployment := &clusterv1alpha1.MachineDeployment{}
 	if err := r.workerClient.Get(ctx, req.NamespacedName, machineDeployment); err != nil {
 		if kerrors.IsNotFound(err) {
+
 			return reconcile.Result{}, nil
 		}
 		return reconcile.Result{}, err
@@ -135,6 +143,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrlruntime.Request) (re
 
 	// Resource is marked for deletion
 	if machineDeployment.DeletionTimestamp != nil {
+
 		log.Debug("Cleaning up resources against machine deployment")
 		if kuberneteshelper.HasFinalizer(machineDeployment, MachineDeploymentCleanupFinalizer) {
 			return r.handleMachineDeploymentCleanup(ctx, machineDeployment)
@@ -173,7 +182,7 @@ func (r *Reconciler) reconcile(ctx context.Context, md *clusterv1alpha1.MachineD
 
 func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
 	// Check if OSC already exists, in that case we don't need to do anything since OSC are immutable
-	oscName := fmt.Sprintf(resources.MachineDeploymentSubresourceNamePattern, md.Name, resources.ProvisioningCloudConfig)
+	oscName := fmt.Sprintf(resources.MachineDeploymentSubresourceNamePattern, md.Name, md.Namespace, resources.ProvisioningCloudConfig)
 	osc := &osmv1alpha1.OperatingSystemConfig{}
 	if err := r.Get(ctx, types.NamespacedName{Name: oscName, Namespace: r.namespace}, osc); err == nil {
 		// Early return since the object already exists
@@ -187,31 +196,47 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 		return fmt.Errorf("failed to get OperatingSystemProfile: %v", err)
 	}
 
-	if err := reconciling.ReconcileOperatingSystemConfigs(ctx, []reconciling.NamedOperatingSystemConfigCreatorGetter{
-		resources.OperatingSystemConfigCreator(
-			md,
-			osp,
-			r.caCert,
-			r.clusterDNSIPs,
-			r.containerRuntime,
-			r.externalCloudProvider,
-			r.pauseImage,
-			r.initialTaints,
-			r.nodeHTTPProxy,
-			r.nodeNoProxy,
-			r.nodePortRange,
-			r.podCIDR,
-			r.kubeletFeatureGates,
-		),
-	}, r.namespace, r.Client); err != nil {
-		return fmt.Errorf("failed to reconcile provisioning operating system config: %v", err)
+	if r.nodeRegistryCredentialsSecret != "" {
+		registryCredentials, err := containerruntime.GetContainerdAuthConfig(ctx, r.Client, r.nodeRegistryCredentialsSecret)
+		if err != nil {
+			return fmt.Errorf("failed to get containerd auth config: %v", err)
+		}
+		r.containerRuntimeConfig.RegistryCredentials = registryCredentials
 	}
 
+	// We need to create OSC resource as it doesn't exist
+	osc, err := resources.GenerateOperatingSystemConfig(
+		md,
+		osp,
+		oscName,
+		r.namespace,
+		r.caCert,
+		r.clusterDNSIPs,
+		r.containerRuntime,
+		r.externalCloudProvider,
+		r.pauseImage,
+		r.initialTaints,
+		r.nodeHTTPProxy,
+		r.nodeNoProxy,
+		r.nodePortRange,
+		r.podCIDR,
+		r.containerRuntimeConfig,
+		r.kubeletFeatureGates,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to generate %s osc: %v", oscName, err)
+	}
+
+	// Create resource in cluster
+	if err := r.Create(ctx, osc); err != nil {
+		return fmt.Errorf("failed to create %s osc: %v", oscName, err)
+	}
+	r.log.Infof("successfully generated provisioning osc: %v", oscName)
 	return nil
 }
 
 func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
-	oscName := fmt.Sprintf(resources.MachineDeploymentSubresourceNamePattern, md.Name, resources.ProvisioningCloudConfig)
+	oscName := fmt.Sprintf(resources.MachineDeploymentSubresourceNamePattern, md.Name, md.Namespace, resources.ProvisioningCloudConfig)
 
 	// Check if secret already exists, in that case we don't need to do anything since secrets are immutable
 	secret := &corev1.Secret{}
@@ -230,13 +255,14 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.M
 		return fmt.Errorf("failed to generate provisioning data")
 	}
 
-	if err := reconciling.ReconcileSecrets(ctx, []reconciling.NamedSecretCreatorGetter{
-		resources.CloudConfigSecretCreator(md.Name, resources.ProvisioningCloudConfig, provisionData),
-	}, CloudInitSettingsNamespace, r.workerClient); err != nil {
-		return fmt.Errorf("failed to reconcile provisioning secrets: %v", err)
-	}
-	r.log.Infof("successfully generated provisioning secret: %v", fmt.Sprintf(resources.MachineDeploymentSubresourceNamePattern, md.Name, resources.ProvisioningCloudConfig))
+	// Generate secret for cloud-config
+	secret = resources.GenerateCloudConfigSecret(oscName, CloudInitSettingsNamespace, provisionData)
 
+	// Create resource in cluster
+	if err := r.workerClient.Create(ctx, secret); err != nil {
+		return fmt.Errorf("failed to create %s provisioning secret: %v", oscName, err)
+	}
+	r.log.Infof("successfully generated provisioning secret: %v", oscName)
 	return nil
 }
 
@@ -266,7 +292,7 @@ func (r *Reconciler) handleMachineDeploymentCleanup(ctx context.Context, md *clu
 
 // deleteOperatingSystemConfig deletes the OperatingSystemConfig created against a MachineDeployment
 func (r *Reconciler) deleteOperatingSystemConfig(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
-	oscName := fmt.Sprintf(resources.MachineDeploymentSubresourceNamePattern, md.Name, resources.ProvisioningCloudConfig)
+	oscName := fmt.Sprintf(resources.MachineDeploymentSubresourceNamePattern, md.Name, md.Namespace, resources.ProvisioningCloudConfig)
 	osc := &osmv1alpha1.OperatingSystemConfig{}
 	if err := r.Get(ctx, types.NamespacedName{Name: oscName, Namespace: r.namespace}, osc); err != nil {
 		if kerrors.IsNotFound(err) {
@@ -282,7 +308,7 @@ func (r *Reconciler) deleteOperatingSystemConfig(ctx context.Context, md *cluste
 
 // deleteGeneratedSecrets deletes the secrets created against a MachineDeployment
 func (r *Reconciler) deleteGeneratedSecrets(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
-	secretName := fmt.Sprintf(resources.MachineDeploymentSubresourceNamePattern, md.Name, resources.ProvisioningCloudConfig)
+	secretName := fmt.Sprintf(resources.MachineDeploymentSubresourceNamePattern, md.Name, md.Namespace, resources.ProvisioningCloudConfig)
 	secret := &corev1.Secret{}
 	if err := r.workerClient.Get(ctx, types.NamespacedName{Name: secretName, Namespace: CloudInitSettingsNamespace}, secret); err != nil {
 		if kerrors.IsNotFound(err) {
