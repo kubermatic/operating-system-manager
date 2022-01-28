@@ -835,6 +835,8 @@ github.com/kubermatic/machine-controller v1.36.1/go.mod h1:6BFZEvEMZi8OT8aHOsS7D
 github.com/kubermatic/machine-controller v1.40.1/go.mod h1:5LVcN4tCybGg+55hIHcVzCjNsBJy2PlnXG0xIzKmXGY=
 github.com/kubermatic/machine-controller v1.42.2-0.20220125150956-ed424d935c06 h1:aexn8lMASN4j156mwvdlottRupe2TrdyB/XP00Paf5E=
 github.com/kubermatic/machine-controller v1.42.2-0.20220125150956-ed424d935c06/go.mod h1:vr6i5XWfd5FIq2yodXcgdlKvOhMnM5uzn2XEZ2wcoFM=
+github.com/kubermatic/machine-controller v1.42.2-0.20220127214352-46caa87665e0 h1:xA7CAfhNtpQECE3MJApQnqOrKKfUuihZWVWoBK2JWcU=
+github.com/kubermatic/machine-controller v1.42.2-0.20220127214352-46caa87665e0/go.mod h1:vr6i5XWfd5FIq2yodXcgdlKvOhMnM5uzn2XEZ2wcoFM=
 github.com/kylelemons/godebug v0.0.0-20170820004349-d65d576e9348/go.mod h1:B69LEHPfb2qLo0BaaOLcbitczOKLWTsrBG9LczfCD4k=
 github.com/leodido/go-urn v1.2.0/go.mod h1:+8+nEpDfqqsY+g338gtMEUOtuK+4dEMhiQEgxpxOKII=
 github.com/lib/pq v1.0.0/go.mod h1:5WUZQaWbwv1U+lTReE5YruASi9Al49XbQIvNi/34Woo=

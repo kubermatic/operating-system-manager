@@ -115,6 +115,16 @@ func GenerateOperatingSystemConfig(
 		return nil, err
 	}
 
+	// Handling for kubelet configuration
+	kubeletConfigs := getKubeletConfigs(md.Annotations)
+	if kubeletConfigs.ContainerLogMaxSize != nil && len(*kubeletConfigs.ContainerLogMaxSize) > 0 {
+		containerRuntimeConfig.ContainerLogMaxSize = *kubeletConfigs.ContainerLogMaxSize
+	}
+
+	if kubeletConfigs.ContainerLogMaxFiles != nil && len(*kubeletConfigs.ContainerLogMaxFiles) > 0 {
+		containerRuntimeConfig.ContainerLogMaxFiles = *kubeletConfigs.ContainerLogMaxFiles
+	}
+
 	crEngine := containerRuntimeConfig.Engine(kubeletVersion)
 	crConfig, err := crEngine.Config()
 	if err != nil {
@@ -140,6 +150,7 @@ func GenerateOperatingSystemConfig(
 		NodePortRange:          nodePortRange,
 		ContainerRuntimeConfig: crConfig,
 		KubeletFeatureGates:    kubeletFeatureGates,
+		kubeletConfig:          kubeletConfigs,
 	}
 
 	if len(nodeHTTPProxy) > 0 {
@@ -156,9 +167,6 @@ func GenerateOperatingSystemConfig(
 	if err != nil {
 		return nil, fmt.Errorf("failed to add operating system spec: %v", err)
 	}
-
-	// Handling for kubelet configuration
-	data.kubeletConfig = kubeletResourceManagementConfig(md.Annotations)
 
 	// Handle files
 	osp.Spec.Files = append(osp.Spec.Files, selectAdditionalFiles(osp, containerRuntime)...)
@@ -223,9 +231,11 @@ type OperatingSystemConfig struct {
 }
 
 type kubeletConfig struct {
-	KubeReserved   *map[string]string
-	SystemReserved *map[string]string
-	EvictionHard   *map[string]string
+	KubeReserved         *map[string]string
+	SystemReserved       *map[string]string
+	EvictionHard         *map[string]string
+	ContainerLogMaxSize  *string
+	ContainerLogMaxFiles *string
 }
 
 func populateFilesList(files []osmv1alpha1.File, additionalTemplates []string, d filesData) ([]osmv1alpha1.File, error) {
@@ -356,7 +366,7 @@ func setOperatingSystemConfig(os providerconfigtypes.OperatingSystem, operatingS
 	return errors.New("unknown OperatingSystem")
 }
 
-func kubeletResourceManagementConfig(annotations map[string]string) kubeletConfig {
+func getKubeletConfigs(annotations map[string]string) kubeletConfig {
 
 	var cfg kubeletConfig
 	kubeletConfigs := common.GetKubeletConfigs(annotations)
@@ -364,16 +374,24 @@ func kubeletResourceManagementConfig(annotations map[string]string) kubeletConfi
 		return cfg
 	}
 
-	if kubeReserved, ok := kubeletConfigs[common.KubeReservedKubeletConfig]; ok {
-		cfg.KubeReserved = getKeyValueMap(kubeReserved, "=")
+	if val, ok := kubeletConfigs[common.KubeReservedKubeletConfig]; ok {
+		cfg.KubeReserved = getKeyValueMap(val, "=")
 	}
 
-	if systemReserved, ok := kubeletConfigs[common.SystemReservedKubeletConfig]; ok {
-		cfg.SystemReserved = getKeyValueMap(systemReserved, "=")
+	if val, ok := kubeletConfigs[common.SystemReservedKubeletConfig]; ok {
+		cfg.SystemReserved = getKeyValueMap(val, "=")
 	}
 
-	if evictionHard, ok := kubeletConfigs[common.EvictionHardKubeletConfig]; ok {
-		cfg.EvictionHard = getKeyValueMap(evictionHard, "<")
+	if val, ok := kubeletConfigs[common.EvictionHardKubeletConfig]; ok {
+		cfg.EvictionHard = getKeyValueMap(val, "<")
+	}
+
+	if val, ok := kubeletConfigs[common.ContainerLogMaxSizeKubeletConfig]; ok {
+		cfg.ContainerLogMaxSize = &val
+	}
+
+	if val, ok := kubeletConfigs[common.ContainerLogMaxFilesKubeletConfig]; ok {
+		cfg.ContainerLogMaxFiles = &val
 	}
 	return cfg
 }

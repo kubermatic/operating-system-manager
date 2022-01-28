@@ -5,3 +5,4 @@
 _build
 .vscode/
 .local
+.DS_Store

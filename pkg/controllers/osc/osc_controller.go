@@ -135,6 +135,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrlruntime.Request) (re
 	machineDeployment := &clusterv1alpha1.MachineDeployment{}
 	if err := r.workerClient.Get(ctx, req.NamespacedName, machineDeployment); err != nil {
 		if kerrors.IsNotFound(err) {
+
 			return reconcile.Result{}, nil
 		}
 		return reconcile.Result{}, err
@@ -142,6 +143,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrlruntime.Request) (re
 
 	// Resource is marked for deletion
 	if machineDeployment.DeletionTimestamp != nil {
+
 		log.Debug("Cleaning up resources against machine deployment")
 		if kuberneteshelper.HasFinalizer(machineDeployment, MachineDeploymentCleanupFinalizer) {
 			return r.handleMachineDeploymentCleanup(ctx, machineDeployment)

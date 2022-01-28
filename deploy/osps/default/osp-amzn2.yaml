@@ -16,11 +16,11 @@ apiVersion: operatingsystemmanager.k8c.io/v1alpha1
 kind: OperatingSystemProfile
 metadata:
   name: osp-amzn2
-  namespace: cloud-init-settings
+  namespace: kube-system
 spec:
   osName: "amzn2"
   osVersion: "2.0"
-  version: "v0.1.0"
+  version: "v0.1.1"
   supportedCloudProviders:
     - name: "aws"
   supportedContainerRuntimes:
@@ -487,6 +487,19 @@ spec:
             - "{{ . }}"
             {{- end }}
             clusterDomain: cluster.local
+            {{- /* containerLogMaxSize and containerLogMaxFiles have no effect for docker  */}}
+            {{- if ne .ContainerRuntime "docker" }}
+            {{- if .ContainerLogMaxSize }}
+            containerLogMaxSize: {{ .ContainerLogMaxSize }}
+            {{- else }}
+            containerLogMaxSize: 100Mi
+            {{- end }}
+            {{- if .ContainerLogMaxFiles }}
+            containerLogMaxFiles: {{ .ContainerLogMaxFiles }}
+            {{- else }}
+            containerLogMaxFiles: 5
+            {{- end }}
+            {{- end }}
             featureGates:
             {{- if .KubeletFeatureGates -}}
               {{ range $key, $val := .KubeletFeatureGates }}

@@ -43,7 +43,6 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakectrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/yaml"
 )
 
@@ -96,29 +95,30 @@ type testConfig struct {
 
 func TestReconciler_Reconcile(t *testing.T) {
 	var testCases = []struct {
-		name              string
-		ospFile           string
-		ospName           string
-		oscFile           string
-		oscName           string
-		operatingSystem   providerconfigtypes.OperatingSystem
-		mdName            string
-		secretFile        string
-		config            testConfig
-		cloudProvider     string
-		cloudProviderSpec runtime.RawExtension
+		name                  string
+		ospFile               string
+		ospName               string
+		oscFile               string
+		oscName               string
+		operatingSystem       providerconfigtypes.OperatingSystem
+		mdName                string
+		secretFile            string
+		config                testConfig
+		cloudProvider         string
+		cloudProviderSpec     runtime.RawExtension
+		additionalAnnotations map[string]string
 	}{
 		{
 			name:            "Ubuntu OS in AWS with Containerd",
-			ospFile:         "osp-ubuntu-20.04.yaml",
+			ospFile:         "osp-ubuntu.yaml",
 			ospName:         "osp-ubuntu",
 			operatingSystem: providerconfigtypes.OperatingSystemUbuntu,
-			oscFile:         "osc-ubuntu-20.04-aws-containerd.yaml",
-			oscName:         "ubuntu-20.04-aws-osc-provisioning",
-			mdName:          "ubuntu-20.04-aws",
-			secretFile:      "secret-ubuntu-20.04-aws-containerd.yaml",
+			oscFile:         "osc-ubuntu-aws-containerd.yaml",
+			oscName:         "ubuntu-aws-kube-system-osc-provisioning",
+			mdName:          "ubuntu-aws",
+			secretFile:      "secret-ubuntu-aws-containerd.yaml",
 			config: testConfig{
-				namespace:        "cloud-init-settings",
+				namespace:        "kube-system",
 				containerRuntime: "containerd",
 				kubeVersion:      "1.22.1",
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
@@ -128,15 +128,15 @@ func TestReconciler_Reconcile(t *testing.T) {
 		},
 		{
 			name:            "Ubuntu OS in AWS with Docker",
-			ospFile:         "osp-ubuntu-20.04.yaml",
+			ospFile:         "osp-ubuntu.yaml",
 			ospName:         "osp-ubuntu",
 			operatingSystem: providerconfigtypes.OperatingSystemUbuntu,
-			oscFile:         "osc-ubuntu-20.04-aws-docker.yaml",
-			oscName:         "ubuntu-20.04-aws-osc-provisioning",
-			mdName:          "ubuntu-20.04-aws",
-			secretFile:      "secret-ubuntu-20.04-aws-docker.yaml",
+			oscFile:         "osc-ubuntu-aws-docker.yaml",
+			oscName:         "ubuntu-aws-kube-system-osc-provisioning",
+			mdName:          "ubuntu-aws",
+			secretFile:      "secret-ubuntu-aws-docker.yaml",
 			config: testConfig{
-				namespace:        "cloud-init-settings",
+				namespace:        "kube-system",
 				containerRuntime: "docker",
 				kubeVersion:      "1.22.1",
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
@@ -150,11 +150,11 @@ func TestReconciler_Reconcile(t *testing.T) {
 			ospName:         "osp-flatcar",
 			operatingSystem: providerconfigtypes.OperatingSystemFlatcar,
 			oscFile:         "osc-flatcar-aws-containerd.yaml",
-			oscName:         "flatcar-aws-containerd-osc-provisioning",
+			oscName:         "flatcar-aws-containerd-kube-system-osc-provisioning",
 			mdName:          "flatcar-aws-containerd",
 			secretFile:      "secret-flatcar-aws-containerd.yaml",
 			config: testConfig{
-				namespace:        "cloud-init-settings",
+				namespace:        "kube-system",
 				containerRuntime: "containerd",
 				kubeVersion:      "1.22.1",
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
@@ -168,11 +168,11 @@ func TestReconciler_Reconcile(t *testing.T) {
 			ospName:         "osp-flatcar",
 			operatingSystem: providerconfigtypes.OperatingSystemFlatcar,
 			oscFile:         "osc-flatcar-aws-docker.yaml",
-			oscName:         "flatcar-aws-docker-osc-provisioning",
+			oscName:         "flatcar-aws-docker-kube-system-osc-provisioning",
 			mdName:          "flatcar-aws-docker",
 			secretFile:      "secret-flatcar-aws-docker.yaml",
 			config: testConfig{
-				namespace:        "cloud-init-settings",
+				namespace:        "kube-system",
 				containerRuntime: "docker",
 				kubeVersion:      "1.22.1",
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
@@ -186,17 +186,67 @@ func TestReconciler_Reconcile(t *testing.T) {
 			ospName:         "osp-rhel",
 			operatingSystem: providerconfigtypes.OperatingSystemRHEL,
 			oscFile:         "osc-rhel-8.x-containerd.yaml",
-			oscName:         "osp-rhel-aws-osc-provisioning",
+			oscName:         "osp-rhel-aws-kube-system-osc-provisioning",
 			mdName:          "osp-rhel-aws",
 			secretFile:      "secret-rhel-8.x-containerd.yaml",
 			config: testConfig{
-				namespace:        "cloud-init-settings",
+				namespace:        "kube-system",
 				containerRuntime: "containerd",
 				kubeVersion:      "1.22.1",
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
 			cloudProvider:     "aws",
 			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"zone": "eu-central-1b", "vpc": "e-123f", "subnetID": "test-subnet"}`)},
+		},
+		{
+			name:            "Kubelet configuration with docker",
+			ospFile:         "osp-ubuntu.yaml",
+			ospName:         "osp-ubuntu",
+			operatingSystem: providerconfigtypes.OperatingSystemUbuntu,
+			oscFile:         "osc-kubelet-configuration-docker.yaml",
+			oscName:         "kubelet-configuration-kube-system-osc-provisioning",
+			mdName:          "kubelet-configuration",
+			secretFile:      "secret-kubelet-configuration-docker.yaml",
+			config: testConfig{
+				namespace:        "kube-system",
+				containerRuntime: "docker",
+				kubeVersion:      "1.22.1",
+				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
+			},
+			cloudProvider:     "aws",
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"zone": "eu-central-1b", "vpc": "e-123f", "subnetID": "test-subnet"}`)},
+			additionalAnnotations: map[string]string{
+				"v1.kubelet-config.machine-controller.kubermatic.io/ContainerLogMaxSize":  "300Mi",
+				"v1.kubelet-config.machine-controller.kubermatic.io/ContainerLogMaxFiles": "30",
+				"v1.kubelet-config.machine-controller.kubermatic.io/SystemReserved":       "ephemeral-storage=30Gi,cpu=30m",
+				"v1.kubelet-config.machine-controller.kubermatic.io/KubeReserved":         "ephemeral-storage=30Gi,cpu=30m",
+				"v1.kubelet-config.machine-controller.kubermatic.io/EvictionHard":         "memory.available<30Mi",
+			},
+		},
+		{
+			name:            "Kubelet configuration with containerd",
+			ospFile:         "osp-ubuntu.yaml",
+			ospName:         "osp-ubuntu",
+			operatingSystem: providerconfigtypes.OperatingSystemUbuntu,
+			oscFile:         "osc-kubelet-configuration-containerd.yaml",
+			oscName:         "kubelet-configuration-kube-system-osc-provisioning",
+			mdName:          "kubelet-configuration",
+			secretFile:      "secret-kubelet-configuration-containerd.yaml",
+			config: testConfig{
+				namespace:        "kube-system",
+				containerRuntime: "containerd",
+				kubeVersion:      "1.22.1",
+				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
+			},
+			cloudProvider:     "aws",
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"zone": "eu-central-1b", "vpc": "e-123f", "subnetID": "test-subnet"}`)},
+			additionalAnnotations: map[string]string{
+				"v1.kubelet-config.machine-controller.kubermatic.io/ContainerLogMaxSize":  "300Mi",
+				"v1.kubelet-config.machine-controller.kubermatic.io/ContainerLogMaxFiles": "30",
+				"v1.kubelet-config.machine-controller.kubermatic.io/SystemReserved":       "ephemeral-storage=30Gi,cpu=30m",
+				"v1.kubelet-config.machine-controller.kubermatic.io/KubeReserved":         "ephemeral-storage=30Gi,cpu=30m",
+				"v1.kubelet-config.machine-controller.kubermatic.io/EvictionHard":         "memory.available<30Mi",
+			},
 		},
 	}
 
@@ -218,7 +268,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 
 		t.Run(testCase.name, func(t *testing.T) {
 			ctx := context.Background()
-			md := generateMachineDeployment(t, testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec)
+			md := generateMachineDeployment(t, testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec, testCase.additionalAnnotations)
 
 			// Configure containerRuntimeConfig
 			containerRuntimeOpts := containerruntime.Opts{
@@ -259,7 +309,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 
 			secret := &corev1.Secret{}
 			if err := fakeClient.Get(ctx, types.NamespacedName{
-				Namespace: "cloud-init-settings",
+				Namespace: CloudInitSettingsNamespace,
 				Name:      testCase.oscName},
 				secret); err != nil {
 				t.Fatalf("failed to get secret: %v", err)
@@ -296,15 +346,15 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 		{
 
 			name:            "test the deletion of machineDeployment",
-			ospFile:         "osp-ubuntu-20.04.yaml",
+			ospFile:         "osp-ubuntu.yaml",
 			ospName:         "osp-ubuntu",
 			operatingSystem: providerconfigtypes.OperatingSystemUbuntu,
-			oscFile:         "osc-ubuntu-20.04-aws-containerd.yaml",
-			oscName:         "ubuntu-20.04-aws-osc-provisioning",
-			mdName:          "ubuntu-20.04-aws",
-			secretFile:      "secret-ubuntu-20.04-aws-containerd.yaml",
+			oscFile:         "osc-ubuntu-aws-containerd.yaml",
+			oscName:         "ubuntu-aws-kube-system-osc-provisioning",
+			mdName:          "ubuntu-aws",
+			secretFile:      "secret-ubuntu-aws-containerd.yaml",
 			config: testConfig{
-				namespace:        "cloud-init-settings",
+				namespace:        "kube-system",
 				containerRuntime: "containerd",
 			},
 			cloudProvider:     "aws",
@@ -320,7 +370,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 			t.Fatalf("failed loading osp %s from testdata: %v", testCase.name, err)
 		}
 
-		md := generateMachineDeployment(t, testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec)
+		md := generateMachineDeployment(t, testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec, nil)
 		fakeClient := fakectrlruntimeclient.
 			NewClientBuilder().
 			WithScheme(scheme.Scheme).
@@ -348,54 +398,41 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 			// Ensure that corresponding secret was created
 			secret := &corev1.Secret{}
 			if err := fakeClient.Get(ctx, types.NamespacedName{
-				Namespace: testCase.config.namespace,
+				Namespace: CloudInitSettingsNamespace,
 				Name:      testCase.oscName},
 				secret); err != nil {
 				t.Fatalf("failed to get secret: %v", err)
 			}
 
-			// Retrieve MachineDeployment
-			machineDeployment := &v1alpha1.MachineDeployment{}
-			if err := fakeClient.Get(ctx, types.NamespacedName{
-				Namespace: testCase.config.namespace,
-				Name:      testCase.mdName},
-				machineDeployment); err != nil {
-				t.Fatalf("failed to get machine deployment: %v", err)
-			}
-
 			// Add deletionTimestamp to Machinedeployment to queue it up for deletion
-			machineDeployment.ObjectMeta.DeletionTimestamp = &metav1.Time{Time: time.Now()}
-			err := fakeClient.Update(ctx, machineDeployment)
-			if err != nil {
-				t.Fatalf("failed to update machine deployment with deletionTimestamp: %v", err)
-			}
+			md.ObjectMeta.DeletionTimestamp = &metav1.Time{Time: time.Now()}
 
 			// Reconcile to trigger delete workflow
-			_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: md.Name, Namespace: md.Namespace}})
+			_, err := reconciler.handleMachineDeploymentCleanup(ctx, md)
 			if err != nil {
 				t.Fatalf("failed to reconcile: %v", err)
 			}
 
 			// Ensure that OperatingSystemConfig was deleted
 			if err := fakeClient.Get(ctx, types.NamespacedName{
-				Namespace: "cloud-init-settings",
-				Name:      fmt.Sprintf("ubuntu-20.04-lts-osc-%s", resources.ProvisioningCloudConfig)},
+				Namespace: CloudInitSettingsNamespace,
+				Name:      testCase.oscName},
 				osc); err == nil || !kerrors.IsNotFound(err) {
-				t.Fatalf("failed to delete osc")
+				t.Fatalf("failed to ensure that osc is deleted: %v", err)
 			}
 
 			// Ensure that corresponding secret was deleted
 			if err := fakeClient.Get(ctx, types.NamespacedName{
-				Namespace: "cloud-init-settings",
-				Name:      fmt.Sprintf("ubuntu-20.04-lts-osc-%s", resources.ProvisioningCloudConfig)},
+				Namespace: CloudInitSettingsNamespace,
+				Name:      testCase.oscName},
 				secret); err == nil || !kerrors.IsNotFound(err) {
-				t.Fatalf("failed to delete secret")
+				t.Fatalf("failed to ensure that secret is deleted: %s", err)
 			}
 		})
 	}
 }
 
-func generateMachineDeployment(t *testing.T, name, namespace, osp string, os providerconfigtypes.OperatingSystem, cloudprovider string, cloudProviderSpec runtime.RawExtension) *v1alpha1.MachineDeployment {
+func generateMachineDeployment(t *testing.T, name, namespace, osp string, os providerconfigtypes.OperatingSystem, cloudprovider string, cloudProviderSpec runtime.RawExtension, additionalAnnotations map[string]string) *v1alpha1.MachineDeployment {
 	pconfig := providerconfigtypes.Config{
 		SSHPublicKeys:     []string{"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c"},
 		OperatingSystem:   os,
@@ -407,13 +444,17 @@ func generateMachineDeployment(t *testing.T, name, namespace, osp string, os pro
 		t.Fatalf("failed to generate machine deployment: %v", err)
 	}
 
+	annotations := make(map[string]string)
+	annotations[resources.MachineDeploymentOSPAnnotation] = osp
+	for k, v := range additionalAnnotations {
+		annotations[k] = v
+	}
+
 	md := &v1alpha1.MachineDeployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			Annotations: map[string]string{
-				resources.MachineDeploymentOSPAnnotation: osp,
-			},
+			Name:        name,
+			Namespace:   namespace,
+			Annotations: annotations,
 		},
 		Spec: v1alpha1.MachineDeploymentSpec{
 			Template: v1alpha1.MachineTemplateSpec{

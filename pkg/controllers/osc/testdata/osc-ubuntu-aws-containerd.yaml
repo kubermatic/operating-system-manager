@@ -2,7 +2,7 @@ apiVersion: operatingsystemmanager.k8c.io/v1alpha1
 kind: OperatingSystemConfig
 metadata:
   creationTimestamp: null
-  name: osp-rhel-aws-kube-system-osc-provisioning
+  name: ubuntu-aws-kube-system-osc-provisioning
   namespace: kube-system
   resourceVersion: "1"
 spec:
@@ -54,47 +54,47 @@ spec:
   - content:
       inline:
         data: |
-          # This file controls the state of SELinux on the system.
-          # SELINUX= can take one of these three values:
-          #     enforcing - SELinux security policy is enforced.
-          #     permissive - SELinux prints warnings instead of enforcing.
-          #     disabled - No SELinux policy is loaded.
-          SELINUX=permissive
-          # SELINUXTYPE= can take one of three two values:
-          #     targeted - Targeted processes are protected,
-          #     minimum - Modification of targeted policy. Only selected processes are protected.
-          #     mls - Multi Level Security protection.
-          SELINUXTYPE=targeted
+          # Added by kubermatic machine-controller
+          # Enable cgroups memory and swap accounting
+          GRUB_CMDLINE_LINUX="cgroup_enable=memory swapaccount=1"
         encoding: b64
-    path: /etc/selinux/config
+    path: /etc/default/grub.d/60-swap-accounting.cfg
   - content:
       inline:
         data: |
           #!/bin/bash
           set -xeuo pipefail
-
-          setenforce 0 || true
+          if systemctl is-active ufw; then systemctl stop ufw; fi
+          systemctl mask ufw
           systemctl restart systemd-modules-load.service
           sysctl --system
           sed -i.orig '/.*swap.*/d' /etc/fstab
           swapoff -a
 
+          apt-get update
 
-          yum install -y \
-            device-mapper-persistent-data \
-            lvm2 \
+          DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y \
+            curl \
+            ca-certificates \
+            ceph-common \
+            cifs-utils \
+            conntrack \
+            e2fsprogs \
             ebtables \
             ethtool \
-            nfs-utils \
-            bash-completion \
-            sudo \
+            glusterfs-client \
+            iptables \
+            jq \
+            kmod \
+            openssh-client \
+            nfs-common \
             socat \
-            wget \
-            curl \
+            util-linux \
             ipvsadm
-          yum install -y yum-utils
-          yum-config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
-          yum-config-manager --save --setopt=docker-ce-stable.module_hotfixes=true
+          apt-get update
+          apt-get install -y apt-transport-https ca-certificates curl software-properties-common lsb-release
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+          add-apt-repository "deb https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
 
           cat <<EOF | tee /etc/crictl.yaml
           runtime-endpoint: unix:///run/containerd/containerd.sock
@@ -107,13 +107,12 @@ spec:
           EnvironmentFile=-/etc/environment
           EOF
 
-          yum install -y containerd.io-1.4* yum-plugin-versionlock
-          yum versionlock add containerd.io
+          apt-get install -y --allow-downgrades containerd.io=1.4*
+          apt-mark hold containerd.io
 
           systemctl daemon-reload
           systemctl enable --now containerd
           opt_bin=/opt/bin
-          usr_local_bin=/usr/local/bin
           cni_bin_dir=/opt/cni/bin
           mkdir -p /etc/cni/net.d /etc/kubernetes/dynamic-config-dir /etc/kubernetes/manifests "$opt_bin" "$cni_bin_dir"
           arch=${HOST_ARCH-}
@@ -142,17 +141,6 @@ spec:
           tar xvf "$cni_filename"
           rm -f "$cni_filename"
           cd -
-          CRI_TOOLS_RELEASE="${CRI_TOOLS_RELEASE:-v1.22.0}"
-          cri_tools_base_url="https://github.com/kubernetes-sigs/cri-tools/releases/download/${CRI_TOOLS_RELEASE}"
-          cri_tools_filename="crictl-${CRI_TOOLS_RELEASE}-linux-${arch}.tar.gz"
-          curl -Lfo "$opt_bin/$cri_tools_filename" "$cri_tools_base_url/$cri_tools_filename"
-          cri_tools_sum=$(curl -Lf "$cri_tools_base_url/$cri_tools_filename.sha256" | sed 's/\*\///')
-          cd "$opt_bin"
-          sha256sum -c <<<"$cri_tools_sum"
-          tar xvf "$cri_tools_filename"
-          rm -f "$cri_tools_filename"
-          ln -sf "$opt_bin/crictl" "$usr_local_bin"/crictl || echo "symbolic link is skipped"
-          cd -
           KUBE_VERSION="${KUBE_VERSION:-v1.22.1}"
           kube_dir="$opt_bin/kubernetes-$KUBE_VERSION"
           kube_base_url="https://storage.googleapis.com/kubernetes-release/release/$KUBE_VERSION/bin/linux/$arch"
@@ -177,7 +165,6 @@ spec:
               chmod +x /opt/bin/health-monitor.sh
           fi
 
-          mkdir -p /etc/systemd/system/kubelet.service.d/
           # set kubelet nodeip environment variable
           /opt/bin/setup_net_env.sh
 
@@ -239,6 +226,13 @@ spec:
           WantedBy=multi-user.target
         encoding: b64
     path: /etc/systemd/system/kubelet.service
+  - content:
+      inline:
+        data: |
+          [Service]
+          Environment="KUBELET_EXTRA_ARGS=--resolv-conf=/run/systemd/resolve/resolv.conf"
+        encoding: b64
+    path: /etc/systemd/system/kubelet.service.d/extras.conf
   - content:
       inline:
         data: |+
@@ -444,8 +438,12 @@ spec:
     permissions: 420
   modules:
     bootcmd:
-    - modprobe ip_tables
-  osName: rhel
-  osVersion: "8.4"
+    - echo hello
+    - echo world
+    rh_subscription:
+      password: password
+      username: username
+  osName: ubuntu
+  osVersion: "20.04"
   userSSHKeys:
   - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c
