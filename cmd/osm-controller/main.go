@@ -50,13 +50,12 @@ import (
 type options struct {
 	workerCount             int
 	namespace               string
-	clusterName             string
 	containerRuntime        string
 	externalCloudProvider   bool
 	pauseImage              string
 	initialTaints           string
 	nodePortRange           string
-	podCidr                 string
+	podCIDRs                string
 	enableLeaderElection    bool
 	clusterDNSIPs           string
 	workerClusterKubeconfig string
@@ -102,7 +101,7 @@ func main() {
 	flag.StringVar(&opt.pauseImage, "pause-image", "", "pause image to use in Kubelet.")
 	flag.StringVar(&opt.initialTaints, "initial-taints", "", "taints to use when creating the node.")
 
-	flag.StringVar(&opt.podCidr, "pod-cidr", "172.25.0.0/16", "The network ranges from which POD networks are allocated")
+	flag.StringVar(&opt.podCIDRs, "pod-cidr", "172.25.0.0/16", "Comma separated network ranges from which POD networks are allocated. Example: 172.25.0.0/16,fd00::/104")
 	flag.StringVar(&opt.nodePortRange, "node-port-range", "30000-32767", "A port range to reserve for services with NodePort visibility")
 	flag.StringVar(&opt.kubeletFeatureGates, "node-kubelet-feature-gates", "RotateKubeletServerCertificate=true", "Feature gates to set on the kubelet")
 
@@ -140,6 +139,8 @@ func main() {
 	if err != nil {
 		klog.Fatalf("invalid kubelet feature gates specified: %v", err)
 	}
+
+	podCIDRs := strings.Split(opt.podCIDRs, ",")
 
 	containerRuntimeOpts := containerruntime.Opts{
 		ContainerRuntime:          opt.containerRuntime,
@@ -240,8 +241,8 @@ func main() {
 		opt.initialTaints,
 		opt.nodeHTTPProxy,
 		opt.nodeNoProxy,
+		podCIDRs,
 		opt.nodePortRange,
-		opt.podCidr,
 		containerRuntimeConfig,
 		opt.nodeRegistryCredentialsSecret,
 		parsedKubeletFeatureGates,

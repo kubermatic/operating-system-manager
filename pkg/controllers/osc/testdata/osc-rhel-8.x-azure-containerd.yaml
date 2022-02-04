@@ -2,16 +2,14 @@ apiVersion: operatingsystemmanager.k8c.io/v1alpha1
 kind: OperatingSystemConfig
 metadata:
   creationTimestamp: null
-  name: kubelet-configuration-kube-system-osc-provisioning
+  name: osp-rhel-azure-kube-system-osc-provisioning
   namespace: kube-system
   resourceVersion: "1"
 spec:
   cloudProvider:
-    name: aws
+    name: azure
     spec:
-      availabilityZone: eu-central-1b
-      subnetID: test-subnet
-      vpcId: e-123f
+      securityGroupName: fake-sg
   files:
   - content:
       inline:
@@ -177,54 +175,59 @@ spec:
   - content:
       inline:
         data: |
-          # Added by kubermatic machine-controller
-          # Enable cgroups memory and swap accounting
-          GRUB_CMDLINE_LINUX="cgroup_enable=memory swapaccount=1"
+          # This file controls the state of SELinux on the system.
+          # SELINUX= can take one of these three values:
+          #     enforcing - SELinux security policy is enforced.
+          #     permissive - SELinux prints warnings instead of enforcing.
+          #     disabled - No SELinux policy is loaded.
+          SELINUX=permissive
+          # SELINUXTYPE= can take one of three two values:
+          #     targeted - Targeted processes are protected,
+          #     minimum - Modification of targeted policy. Only selected processes are protected.
+          #     mls - Multi Level Security protection.
+          SELINUXTYPE=targeted
         encoding: b64
-    path: /etc/default/grub.d/60-swap-accounting.cfg
+    path: /etc/selinux/config
   - content:
       inline:
         data: |
           #!/bin/bash
           set -xeuo pipefail
-          if systemctl is-active ufw; then systemctl stop ufw; fi
-          systemctl mask ufwsystemctl restart systemd-modules-load.service
+
+          setenforce 0 || truesystemctl restart systemd-modules-load.service
           sysctl --systemsed -i.orig '/.*swap.*/d' /etc/fstab
           swapoff -a
 
-          apt-get update
 
-          DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y \
-            curl \
-            ca-certificates \
-            ceph-common \
-            cifs-utils \
-            conntrack \
-            e2fsprogs \
+          yum update -y --disablerepo='*' --enablerepo='*microsoft*'
+          firewall-cmd --permanent --zone=trusted --add-source=172.25.0.0/16
+          firewall-cmd --permanent --zone=trusted --add-source=fd00::/104
+          firewall-cmd --permanent --add-port=8472/udp
+          firewall-cmd --permanent --add-port=/tcp
+          firewall-cmd --permanent --add-port=/udp
+          firewall-cmd --reload
+          systemctl restart firewalld
+
+          yum install -y \
+            device-mapper-persistent-data \
+            lvm2 \
             ebtables \
             ethtool \
-            glusterfs-client \
-            iptables \
-            jq \
-            kmod \
-            openssh-client \
-            nfs-common \
+            nfs-utils \
+            bash-completion \
+            sudo \
             socat \
-            util-linux \
+            wget \
+            curl \
             ipvsadm
-          apt-get update
-          apt-get install -y apt-transport-https ca-certificates curl software-properties-common lsb-release
-          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
-          add-apt-repository "deb https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+          yum install -y yum-utils
+          yum-config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repoyum-config-manager --save --setopt=docker-ce-stable.module_hotfixes=true
 
-          apt-get install --allow-downgrades -y \
-              containerd.io=1.4* \
-              docker-ce-cli=5:19.03* \
-              docker-ce=5:19.03*
-          apt-mark hold docker-ce* containerd.io
+          yum install -y containerd.io-1.4* yum-plugin-versionlock
+          yum versionlock add containerd.io
 
           systemctl daemon-reload
-          systemctl enable --now docker
+          systemctl enable --now containerd
           opt_bin=/opt/bin
           usr_local_bin=/usr/local/bin
           cni_bin_dir=/opt/cni/binmkdir -p /etc/cni/net.d /etc/kubernetes/dynamic-config-dir /etc/kubernetes/manifests "$opt_bin" "$cni_bin_dir"arch=${HOST_ARCH-}
@@ -266,6 +269,7 @@ spec:
           for bin in kubelet kubeadm kubectl; doln -sf "$kube_dir/$bin" "$opt_bin"/$bin
           done
 
+          mkdir -p /etc/systemd/system/kubelet.service.d/
           # set kubelet nodeip environment variable
           /opt/bin/setup_net_env.sh
 
@@ -289,8 +293,8 @@ spec:
       inline:
         data: |
           [Unit]
-          After=docker.service
-          Requires=docker.service
+          After=containerd.service
+          Requires=containerd.service
 
           Description=kubelet: The Kubernetes Node Agent
           Documentation=https://kubernetes.io/docs/home/
@@ -313,14 +317,15 @@ spec:
             --config=/etc/kubernetes/kubelet.conf \
             --network-plugin=cni \
             --cert-dir=/etc/kubernetes/pki \
-            --cloud-provider=aws \
+            --cloud-provider=azure \
             --cloud-config=/etc/kubernetes/cloud-config \
+            --hostname-override=${KUBELET_HOSTNAME} \
             --dynamic-config-dir=/etc/kubernetes/dynamic-config-dir \
             --feature-gates=DynamicKubeletConfig=true \
             --exit-on-lock-contention \
             --lock-file=/tmp/kubelet.lock \
-            --container-runtime=docker \
-            --container-runtime-endpoint=unix:///var/run/dockershim.sock \
+            --container-runtime=remote \
+            --container-runtime-endpoint=unix:///run/containerd/containerd.sock \
             --node-ip ${KUBELET_NODE_IP}
 
           [Install]
@@ -330,18 +335,7 @@ spec:
   - content:
       inline:
         data: |
-          [Service]
-          Environment="KUBELET_EXTRA_ARGS=--resolv-conf=/run/systemd/resolve/resolv.conf"
-        encoding: b64
-    path: /etc/systemd/system/kubelet.service.d/extras.conf
-  - content:
-      inline:
-        data: |+
-          [global]
-          Zone="eu-central-1b"
-          VPC="e-123f"
-          SubnetID="test-subnet"
-
+          {"cloud":"AZUREPUBLICCLOUD","tenantId":"","subscriptionId":"","aadClientId":"","aadClientSecret":"","resourceGroup":"","location":"","vnetName":"","subnetName":"","routeTableName":"","securityGroupName":"fake-sg","primaryAvailabilitySetName":"","vnetResourceGroup":"","useInstanceMetadata":true,"loadBalancerSku":""}
         encoding: b64
     path: /etc/kubernetes/cloud-config
     permissions: 384
@@ -362,13 +356,8 @@ spec:
             exit 1
           fi
 
-
-          # get the full hostname
+           # get the full hostname
           FULL_HOSTNAME=$(hostname -f)
-          # if /etc/hostname is not empty then use the hostname from there
-          if [ -s /etc/hostname ]; then
-            FULL_HOSTNAME=$(cat /etc/hostname)
-          fi
 
           # write the nodeip_env file
           # we need the line below because flatcar has the same string "coreos" in that file
@@ -459,6 +448,8 @@ spec:
           clusterDNS:
           - "10.0.0.0"
           clusterDomain: cluster.local
+          containerLogMaxSize: 100Mi
+          containerLogMaxFiles: 5
           featureGates:
             GracefulNodeShutdown: true
             IdentifyPodOS: false
@@ -468,13 +459,18 @@ spec:
           serverTLSBootstrap: true
           staticPodPath: /etc/kubernetes/manifests
           kubeReserved:
-            cpu: 30m
-            ephemeral-storage: 30Gi
+            cpu: 200m
+            ephemeral-storage: 1Gi
+            memory: 200Mi
           systemReserved:
-            cpu: 30m
-            ephemeral-storage: 30Gi
+            cpu: 200m
+            ephemeral-storage: 1Gi
+            memory: 200Mi
           evictionHard:
-            memory.available: 30Mi
+            imagefs.available: 15%
+            memory.available: 100Mi
+            nodefs.available: 10%
+            nodefs.inodesFree: 5%
           tlsCipherSuites:
           - TLS_AES_128_GCM_SHA256
           - TLS_AES_256_GCM_SHA384
@@ -506,24 +502,51 @@ spec:
   - content:
       inline:
         data: |
-          [Service]
-          Restart=always
-          EnvironmentFile=-/etc/environment
-    path: /etc/systemd/system/containerd.service.d/environment.conf
+          runtime-endpoint: unix:///run/containerd/containerd.sock
+    path: /etc/crictl.yaml
   - content:
       inline:
         data: |
           [Service]
           Restart=always
           EnvironmentFile=-/etc/environment
-    path: /etc/systemd/system/docker.service.d/environment.conf
+    path: /etc/systemd/system/containerd.service.d/environment.conf
   - content:
       inline:
-        data: '{"exec-opts":["native.cgroupdriver=systemd"],"storage-driver":"overlay2","log-driver":"json-file","log-opts":{"max-file":"30","max-size":"300m"},"insecure-registries":["192.168.100.100:5000","10.0.0.1:5000"],"registry-mirrors":["https://registry.docker-cn.com"]}'
+        data: |+
+          version = 2
+
+          [metrics]
+          address = "127.0.0.1:1338"
+
+          [plugins]
+          [plugins."io.containerd.grpc.v1.cri"]
+          sandbox_image = "192.168.100.100:5000/kubernetes/pause:v3.1"
+          [plugins."io.containerd.grpc.v1.cri".containerd]
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+          runtime_type = "io.containerd.runc.v2"
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+          SystemdCgroup = true
+          [plugins."io.containerd.grpc.v1.cri".registry]
+          [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
+          [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
+          endpoint = ["https://registry.docker-cn.com"]
+          [plugins."io.containerd.grpc.v1.cri".registry.configs]
+          [plugins."io.containerd.grpc.v1.cri".registry.configs."10.0.0.1:5000"]
+          [plugins."io.containerd.grpc.v1.cri".registry.configs."10.0.0.1:5000".tls]
+          insecure_skip_verify = true
+          [plugins."io.containerd.grpc.v1.cri".registry.configs."192.168.100.100:5000"]
+          [plugins."io.containerd.grpc.v1.cri".registry.configs."192.168.100.100:5000".tls]
+          insecure_skip_verify = true
+
         encoding: b64
-    path: /etc/docker/daemon.json
-    permissions: 420
-  osName: ubuntu
-  osVersion: "20.04"
+    path: /etc/containerd/config.toml
+    permissions: 384
+  modules:
+    bootcmd:
+    - modprobe ip_tables
+  osName: rhel
+  osVersion: "8.4"
   userSSHKeys:
   - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c

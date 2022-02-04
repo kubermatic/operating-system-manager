@@ -91,6 +91,7 @@ type testConfig struct {
 	containerRuntime string
 	kubeVersion      string
 	clusterDNSIPs    []net.IP
+	podCIDRs         []string
 }
 
 func TestReconciler_Reconcile(t *testing.T) {
@@ -124,7 +125,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
 			cloudProvider:     "aws",
-			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"zone": "eu-central-1b", "vpc": "e-123f", "subnetID": "test-subnet"}`)},
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
 		},
 		{
 			name:            "Ubuntu OS in AWS with Docker",
@@ -142,7 +143,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
 			cloudProvider:     "aws",
-			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"zone": "eu-central-1b", "vpc": "e-123f", "subnetID": "test-subnet"}`)},
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
 		},
 		{
 			name:            "Flatcar OS in AWS with Containerd",
@@ -160,7 +161,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
 			cloudProvider:     "aws",
-			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"zone": "eu-central-1b", "vpc": "e-123f", "subnetID": "test-subnet"}`)},
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
 		},
 		{
 			name:            "Flatcar OS in AWS with docker",
@@ -178,7 +179,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
 			cloudProvider:     "aws",
-			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"cloud-config-key": "cloud-config-value"}`)},
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
 		},
 		{
 			name:            "RHEL OS in AWS with Containerd",
@@ -194,9 +195,29 @@ func TestReconciler_Reconcile(t *testing.T) {
 				containerRuntime: "containerd",
 				kubeVersion:      "1.22.1",
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
+				podCIDRs:         []string{"172.25.0.0/16", "fd00::/104"},
 			},
 			cloudProvider:     "aws",
-			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"zone": "eu-central-1b", "vpc": "e-123f", "subnetID": "test-subnet"}`)},
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
+		},
+		{
+			name:            "RHEL OS on Azure with Containerd",
+			ospFile:         "osp-rhel.yaml",
+			ospName:         "osp-rhel",
+			operatingSystem: providerconfigtypes.OperatingSystemRHEL,
+			oscFile:         "osc-rhel-8.x-azure-containerd.yaml",
+			oscName:         "osp-rhel-azure-kube-system-osc-provisioning",
+			mdName:          "osp-rhel-azure",
+			secretFile:      "secret-rhel-8.x-azure-containerd.yaml",
+			config: testConfig{
+				namespace:        "kube-system",
+				containerRuntime: "containerd",
+				kubeVersion:      "1.22.1",
+				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
+				podCIDRs:         []string{"172.25.0.0/16", "fd00::/104"},
+			},
+			cloudProvider:     "azure",
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"securityGroupName": "fake-sg"}`)},
 		},
 		{
 			name:            "Kubelet configuration with docker",
@@ -214,7 +235,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
 			cloudProvider:     "aws",
-			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"zone": "eu-central-1b", "vpc": "e-123f", "subnetID": "test-subnet"}`)},
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
 			additionalAnnotations: map[string]string{
 				"v1.kubelet-config.machine-controller.kubermatic.io/ContainerLogMaxSize":  "300Mi",
 				"v1.kubelet-config.machine-controller.kubermatic.io/ContainerLogMaxFiles": "30",
@@ -239,7 +260,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
 			cloudProvider:     "aws",
-			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"zone": "eu-central-1b", "vpc": "e-123f", "subnetID": "test-subnet"}`)},
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
 			additionalAnnotations: map[string]string{
 				"v1.kubelet-config.machine-controller.kubermatic.io/ContainerLogMaxSize":  "300Mi",
 				"v1.kubelet-config.machine-controller.kubermatic.io/ContainerLogMaxFiles": "30",
@@ -358,7 +379,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 				containerRuntime: "containerd",
 			},
 			cloudProvider:     "aws",
-			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"cloudProvider":"aws", "cloudProviderSpec":"test-provider-spec"}`)},
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
 		},
 	}
 
@@ -503,5 +524,6 @@ func buildReconciler(fakeClient client.Client, config testConfig) Reconciler {
 		containerRuntime:    config.containerRuntime,
 		clusterDNSIPs:       config.clusterDNSIPs,
 		kubeletFeatureGates: map[string]bool{"GracefulNodeShutdown": true, "IdentifyPodOS": false},
+		podCIDRs:            config.podCIDRs,
 	}
 }

@@ -29,7 +29,7 @@ echodate "Install machine controller in kind cluster..."
 kubectl apply -f $MACHINE_CONTROLLER_YAML
 
 # Build osm binary and load the Docker images into the kind cluster
-echodate "Building OSM binary for OSM_VERSION"
+echodate "Building OSM binary for $OSM_VERSION"
 TEST_NAME="Build OSM binary"
 
 beforeGoBuild=$(nowms)
@@ -50,10 +50,15 @@ echodate "Successfully built and loaded osm image"
 echodate "Install osm in kind cluster..."
 kubectl create namespace cloud-init-settings
 kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.7.1/cert-manager.yaml
-kubectl apply -f deploy/crd/crd-operating-system-config.yaml
-kubectl apply -f deploy/crd/crd-operating-system-profile.yaml
-kubectl apply -f deploy/cluster-role.yaml
 
-time retry 5 kubectl get secret cert-manager-webhook-ca -n cert-manager -oyaml |sed "s/namespace: cert-manager/namespace: kube-system/g" |kubectl apply -f -
+# Wait for cert-manager to be ready
+kubectl -n cert-manager rollout status deploy/cert-manager
+kubectl -n cert-manager rollout status deploy/cert-manager-cainjector
+kubectl -n cert-manager rollout status deploy/cert-manager-webhook
 
-make deploy
+# Install certificate
+kubectl apply -f deploy/certificate.yaml
+
+# Install resources
+kubectl apply -f deploy/crd/
+kubectl apply -f deploy/

@@ -70,6 +70,7 @@ spec:
                         - hetzner
                         - kubevirt
                         - linode
+                        - nutanix
                         - openstack
                         - equinixmetal
                         - vsphere
@@ -79,7 +80,6 @@ spec:
                         - scaleway
                         - baremetal
                         - external
-                        - nutanix
                     spec:
                       description: Spec represents the os/image reference in the supported cloud provider
                       type: object

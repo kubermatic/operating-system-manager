@@ -18,7 +18,6 @@ package resources
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -39,6 +38,7 @@ import (
 	"k8c.io/operating-system-manager/pkg/providerconfig/rhel"
 	"k8c.io/operating-system-manager/pkg/providerconfig/sles"
 	"k8c.io/operating-system-manager/pkg/providerconfig/ubuntu"
+	jsonutil "k8c.io/operating-system-manager/pkg/util/json"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -68,10 +68,11 @@ func GenerateOperatingSystemConfig(
 	nodeHTTPProxy string,
 	nodeNoProxy string,
 	nodePortRange string,
-	podCidr string,
+	podCIDRs []string,
 	containerRuntimeConfig containerruntime.Config,
 	kubeletFeatureGates map[string]bool,
 ) (*osmv1alpha1.OperatingSystemConfig, error) {
+	var err error
 	ospOriginal := osp.DeepCopy()
 
 	// Set metadata for OSC
@@ -83,9 +84,11 @@ func GenerateOperatingSystemConfig(
 	}
 
 	// Get providerConfig from machineDeployment
+	if len(md.Spec.Template.Spec.ProviderSpec.Value.Raw) == 0 {
+		return nil, fmt.Errorf("providerSpec cannot be empty")
+	}
 	providerConfig := providerconfigtypes.Config{}
-	err := json.Unmarshal(md.Spec.Template.Spec.ProviderSpec.Value.Raw, &providerConfig)
-	if err != nil {
+	if err = jsonutil.StrictUnmarshal(md.Spec.Template.Spec.ProviderSpec.Value.Raw, &providerConfig); err != nil {
 		return nil, fmt.Errorf("failed to decode provider configs: %w", err)
 	}
 
@@ -146,7 +149,7 @@ func GenerateOperatingSystemConfig(
 		ExternalCloudProvider:  externalCloudProvider,
 		PauseImage:             pauseImage,
 		InitialTaints:          initialTaints,
-		PodCIDR:                podCidr,
+		PodCIDRs:               podCIDRs,
 		NodePortRange:          nodePortRange,
 		ContainerRuntimeConfig: crConfig,
 		KubeletFeatureGates:    kubeletFeatureGates,
@@ -212,7 +215,7 @@ type filesData struct {
 	InitialTaints          string
 	HTTPProxy              *string
 	NoProxy                *string
-	PodCIDR                string
+	PodCIDRs               []string
 	NodePortRange          string
 	ContainerRuntimeConfig string
 	KubeletFeatureGates    map[string]bool

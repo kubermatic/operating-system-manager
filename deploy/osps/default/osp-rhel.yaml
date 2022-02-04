@@ -384,6 +384,7 @@ spec:
             net.ipv4.ip_forward = 1
             vm.overcommit_memory = 1
             fs.inotify.max_user_watches = 1048576
+            fs.inotify.max_user_instances = 8192
 
     - path: "/etc/selinux/config"
       content:
@@ -423,7 +424,9 @@ spec:
 
             {{ if eq .CloudProviderName "azure" }}
             yum update -y --disablerepo='*' --enablerepo='*microsoft*'
-            firewall-cmd --permanent --zone=trusted --add-source={{ .PodCIDR }}
+            {{- range $key, $val := .PodCIDRs }}
+            firewall-cmd --permanent --zone=trusted --add-source={{ $val }}
+            {{- end }}
             firewall-cmd --permanent --add-port=8472/udp
             firewall-cmd --permanent --add-port={{ .NodePortRange }}/tcp
             firewall-cmd --permanent --add-port={{ .NodePortRange }}/udp

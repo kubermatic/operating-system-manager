@@ -17,10 +17,10 @@ limitations under the License.
 package azure
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 
+	"github.com/kubermatic/machine-controller/pkg/jsonutil"
 	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
 	"k8c.io/operating-system-manager/pkg/cloudprovider/azure/types"
 	"k8c.io/operating-system-manager/pkg/providerconfig/config"
@@ -52,7 +52,7 @@ func getConfig(pconfig providerconfigtypes.Config) (*types.CloudConfig, error) {
 	}
 
 	rawConfig := types.RawConfig{}
-	if err := json.Unmarshal(pconfig.CloudProviderSpec.Raw, &rawConfig); err != nil {
+	if err := jsonutil.StrictUnmarshal(pconfig.CloudProviderSpec.Raw, &rawConfig); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal CloudProviderSpec: %w", err)
 	}
 

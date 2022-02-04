@@ -20,7 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	config "github.com/kinvolk/container-linux-config-transpiler/config"
+	config "github.com/flatcar-linux/container-linux-config-transpiler/config"
 )
 
 func toIgnition(s string) ([]byte, error) {
