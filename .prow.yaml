@@ -134,6 +134,28 @@ presubmits:
               memory: 1Gi
               cpu: 500m
 
+  - name: pull-osm-e2e-aws
+    always_run: true
+    decorate: true
+    error_on_eviction: true
+    clone_uri: "ssh://git@github.com/kubermatic/operating-system-manager.git"
+    labels:
+      preset-aws: "true"
+      preset-e2e-ssh: "true"
+      preset-goproxy: "true"
+    spec:
+      containers:
+        - image: quay.io/kubermatic/build:go-1.17-node-16-kind-0.11-7
+          command:
+            - "./hack/ci/run-e2e-tests.sh"
+          resources:
+            requests:
+              memory: 1Gi
+              cpu: 500m
+          securityContext:
+            privileged: true
+
+
 postsubmits:
   - name: post-operating-system-manager-image
     always_run: true
