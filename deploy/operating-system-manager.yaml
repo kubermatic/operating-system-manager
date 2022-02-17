@@ -13,15 +13,6 @@
 # limitations under the License.
 
 ---
-apiVersion: v1
-data:
-  kubeconfig: __worker_cluster_kubeconfig__
-kind: Secret
-metadata:
-  name: worker-cluster-kubeconfig
-  namespace: kube-system
-type: Opaque
----
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -35,6 +26,43 @@ rules:
       - get
       - list
       - watch
+  - apiGroups:
+      - "apps"
+    resources:
+      - "deployments"
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - "operatingsystemmanager.k8c.io"
+    resources:
+      - "operatingsystemprofiles"
+      - "operatingsystemconfigs"
+    verbs:
+      - "*"
+  - apiGroups:
+      - ""
+    resources:
+      - "events"
+    verbs:
+      - create
+      - patch
+  - apiGroups:
+      - ""
+    resources:
+      - "configmaps"
+    verbs:
+      - create
+      - update
+      - list
+      - get
+  - apiGroups:
+      - "coordination.k8s.io"
+    resources:
+      - "leases"
+    verbs:
+      - "*"
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -161,11 +189,6 @@ spec:
             - -metrics-address=0.0.0.0:8080
             - -health-probe-address=0.0.0.0:8085
             - -namespace=kube-system
-            - -worker-cluster-kubeconfig=/etc/kubernetes/kubeconfig/kubeconfig
-          volumeMounts:
-            - mountPath: /etc/kubernetes/kubeconfig
-              name: worker-cluster-kubeconfig
-              readOnly: true
           ports:
             - containerPort: 8085
           livenessProbe:
@@ -186,8 +209,3 @@ spec:
             limits:
               memory: 256Mi
               cpu: 100m
-      volumes:
-        - name: worker-cluster-kubeconfig
-          secret:
-            defaultMode: 420
-            secretName: worker-cluster-kubeconfig

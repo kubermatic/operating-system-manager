@@ -49,6 +49,10 @@ echodate "Successfully built and loaded osm image"
 
 echodate "Install osm in kind cluster..."
 kubectl create namespace cloud-init-settings
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.7.1/cert-manager.yaml
 kubectl apply -f deploy/crd/crd-operating-system-config.yaml
 kubectl apply -f deploy/crd/crd-operating-system-profile.yaml
-kubectl apply -f deploy/operating-system-manager.yaml
+time retry 5 kubectl get secret cert-manager-webhook-ca -n cert-manager -oyaml |sed "s/namespace: cert-manager/namespace: kube-system/g" |kubectl apply -f -
+make deploy
+
+sleep 2200
