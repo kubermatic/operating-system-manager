@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The Operating System Manager contributors.
+Copyright 2021 The Operating System Manager contributors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,10 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package validation
+package admission
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -45,7 +44,7 @@ func TestMachineDeploymentValidation(t *testing.T) {
 		WithObjects(osp).
 		Build()
 
-	ah := AdmissionHandler{
+	ad := admissionData{
 		client:    fakeClient,
 		namespace: "default",
 	}
@@ -84,7 +83,7 @@ func TestMachineDeploymentValidation(t *testing.T) {
 	for _, tc := range tests {
 		tc := tc // scopelint fix
 		t.Run(tc.name, func(t *testing.T) {
-			errs := ValidateMachineDeployment(context.TODO(), tc.machineDeployment, ah.client, ah.namespace)
+			errs := ValidateMachineDeployment(tc.machineDeployment, ad.client, ad.namespace)
 			if errs != nil && len(tc.expectedError) == 0 {
 				t.Errorf("didn't expect err but got %v", errs)
 				return

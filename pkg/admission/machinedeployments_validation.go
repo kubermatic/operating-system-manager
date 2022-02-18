@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The Operating System Manager contributors.
+Copyright 2021 The Operating System Manager contributors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,94 +14,25 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package validation
+package admission
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 
-	"github.com/go-logr/logr"
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
 	"k8c.io/operating-system-manager/pkg/controllers/osc/resources"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 
-	admissionv1 "k8s.io/api/admission/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	ctrl "sigs.k8s.io/controller-runtime"
 	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-// AdmissionHandler for validating MachineDeployment CRD.
-type AdmissionHandler struct {
-	log     logr.Logger
-	decoder *admission.Decoder
-
-	client    ctrlruntimeclient.Client
-	namespace string
-}
-
-// NewAdmissionHandler returns a new validation AdmissionHandler.
-func NewAdmissionHandler(client ctrlruntimeclient.Client, namespace string) *AdmissionHandler {
-	return &AdmissionHandler{}
-}
-
-func (h *AdmissionHandler) SetupWebhookWithManager(mgr ctrl.Manager) {
-	mgr.GetWebhookServer().Register("/machinedeployment", &webhook.Admission{Handler: h})
-}
-
-func (h *AdmissionHandler) InjectLogger(l logr.Logger) error {
-	h.log = l.WithName("machine-deployment-validation-handler")
-	return nil
-}
-
-func (h *AdmissionHandler) InjectDecoder(d *admission.Decoder) error {
-	h.decoder = d
-	return nil
-}
-
-func (h *AdmissionHandler) Handle(ctx context.Context, req webhook.AdmissionRequest) webhook.AdmissionResponse {
-	allErrs := field.ErrorList{}
-	md := &clusterv1alpha1.MachineDeployment{}
-
-	switch req.Operation {
-	case admissionv1.Create:
-		if err := h.decoder.Decode(req, md); err != nil {
-			return admission.Errored(http.StatusBadRequest, err)
-		}
-		allErrs = append(allErrs, h.validateMachineDeployments(ctx, *md)...)
-
-	case admissionv1.Update:
-		if err := h.decoder.Decode(req, md); err != nil {
-			return admission.Errored(http.StatusBadRequest, fmt.Errorf("error occurred while decoding machinedeployment: %w", err))
-		}
-		allErrs = append(allErrs, h.validateMachineDeployments(ctx, *md)...)
-
-	case admissionv1.Delete:
-		// NOP we don't need validations for delete operations
-
-	default:
-		return admission.Errored(http.StatusBadRequest, fmt.Errorf("%s not supported on machinedeployment resources", req.Operation))
-	}
-
-	if len(allErrs) > 0 {
-		return webhook.Denied(fmt.Sprintf("machinedeployment validation request %s denied: %v", req.UID, allErrs))
-	}
-
-	return webhook.Allowed(fmt.Sprintf("machinedeployment validation request %s allowed", req.UID))
-}
-
-func (h *AdmissionHandler) validateMachineDeployments(ctx context.Context, md clusterv1alpha1.MachineDeployment) field.ErrorList {
-	return ValidateMachineDeployment(ctx, md, h.client, h.namespace)
-}
-
-func ValidateMachineDeployment(ctx context.Context, md clusterv1alpha1.MachineDeployment, client ctrlruntimeclient.Client, namespace string) field.ErrorList {
+func ValidateMachineDeployment(md clusterv1alpha1.MachineDeployment, client ctrlruntimeclient.Client, namespace string) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	ospName := md.Annotations[resources.MachineDeploymentOSPAnnotation]
@@ -112,7 +43,7 @@ func ValidateMachineDeployment(ctx context.Context, md clusterv1alpha1.MachineDe
 	}
 
 	osp := &osmv1alpha1.OperatingSystemProfile{}
-	err := client.Get(ctx, types.NamespacedName{Name: ospName, Namespace: namespace}, osp)
+	err := client.Get(context.TODO(), types.NamespacedName{Name: ospName, Namespace: namespace}, osp)
 	if err != nil && !kerrors.IsNotFound(err) {
 		if kerrors.IsNotFound(err) {
 			allErrs = append(allErrs, field.Invalid(field.NewPath("metadata", "annotations", resources.MachineDeploymentOSPAnnotation), ospName, "OperatingSystemProfile  not found"))
