@@ -133,8 +133,8 @@ presubmits:
             requests:
               memory: 1Gi
               cpu: 500m
-
-  - name: pull-osm-e2e-aws
+  # This is a temporary test, which makes sure that the osm and osm-webhook is correctly installed.
+  - name: pull-operating-system-manager-build
     always_run: true
     decorate: true
     error_on_eviction: true
