@@ -18,7 +18,6 @@ package main
 
 import (
 	"flag"
-
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/admission"
 	"k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
