@@ -18,13 +18,17 @@ package generator
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"text/template"
 
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 )
 
-const defaultUnitsPath = "/etc/systemd/system/"
+const (
+	defaultUnitsPath = "/etc/systemd/system/"
+	base64Encoding   = "b64"
+)
 
 // CloudConfigGenerator generates the machine provisioning configurations for the corresponding operating system config
 type CloudConfigGenerator interface {
@@ -50,9 +54,14 @@ func NewDefaultCloudConfigGenerator(unitsPath string) CloudConfigGenerator {
 func (d *DefaultCloudConfigGenerator) Generate(osc *osmv1alpha1.OperatingSystemConfig) ([]byte, error) {
 	var files []*fileSpec
 	for _, file := range osc.Spec.Files {
+		content := file.Content.Inline.Data
+		if file.Content.Inline.Encoding == base64Encoding {
+			content = base64.StdEncoding.EncodeToString([]byte(file.Content.Inline.Data))
+		}
+
 		fSpec := &fileSpec{
 			Path:    file.Path,
-			Content: file.Content.Inline.Data,
+			Content: content,
 		}
 		if file.Permissions != nil {
 			permissions := fmt.Sprintf("%04o", *file.Permissions)
