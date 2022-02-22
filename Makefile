@@ -88,7 +88,7 @@ build: $(CMD)
 $(CMD): %: $(BUILD_DEST)/%
 
 $(BUILD_DEST)/%: cmd/%
-	go build -o $@ ./cmd/$*
+	go build -v -o $@ ./cmd/$*
 
 .PHONY: run
 run:
