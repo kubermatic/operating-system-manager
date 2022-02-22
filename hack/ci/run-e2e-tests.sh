@@ -39,3 +39,10 @@ beforeOSMSetup=$(nowms)
 source hack/ci/setup-osm-in-kind.sh
 pushElapsed kind_osm_setup_duration_milliseconds $beforeOSMSetup
 
+echo "Running e2e tests..."
+EXTRA_ARGS=""
+if [[ $# -gt 0 ]]; then
+  EXTRA_ARGS="-run $1"
+fi
+go test -race -tags=e2e -parallel 240 -v -timeout 70m ./test/e2e/... -identifier=$BUILD_ID $EXTRA_ARGS
+

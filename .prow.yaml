@@ -134,7 +134,7 @@ presubmits:
               memory: 1Gi
               cpu: 500m
   # This is a temporary test, which makes sure that the osm and osm-webhook is correctly installed.
-  - name: pull-operating-system-manager-build
+  - name: pull-operating-system-manager-aws
     always_run: true
     decorate: true
     error_on_eviction: true
@@ -148,6 +148,8 @@ presubmits:
         - image: quay.io/kubermatic/build:go-1.17-node-16-kind-0.11-7
           command:
             - "./hack/ci/run-e2e-tests.sh"
+          args:
+            - "TestOSMProvisioningAWS"
           resources:
             requests:
               memory: 1Gi
