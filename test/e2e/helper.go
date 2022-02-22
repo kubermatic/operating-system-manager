@@ -34,18 +34,18 @@ var (
 
 	versions = []*semver.Version{
 		semver.MustParse("v1.20.14"),
-		semver.MustParse("v1.21.8"),
-		semver.MustParse("v1.22.5"),
-		semver.MustParse("v1.23.0"),
+		//semver.MustParse("v1.21.8"),
+		//semver.MustParse("v1.22.5"),
+		//semver.MustParse("v1.23.0"),
 	}
 
 	operatingSystems = []providerconfigtypes.OperatingSystem{
 		providerconfigtypes.OperatingSystemUbuntu,
-		providerconfigtypes.OperatingSystemCentOS,
-		providerconfigtypes.OperatingSystemAmazonLinux2,
-		providerconfigtypes.OperatingSystemSLES,
-		providerconfigtypes.OperatingSystemRHEL,
-		providerconfigtypes.OperatingSystemFlatcar,
+		//providerconfigtypes.OperatingSystemCentOS,
+		//providerconfigtypes.OperatingSystemAmazonLinux2,
+		//providerconfigtypes.OperatingSystemSLES,
+		//providerconfigtypes.OperatingSystemRHEL,
+		//providerconfigtypes.OperatingSystemFlatcar,
 	}
 
 	openStackImages = map[string]string{

@@ -74,27 +74,6 @@ presubmits:
               memory: 1Gi
               cpu: 1
 
-  - name: pull-operating-system-manager-license-validation
-    always_run: true
-    decorate: true
-    clone_uri: "ssh://git@github.com/kubermatic/operating-system-manager.git"
-    labels:
-      preset-goproxy: "true"
-    spec:
-      containers:
-        - image: quay.io/kubermatic/wwhrd:0.2.1-1
-          command:
-            - make
-          args:
-            - verify-licence
-          resources:
-            requests:
-              memory: 1Gi
-              cpu: 1
-            limits:
-              memory: 2Gi
-              cpu: 2
-
   - name: pull-operating-system-manager-lint
     always_run: true
     decorate: true

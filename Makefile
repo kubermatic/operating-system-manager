@@ -144,12 +144,6 @@ deploy: hack/ci/testdata/admission-cert.pem
 		|sed "s/__worker_cluster_kubeconfig__/$(shell cat ~/.kube/config|$(BASE64_ENC))/g" \
 		|kubectl apply -f -
 
-	@cat deploy/operating-system-manager-webhook.yaml \
-         		|sed "s/__admission_cert__/$(shell cat hack/ci/testdata/admission-cert.pem|$(BASE64_ENC))/g" \
-         		|sed "s/__admission_key__/$(shell cat hack/ci/testdata/admission-key.pem|$(BASE64_ENC))/g" \
-         		|sed "s/__admission_ca_cert__/$(shell cat hack/ci/testdata/ca-cert.pem|$(BASE64_ENC))/g" \
-         		|kubectl apply -f -
-
 .PHONY: docker-image
 docker-image:
 	docker build --build-arg GO_VERSION=$(GO_VERSION) -t $(IMAGE_NAME) .
