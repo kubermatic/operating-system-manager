@@ -258,6 +258,7 @@ spec:
             - -cluster-dns=10.10.10.10
             - -metrics-address=0.0.0.0:8080
             - -health-probe-address=0.0.0.0:8085
+            - -use-osm
             # Machines that fail to join the cluster within this timeout and
             # are owned by a MachineSet will get deleted so the MachineSet
             # controller re-creates them

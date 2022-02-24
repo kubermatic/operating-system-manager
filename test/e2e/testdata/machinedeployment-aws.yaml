@@ -41,7 +41,7 @@ spec:
             tags:
               # you have to set this flag to real clusterID when running against our dev or prod
               # otherwise you might have issues with your nodes not joining the cluster
-              "KubernetesCluster": "randomString"
+              "KubernetesCluster": "osm-e2e-tests"
             # Disabling the public IP assignment requires a private subnet with internet access.
             assignPublicIP: true
           # Can be 'ubuntu', 'centos' or 'sles'
