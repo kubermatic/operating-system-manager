@@ -33,6 +33,14 @@ spec:
   supportedContainerRuntimes:
     - name: containerd
       files:
+        - path: "/etc/systemd/system/containerd.service.d/environment.conf"
+          content:
+            inline:
+              data: |
+                [Service]
+                Restart=always
+                EnvironmentFile=-/etc/environment
+
         - path: "/etc/crictl.yaml"
           content:
             inline:
@@ -64,6 +72,22 @@ spec:
 
     - name: docker
       files:
+        - path: "/etc/systemd/system/containerd.service.d/environment.conf"
+          content:
+            inline:
+              data: |
+                [Service]
+                Restart=always
+                EnvironmentFile=-/etc/environment
+
+        - path: "/etc/systemd/system/docker.service.d/environment.conf"
+          content:
+            inline:
+              data: |
+                [Service]
+                Restart=always
+                EnvironmentFile=-/etc/environment
+
         - path: /etc/docker/daemon.json
           permissions: 0644
           content:
@@ -200,35 +224,6 @@ spec:
       {{- end }}
 
   files:
-    - path: /etc/environment
-      content:
-        inline:
-          data: |
-            {{- if .HTTPProxy }}
-            HTTP_PROXY={{ .HTTPProxy }}
-            http_proxy={{ .HTTPProxy }}
-            HTTPS_PROXY={{ .HTTPProxy }}
-            https_proxy={{ .HTTPProxy }}
-            NO_PROXY={{ .NoProxy }}
-            no_proxy={{ .NoProxy }}
-            {{- end }}
-
-    - path: "/etc/systemd/system/containerd.service.d/environment.conf"
-      content:
-        inline:
-          data: |
-            [Service]
-            Restart=always
-            EnvironmentFile=-/etc/environment
-
-    - path: "/etc/systemd/system/docker.service.d/environment.conf"
-      content:
-        inline:
-          data: |
-            [Service]
-            Restart=always
-            EnvironmentFile=-/etc/environment
-
     - path: "/opt/bin/health-monitor.sh"
       permissions: 0755
       content:

@@ -32,6 +32,14 @@ spec:
               data: |
                 runtime-endpoint: unix:///run/containerd/containerd.sock
 
+        - path: "/etc/systemd/system/containerd.service.d/environment.conf"
+          content:
+            inline:
+              data: |
+                [Service]
+                Restart=always
+                EnvironmentFile=-/etc/environment
+
         - path: "/etc/containerd/config.toml"
           permissions: 0600
           content:
@@ -51,6 +59,22 @@ spec:
 
     - name: docker
       files:
+        - path: "/etc/systemd/system/containerd.service.d/environment.conf"
+          content:
+            inline:
+              data: |
+                [Service]
+                Restart=always
+                EnvironmentFile=-/etc/environment
+
+        - path: "/etc/systemd/system/docker.service.d/environment.conf"
+          content:
+            inline:
+              data: |
+                [Service]
+                Restart=always
+                EnvironmentFile=-/etc/environment
+
         - path: /etc/docker/daemon.json
           permissions: 0644
           content:
@@ -182,22 +206,6 @@ spec:
       {{- end }}
 
   files:
-    - path: "/etc/systemd/system/containerd.service.d/environment.conf"
-      content:
-        inline:
-          data: |
-            [Service]
-            Restart=always
-            EnvironmentFile=-/etc/environment
-
-    - path: "/etc/systemd/system/docker.service.d/environment.conf"
-      content:
-        inline:
-          data: |
-            [Service]
-            Restart=always
-            EnvironmentFile=-/etc/environment
-
     - path: "/opt/bin/health-monitor.sh"
       permissions: 0755
       content:

@@ -38,6 +38,14 @@ spec:
               data: |
                 {{ .ContainerRuntimeConfig }}
 
+        - path: "/etc/systemd/system/containerd.service.d/environment.conf"
+          content:
+            inline:
+              data: |
+                [Service]
+                Restart=always
+                EnvironmentFile=-/etc/environment
+
         - path: /etc/systemd/system/containerd.service.d/10-custom.conf
           content:
             inline:
@@ -56,6 +64,22 @@ spec:
 
     - name: docker
       files:
+        - path: "/etc/systemd/system/containerd.service.d/environment.conf"
+          content:
+            inline:
+              data: |
+                [Service]
+                Restart=always
+                EnvironmentFile=-/etc/environment
+
+        - path: "/etc/systemd/system/docker.service.d/environment.conf"
+          content:
+            inline:
+              data: |
+                [Service]
+                Restart=always
+                EnvironmentFile=-/etc/environment
+
         - path: /etc/docker/daemon.json
           permissions: 0644
           content:
@@ -367,35 +391,6 @@ spec:
             {{ range .NetworkConfig.DNS.Servers }}DNS={{ . }}
             {{ end }}
             {{- end }}
-
-    - path: /etc/environment
-      content:
-        inline:
-          data: |
-            {{- if .HTTPProxy }}
-            HTTP_PROXY={{ .HTTPProxy }}
-            http_proxy={{ .HTTPProxy }}
-            HTTPS_PROXY={{ .HTTPProxy }}
-            https_proxy={{ .HTTPProxy }}
-            NO_PROXY={{ .NoProxy }}
-            no_proxy={{ .NoProxy }}
-            {{- end }}
-
-    - path: "/etc/systemd/system/containerd.service.d/environment.conf"
-      content:
-        inline:
-          data: |
-            [Service]
-            Restart=always
-            EnvironmentFile=-/etc/environment
-
-    - path: "/etc/systemd/system/docker.service.d/environment.conf"
-      content:
-        inline:
-          data: |
-            [Service]
-            Restart=always
-            EnvironmentFile=-/etc/environment
 
     - path: /etc/systemd/journald.conf.d/max_disk_use.conf
       content:

@@ -36,6 +36,14 @@ spec:
               data: |
                 runtime-endpoint: unix:///run/containerd/containerd.sock
 
+        - path: "/etc/systemd/system/containerd.service.d/environment.conf"
+          content:
+            inline:
+              data: |
+                [Service]
+                Restart=always
+                EnvironmentFile=-/etc/environment
+
         - path: "/etc/containerd/config.toml"
           permissions: 0600
           content:
@@ -61,6 +69,22 @@ spec:
 
     - name: docker
       files:
+        - path: "/etc/systemd/system/containerd.service.d/environment.conf"
+          content:
+            inline:
+              data: |
+                [Service]
+                Restart=always
+                EnvironmentFile=-/etc/environment
+
+        - path: "/etc/systemd/system/docker.service.d/environment.conf"
+          content:
+            inline:
+              data: |
+                [Service]
+                Restart=always
+                EnvironmentFile=-/etc/environment
+
         - path: /etc/docker/daemon.json
           permissions: 0644
           content:
@@ -184,36 +208,19 @@ spec:
           ln -sf "$kube_dir/$bin" "$opt_bin"/$bin
       done
 
+    configureProxyScript: |-
+      {{- if .HTTPProxy }}
+      cat <<EOF | tee -a /etc/environment
+      HTTP_PROXY={{ .HTTPProxy }}
+      http_proxy={{ .HTTPProxy }}
+      HTTPS_PROXY={{ .HTTPProxy }}
+      https_proxy={{ .HTTPProxy }}
+      NO_PROXY={{ .NoProxy }}
+      no_proxy={{ .NoProxy }}
+      EOF
+      {{- end }}
+
   files:
-    - path: /etc/environment
-      content:
-        inline:
-          data: |
-            {{- if .HTTPProxy }}
-            HTTP_PROXY={{ .HTTPProxy }}
-            http_proxy={{ .HTTPProxy }}
-            HTTPS_PROXY={{ .HTTPProxy }}
-            https_proxy={{ .HTTPProxy }}
-            NO_PROXY={{ .NoProxy }}
-            no_proxy={{ .NoProxy }}
-            {{- end }}
-
-    - path: "/etc/systemd/system/containerd.service.d/environment.conf"
-      content:
-        inline:
-          data: |
-            [Service]
-            Restart=always
-            EnvironmentFile=-/etc/environment
-
-    - path: "/etc/systemd/system/docker.service.d/environment.conf"
-      content:
-        inline:
-          data: |
-            [Service]
-            Restart=always
-            EnvironmentFile=-/etc/environment
-
     - path: "/opt/bin/health-monitor.sh"
       permissions: 0755
       content:
@@ -451,6 +458,8 @@ spec:
             {{- template "containerRuntimeInstallation" }}
 
             {{- template "safeDownloadBinariesScript" }}
+
+            {{- template "configureProxyScript" }}
 
             mkdir -p /etc/systemd/system/kubelet.service.d/
             # set kubelet nodeip environment variable
