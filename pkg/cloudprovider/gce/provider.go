@@ -31,12 +31,12 @@ import (
 func GetCloudConfig(pconfig providerconfigtypes.Config) (string, error) {
 	c, err := getConfig(pconfig)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse config: %v", err)
+		return "", fmt.Errorf("failed to parse config: %w", err)
 	}
 
 	s, err := c.ToString()
 	if err != nil {
-		return "", fmt.Errorf("failed to convert cloud-config to string: %v", err)
+		return "", fmt.Errorf("failed to convert cloud-config to string: %w", err)
 	}
 
 	return s, nil
@@ -48,7 +48,7 @@ func getConfig(pconfig providerconfigtypes.Config) (*types.CloudConfig, error) {
 
 	rawConfig := types.RawConfig{}
 	if err := json.Unmarshal(pconfig.CloudProviderSpec.Raw, &rawConfig); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal CloudProviderSpec: %v", err)
+		return nil, fmt.Errorf("failed to unmarshal CloudProviderSpec: %w", err)
 	}
 
 	var (
@@ -63,26 +63,26 @@ func getConfig(pconfig providerconfigtypes.Config) (*types.CloudConfig, error) {
 	}
 	opts.LocalZone, err = config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.Zone)
 	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve zone: %v", err)
+		return nil, fmt.Errorf("cannot retrieve zone: %w", err)
 	}
 
 	opts.MultiZone, _, err = config.GetConfigVarResolver().GetConfigVarBoolValue(rawConfig.MultiZone)
 	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve multizone: %v", err)
+		return nil, fmt.Errorf("failed to retrieve multizone: %w", err)
 	}
 	opts.Regional, _, err = config.GetConfigVarResolver().GetConfigVarBoolValue(rawConfig.Regional)
 	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve regional: %v", err)
+		return nil, fmt.Errorf("failed to retrieve regional: %w", err)
 	}
 
 	opts.NetworkName, err = config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.Network)
 	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve network: %v", err)
+		return nil, fmt.Errorf("cannot retrieve network: %w", err)
 	}
 
 	opts.SubnetworkName, err = config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.Subnetwork)
 	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve subnetwork: %v", err)
+		return nil, fmt.Errorf("cannot retrieve subnetwork: %w", err)
 	}
 
 	opts.ProjectID, err = getProjectID(rawConfig)
@@ -100,17 +100,17 @@ func getConfig(pconfig providerconfigtypes.Config) (*types.CloudConfig, error) {
 func getProjectID(rawConfig types.RawConfig) (string, error) {
 	serviceAccount, err := config.GetConfigVarResolver().GetConfigVarStringValueOrEnv(rawConfig.ServiceAccount, "GOOGLE_SERVICE_ACCOUNT")
 	if err != nil {
-		return "", fmt.Errorf("cannot retrieve service account: %v", err)
+		return "", fmt.Errorf("cannot retrieve service account: %w", err)
 	}
 
 	sa, err := base64.StdEncoding.DecodeString(serviceAccount)
 	if err != nil {
-		return "", fmt.Errorf("failed to decode base64 service account: %v", err)
+		return "", fmt.Errorf("failed to decode base64 service account: %w", err)
 	}
 	sam := map[string]string{}
 	err = json.Unmarshal(sa, &sam)
 	if err != nil {
-		return "", fmt.Errorf("failed unmarshalling service account: %v", err)
+		return "", fmt.Errorf("failed unmarshalling service account: %w", err)
 	}
 	return sam["project_id"], nil
 }

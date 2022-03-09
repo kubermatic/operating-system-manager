@@ -86,7 +86,7 @@ func GenerateOperatingSystemConfig(
 	providerConfig := providerconfigtypes.Config{}
 	err := json.Unmarshal(md.Spec.Template.Spec.ProviderSpec.Value.Raw, &providerConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode provider configs: %v", err)
+		return nil, fmt.Errorf("failed to decode provider configs: %w", err)
 	}
 
 	var cloudConfig string
@@ -95,7 +95,7 @@ func GenerateOperatingSystemConfig(
 	} else {
 		cloudConfig, err = cloudprovider.GetCloudConfig(providerConfig, md.Spec.Template.Spec.Versions.Kubelet)
 		if err != nil {
-			return nil, fmt.Errorf("failed to fetch cloud-config: %v", err)
+			return nil, fmt.Errorf("failed to fetch cloud-config: %w", err)
 		}
 	}
 
@@ -165,18 +165,18 @@ func GenerateOperatingSystemConfig(
 
 	err = setOperatingSystemConfig(providerConfig.OperatingSystem, providerConfig.OperatingSystemSpec, &data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to add operating system spec: %v", err)
+		return nil, fmt.Errorf("failed to add operating system spec: %w", err)
 	}
 
 	// Handle files
 	osp.Spec.Files = append(osp.Spec.Files, selectAdditionalFiles(osp, containerRuntime)...)
 	additionalTemplates, err := selectAdditionalTemplates(osp, containerRuntime, data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to add OSP templates: %v", err)
+		return nil, fmt.Errorf("failed to add OSP templates: %w", err)
 	}
 	populatedFiles, err := populateFilesList(osp.Spec.Files, additionalTemplates, data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to populate OSP file template: %v", err)
+		return nil, fmt.Errorf("failed to populate OSP file template: %w", err)
 	}
 
 	osc.Spec = osmv1alpha1.OperatingSystemConfigSpec{
@@ -244,7 +244,7 @@ func populateFilesList(files []osmv1alpha1.File, additionalTemplates []string, d
 		content := file.Content.Inline.Data
 		tmpl, err := template.New(file.Path).Parse(content)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse OSP file [%s] template: %v", file.Path, err)
+			return nil, fmt.Errorf("failed to parse OSP file [%s] template: %w", file.Path, err)
 		}
 
 		for _, at := range additionalTemplates {
@@ -301,7 +301,7 @@ func selectAdditionalTemplates(osp *osmv1alpha1.OperatingSystemProfile, containe
 	for name, t := range templatesToRender {
 		tmpl, err := template.New(name).Parse(t)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse OSP template [%s]: %v", name, err)
+			return nil, fmt.Errorf("failed to parse OSP template [%s]: %w", name, err)
 		}
 
 		buff := bytes.Buffer{}
@@ -367,7 +367,6 @@ func setOperatingSystemConfig(os providerconfigtypes.OperatingSystem, operatingS
 }
 
 func getKubeletConfigs(annotations map[string]string) kubeletConfig {
-
 	var cfg kubeletConfig
 	kubeletConfigs := common.GetKubeletConfigs(annotations)
 	if len(kubeletConfigs) == 0 {

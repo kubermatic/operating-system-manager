@@ -28,17 +28,17 @@ import (
 func (ad *admissionData) validateOperatingSystemConfigs(ar admissionv1.AdmissionRequest) (*admissionv1.AdmissionResponse, error) {
 	osc := osmv1alpha1.OperatingSystemConfig{}
 	if err := json.Unmarshal(ar.Object.Raw, &osc); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal: %v", err)
+		return nil, fmt.Errorf("failed to unmarshal: %w", err)
 	}
 
 	// Do not validate the spec if it hasn't changed
 	if ar.Operation == admissionv1.Update {
 		var oscOld osmv1alpha1.OperatingSystemConfig
 		if err := json.Unmarshal(ar.OldObject.Raw, &oscOld); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal OldObject: %v", err)
+			return nil, fmt.Errorf("failed to unmarshal OldObject: %w", err)
 		}
 		if errs := ValidateOperatingSystemConfigUpdate(oscOld, osc); errs != nil {
-			return nil, fmt.Errorf("validation failed for update: %v", errs)
+			return nil, fmt.Errorf("validation failed for update: %w", errs)
 		}
 	}
 	return createAdmissionResponse(true), nil

@@ -477,11 +477,11 @@ func generateMachineDeployment(t *testing.T, name, namespace, osp string, os pro
 func loadFile(obj runtime.Object, name string) error {
 	path, err := filepath.Abs(filepath.Join("testdata", name))
 	if err != nil {
-		return fmt.Errorf("failed to get absolute path to testdata %s: %v", name, err)
+		return fmt.Errorf("failed to get absolute path to testdata %s: %w", name, err)
 	}
 	objBytes, err := ioutil.ReadFile(path)
 	if err != nil {
-		return fmt.Errorf("failed to read testdata file: %v", err)
+		return fmt.Errorf("failed to read testdata file: %w", err)
 	}
 
 	err = yaml.Unmarshal(objBytes, obj)

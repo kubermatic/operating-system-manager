@@ -143,5 +143,4 @@ func TestOpeartingSystemConfigValidation(t *testing.T) {
 			}
 		})
 	}
-
 }

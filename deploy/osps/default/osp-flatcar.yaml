@@ -329,7 +329,6 @@ spec:
 
             function kubelet_monitoring() {
               echo "Wait for 2 minutes for kubelet to be functional"
-              # TODO(andyzheng0831): replace it with a more reliable method if possible.
               sleep 120
               local -r max_seconds=10
               local output=""

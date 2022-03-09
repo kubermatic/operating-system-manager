@@ -133,12 +133,12 @@ func main() {
 	// Parse flags
 	parsedClusterDNSIPs, err := parseClusterDNSIPs(opt.clusterDNSIPs)
 	if err != nil {
-		klog.Fatalf("invalid cluster dns specified: %v", err)
+		klog.Fatalf("invalid cluster dns specified: %w", err)
 	}
 
 	parsedKubeletFeatureGates, err := parseKubeletFeatureGates(opt.kubeletFeatureGates)
 	if err != nil {
-		klog.Fatalf("invalid kubelet feature gates specified: %v", err)
+		klog.Fatalf("invalid kubelet feature gates specified: %w", err)
 	}
 
 	containerRuntimeOpts := containerruntime.Opts{
@@ -151,7 +151,7 @@ func main() {
 	}
 	containerRuntimeConfig, err := containerruntime.BuildConfig(containerRuntimeOpts)
 	if err != nil {
-		klog.Fatalf("failed to generate container runtime config: %v", err)
+		klog.Fatalf("failed to generate container runtime config: %w", err)
 	}
 
 	logger, err := zap.NewProduction()
@@ -163,7 +163,7 @@ func main() {
 	// Create manager with client against in-cluster config
 	mgr, err := createManager(opt)
 	if err != nil {
-		klog.Fatalf("failed to create runtime manager: %v", err)
+		klog.Fatalf("failed to create runtime manager: %w", err)
 	}
 
 	// Start with assuming that current cluster will be used as worker cluster
@@ -184,7 +184,7 @@ func main() {
 			Scheme: scheme.Scheme,
 		})
 		if err != nil {
-			klog.Fatalf("failed to build worker client: %v", err)
+			klog.Fatalf("failed to build worker client: %w", err)
 		}
 
 		workerMgr, err = manager.New(workerClusterConfig, manager.Options{
@@ -272,15 +272,15 @@ func createManager(opt *options) (manager.Manager, error) {
 
 	mgr, err := manager.New(config.GetConfigOrDie(), options)
 	if err != nil {
-		return nil, fmt.Errorf("error building ctrlruntime manager: %v", err)
+		return nil, fmt.Errorf("error building ctrlruntime manager: %w", err)
 	}
 
 	// Add health endpoints
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
-		return nil, fmt.Errorf("failed to add health check: %v", err)
+		return nil, fmt.Errorf("failed to add health check: %w", err)
 	}
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
-		return nil, fmt.Errorf("failed to add readiness check: %v", err)
+		return nil, fmt.Errorf("failed to add readiness check: %w", err)
 	}
 	return mgr, nil
 }

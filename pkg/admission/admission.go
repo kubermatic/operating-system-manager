@@ -70,13 +70,13 @@ func handleFuncFactory(validate validator) func(http.ResponseWriter, *http.Reque
 	return func(w http.ResponseWriter, r *http.Request) {
 		review, err := readReview(r)
 		if err != nil {
-			klog.Warningf("invalid admission review: %v", err)
+			klog.Warningf("invalid admission review: %w", err)
 
 			// proper AdmissionReview responses require metadata that is not available
 			// in broken requests, so we return a basic failure response
 			w.WriteHeader(http.StatusBadRequest)
 			if _, err := w.Write([]byte(fmt.Sprintf("invalid request: %v", err))); err != nil {
-				klog.Errorf("failed to write badRequest: %v", err)
+				klog.Errorf("failed to write badRequest: %w", err)
 			}
 			return
 		}
@@ -97,12 +97,12 @@ func handleFuncFactory(validate validator) func(http.ResponseWriter, *http.Reque
 			Response: response,
 		})
 		if err != nil {
-			klog.Errorf("failed to marshal admissionResponse: %v", err)
+			klog.Errorf("failed to marshal admissionResponse: %w", err)
 			return
 		}
 
 		if _, err := w.Write(resp); err != nil {
-			klog.Errorf("failed to write admissionResponse: %v", err)
+			klog.Errorf("failed to write admissionResponse: %w", err)
 		}
 	}
 }
@@ -114,7 +114,7 @@ func readReview(r *http.Request) (*admissionv1.AdmissionReview, error) {
 	}
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		return nil, fmt.Errorf("error reading data from request body: %v", err)
+		return nil, fmt.Errorf("error reading data from request body: %w", err)
 	}
 
 	// verify the content type is accurate
@@ -124,7 +124,7 @@ func readReview(r *http.Request) (*admissionv1.AdmissionReview, error) {
 
 	admissionReview := &admissionv1.AdmissionReview{}
 	if err := json.Unmarshal(body, admissionReview); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal request into admissionReview: %v", err)
+		return nil, fmt.Errorf("failed to unmarshal request into admissionReview: %w", err)
 	}
 	if admissionReview.Request == nil {
 		return nil, errors.New("invalid admission review: no request defined")

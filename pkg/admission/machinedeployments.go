@@ -28,7 +28,7 @@ import (
 func (ad *admissionData) validateMachineDeployments(ar admissionv1.AdmissionRequest) (*admissionv1.AdmissionResponse, error) {
 	machineDeployment := clusterv1alpha1.MachineDeployment{}
 	if err := json.Unmarshal(ar.Object.Raw, &machineDeployment); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal: %v", err)
+		return nil, fmt.Errorf("failed to unmarshal: %w", err)
 	}
 
 	if errs := ValidateMachineDeployment(machineDeployment, ad.client, ad.namespace); len(errs) > 0 {

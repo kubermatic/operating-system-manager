@@ -18,6 +18,7 @@ package main
 
 import (
 	"flag"
+
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/admission"
 	"k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
@@ -64,7 +65,7 @@ func main() {
 	// Build config for in-cluster cluster
 	cfg, err := config.GetConfig()
 	if err != nil {
-		klog.Fatalf("error building kubeconfig: %v", err)
+		klog.Fatalf("error building kubeconfig: %w", err)
 	}
 
 	// Build client against in-cluster config
@@ -72,22 +73,22 @@ func main() {
 		Scheme: scheme,
 	})
 	if err != nil {
-		klog.Fatalf("failed to build seed client: %v", err)
+		klog.Fatalf("failed to build seed client: %w", err)
 	}
 
 	srv, err := admission.New(opt.admissionListenAddress, opt.namespace, client)
 	if err != nil {
-		klog.Fatalf("failed to create admission hook: %v", err)
+		klog.Fatalf("failed to create admission hook: %w", err)
 	}
 
 	klog.Infof("starting webhook server on %s", opt.admissionListenAddress)
 
 	if err := srv.ListenAndServeTLS(opt.admissionTLSCertPath, opt.admissionTLSKeyPath); err != nil {
-		klog.Fatalf("failed to start server: %v", err)
+		klog.Fatalf("failed to start server: %w", err)
 	}
 	defer func() {
 		if err := srv.Close(); err != nil {
-			klog.Fatalf("failed to shutdown server: %v", err)
+			klog.Fatalf("failed to shutdown server: %w", err)
 		}
 	}()
 	klog.Infof("Listening on %s", opt.admissionListenAddress)

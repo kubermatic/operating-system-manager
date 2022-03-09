@@ -191,5 +191,4 @@ func TestOpeartingSystemProfileValidation(t *testing.T) {
 			}
 		})
 	}
-
 }

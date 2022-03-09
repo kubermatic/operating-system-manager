@@ -11,34 +11,55 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 run:
+  concurrency: 1
   deadline: 20m
   issues-exit-code: 1
   skip-dirs:
     - hack
     - vendor
-
   skip-files:
     - zz_generated.*.go
 
 linters:
   enable:
-    - revive
-    - govet
-    - gofmt
-    - structcheck
-    - varcheck
-    - unconvert
-    - ineffassign
-    - goconst
-    - gocyclo
-    - misspell
-    - gosimple
-    - unused
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - deadcode
+    - durationcheck
     - errcheck
+    - errname
+    - errorlint
+    - exportloopref
+    - goconst
+    - gocritic
+    - gocyclo
+    - gofmt
+    - gosimple
+    - govet
+    - ineffassign
+    - misspell
+    - noctx
+    - nolintlint
+    - predeclared
+    - promlinter
+    - revive
+    - staticcheck
+    - structcheck
+    - tenv
+    - unconvert
+    - unused
+    - varcheck
+    - wastedassign
+    - whitespace
   disable-all: true
 
 linters-settings:
   goimports:
     local-prefixes: k8c.io/operating-system-manager
+  tagliatelle:
+    case:
+      rules:
+        json: goCamel
+        yaml: goCamel

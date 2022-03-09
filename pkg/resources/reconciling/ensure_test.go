@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes/scheme"
 	controllerruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	controllerruntimefake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -161,9 +162,16 @@ func TestEnsureObjectByAnnotation(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var client controllerruntimeclient.Client
 			if test.existingObject != nil {
-				client = controllerruntimefake.NewFakeClient(test.existingObject)
+				client = controllerruntimefake.
+					NewClientBuilder().
+					WithScheme(scheme.Scheme).
+					WithObjects(test.existingObject).
+					Build()
 			} else {
-				client = controllerruntimefake.NewFakeClient()
+				client = controllerruntimefake.
+					NewClientBuilder().
+					WithScheme(scheme.Scheme).
+					Build()
 			}
 
 			name := types.NamespacedName{Namespace: testNamespace, Name: testResourceName}

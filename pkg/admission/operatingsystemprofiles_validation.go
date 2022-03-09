@@ -25,7 +25,6 @@ import (
 )
 
 func ValidateOperatingSystemProfileUpdate(ospOld osmv1alpha1.OperatingSystemProfile, ospNew osmv1alpha1.OperatingSystemProfile) error {
-
 	if equal := apiequality.Semantic.DeepEqual(ospOld.Spec, ospNew.Spec); equal {
 		// There is no change in spec so no validation is required
 		return nil

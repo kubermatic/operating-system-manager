@@ -122,7 +122,7 @@ func Add(
 	}
 
 	if err := c.Watch(&source.Kind{Type: &clusterv1alpha1.MachineDeployment{}}, &handler.EnqueueRequestForObject{}, filterMachineDeploymentPredicate()); err != nil {
-		return fmt.Errorf("failed to watch MachineDeployments: %v", err)
+		return fmt.Errorf("failed to watch MachineDeployments: %w", err)
 	}
 
 	return nil
@@ -135,7 +135,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrlruntime.Request) (re
 	machineDeployment := &clusterv1alpha1.MachineDeployment{}
 	if err := r.workerClient.Get(ctx, req.NamespacedName, machineDeployment); err != nil {
 		if kerrors.IsNotFound(err) {
-
 			return reconcile.Result{}, nil
 		}
 		return reconcile.Result{}, err
@@ -143,7 +142,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrlruntime.Request) (re
 
 	// Resource is marked for deletion
 	if machineDeployment.DeletionTimestamp != nil {
-
 		log.Debug("Cleaning up resources against machine deployment")
 		if kuberneteshelper.HasFinalizer(machineDeployment, MachineDeploymentCleanupFinalizer) {
 			return r.handleMachineDeploymentCleanup(ctx, machineDeployment)
@@ -170,11 +168,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrlruntime.Request) (re
 
 func (r *Reconciler) reconcile(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
 	if err := r.reconcileOperatingSystemConfigs(ctx, md); err != nil {
-		return fmt.Errorf("failed to reconcile operating system config: %v", err)
+		return fmt.Errorf("failed to reconcile operating system config: %w", err)
 	}
 
 	if err := r.reconcileSecrets(ctx, md); err != nil {
-		return fmt.Errorf("failed to reconcile secrets: %v", err)
+		return fmt.Errorf("failed to reconcile secrets: %w", err)
 	}
 
 	return nil
@@ -193,13 +191,13 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 	osp := &osmv1alpha1.OperatingSystemProfile{}
 
 	if err := r.Get(ctx, types.NamespacedName{Name: ospName, Namespace: r.namespace}, osp); err != nil {
-		return fmt.Errorf("failed to get OperatingSystemProfile: %v", err)
+		return fmt.Errorf("failed to get OperatingSystemProfile: %w", err)
 	}
 
 	if r.nodeRegistryCredentialsSecret != "" {
 		registryCredentials, err := containerruntime.GetContainerdAuthConfig(ctx, r.Client, r.nodeRegistryCredentialsSecret)
 		if err != nil {
-			return fmt.Errorf("failed to get containerd auth config: %v", err)
+			return fmt.Errorf("failed to get containerd auth config: %w", err)
 		}
 		r.containerRuntimeConfig.RegistryCredentials = registryCredentials
 	}
@@ -224,12 +222,12 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 		r.kubeletFeatureGates,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to generate %s osc: %v", oscName, err)
+		return fmt.Errorf("failed to generate %s osc: %w", oscName, err)
 	}
 
 	// Create resource in cluster
 	if err := r.Create(ctx, osc); err != nil {
-		return fmt.Errorf("failed to create %s osc: %v", oscName, err)
+		return fmt.Errorf("failed to create %s osc: %w", oscName, err)
 	}
 	r.log.Infof("successfully generated provisioning osc: %v", oscName)
 	return nil
@@ -247,7 +245,7 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.M
 
 	osc := &osmv1alpha1.OperatingSystemConfig{}
 	if err := r.Get(ctx, types.NamespacedName{Namespace: r.namespace, Name: oscName}, osc); err != nil {
-		return fmt.Errorf("failed to list OperatingSystemConfigs: %v", err)
+		return fmt.Errorf("failed to list OperatingSystemConfigs: %w", err)
 	}
 
 	provisionData, err := r.generator.Generate(osc)
@@ -260,7 +258,7 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.M
 
 	// Create resource in cluster
 	if err := r.workerClient.Create(ctx, secret); err != nil {
-		return fmt.Errorf("failed to create %s provisioning secret: %v", oscName, err)
+		return fmt.Errorf("failed to create %s provisioning secret: %w", oscName, err)
 	}
 	r.log.Infof("successfully generated provisioning secret: %v", oscName)
 	return nil
@@ -298,10 +296,10 @@ func (r *Reconciler) deleteOperatingSystemConfig(ctx context.Context, md *cluste
 		if kerrors.IsNotFound(err) {
 			return nil
 		}
-		return fmt.Errorf("failed to retrieve OperatingSystemConfig %s against MachineDeployment %s: %v", oscName, md.Name, err)
+		return fmt.Errorf("failed to retrieve OperatingSystemConfig %s against MachineDeployment %s: %w", oscName, md.Name, err)
 	}
 	if err := r.Delete(ctx, osc); err != nil {
-		return fmt.Errorf("failed to delete OperatingSystemConfig %s: %v against MachineDeployment %s", oscName, md.Name, err)
+		return fmt.Errorf("failed to delete OperatingSystemConfig %s: %v against MachineDeployment %w", oscName, md.Name, err)
 	}
 	return nil
 }
@@ -314,11 +312,11 @@ func (r *Reconciler) deleteGeneratedSecrets(ctx context.Context, md *clusterv1al
 		if kerrors.IsNotFound(err) {
 			return nil
 		}
-		return fmt.Errorf("failed to retrieve secret %s against MachineDeployment %s: %v", secret, md.Name, err)
+		return fmt.Errorf("failed to retrieve secret %s against MachineDeployment %s: %w", secret, md.Name, err)
 	}
 
 	if err := r.workerClient.Delete(ctx, secret); err != nil {
-		return fmt.Errorf("failed to delete secret %s against MachineDeployment %s: %v", secret, md.Name, err)
+		return fmt.Errorf("failed to delete secret %s against MachineDeployment %s: %w", secret, md.Name, err)
 	}
 	return nil
 }
