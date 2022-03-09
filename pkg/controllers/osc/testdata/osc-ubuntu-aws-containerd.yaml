@@ -16,6 +16,128 @@ spec:
   - content:
       inline:
         data: |
+          #!/usr/bin/env bash
+
+          # Copyright 2016 The Kubernetes Authors.
+          #
+          # Licensed under the Apache License, Version 2.0 (the "License");
+          # you may not use this file except in compliance with the License.
+          # You may obtain a copy of the License at
+          #
+          #     http://www.apache.org/licenses/LICENSE-2.0
+          #
+          # Unless required by applicable law or agreed to in writing, software
+          # distributed under the License is distributed on an "AS IS" BASIS,
+          # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+          # See the License for the specific language governing permissions and
+          # limitations under the License.
+
+          # This script is for master and node instance health monitoring, which is
+          # packed in kube-manifest tarball. It is executed through a systemd service
+          # in cluster/gce/gci/<master/node>.yaml. The env variables come from an env
+          # file provided by the systemd service.
+
+          # This script is a slightly adjusted version of
+          # https://github.com/kubernetes/kubernetes/blob/e1a1aa211224fcd9b213420b80b2ae680669683d/cluster/gce/gci/health-monitor.sh
+          # Adjustments are:
+          # * Kubelet health port is 10248 not 10255
+          # * Removal of all all references to the KUBE_ENV file
+
+          set -o nounset
+          set -o pipefail
+
+          # We simply kill the process when there is a failure. Another systemd service will
+          # automatically restart the process.
+          function container_runtime_monitoring() {
+            local -r max_attempts=5
+            local attempt=1
+            local -r container_runtime_name="${CONTAINER_RUNTIME_NAME:-docker}"
+            # We still need to use 'docker ps' when container runtime is "docker". This is because
+            # dockershim is still part of kubelet today. When kubelet is down, crictl pods
+            # will also fail, and docker will be killed. This is undesirable especially when
+            # docker live restore is disabled.
+            local healthcheck_command="docker ps"
+            if [[ "${CONTAINER_RUNTIME:-docker}" != "docker" ]]; then
+              healthcheck_command="crictl pods"
+            fi
+            # Container runtime startup takes time. Make initial attempts before starting
+            # killing the container runtime.
+            until timeout 60 ${healthcheck_command} > /dev/null; do
+              if ((attempt == max_attempts)); then
+                echo "Max attempt ${max_attempts} reached! Proceeding to monitor container runtime healthiness."
+                break
+              fi
+              echo "$attempt initial attempt \"${healthcheck_command}\"! Trying again in $attempt seconds..."
+              sleep "$((2 ** attempt++))"
+            done
+            while true; do
+              if ! timeout 60 ${healthcheck_command} > /dev/null; then
+                echo "Container runtime ${container_runtime_name} failed!"
+                if [[ "$container_runtime_name" == "docker" ]]; then
+                  # Dump stack of docker daemon for investigation.
+                  # Log file name looks like goroutine-stacks-TIMESTAMP and will be saved to
+                  # the exec root directory, which is /var/run/docker/ on Ubuntu and COS.
+                  pkill -SIGUSR1 dockerd
+                fi
+                systemctl kill --kill-who=main "${container_runtime_name}"
+                # Wait for a while, as we don't want to kill it again before it is really up.
+                sleep 120
+              else
+                sleep "${SLEEP_SECONDS}"
+              fi
+            done
+          }
+
+          function kubelet_monitoring() {
+            echo "Wait for 2 minutes for kubelet to be functional"
+            sleep 120
+            local -r max_seconds=10
+            local output=""
+            while true; do
+              local failed=false
+
+              if journalctl -u kubelet -n 1 | grep -q "use of closed network connection"; then
+                failed=true
+                echo "Kubelet stopped posting node status. Restarting"
+              elif ! output=$(curl -m "${max_seconds}" -f -s -S http://127.0.0.1:10248/healthz 2>&1); then
+                failed=true
+                # Print the response and/or errors.
+                echo "$output"
+              fi
+
+              if [[ "$failed" == "true" ]]; then
+                echo "Kubelet is unhealthy!"
+                systemctl kill kubelet
+                # Wait for a while, as we don't want to kill it again before it is really up.
+                sleep 60
+              else
+                sleep "${SLEEP_SECONDS}"
+              fi
+            done
+          }
+
+          ############## Main Function ################
+          if [[ "$#" -ne 1 ]]; then
+            echo "Usage: health-monitor.sh <container-runtime/kubelet>"
+            exit 1
+          fi
+
+          SLEEP_SECONDS=10
+          component=$1
+          echo "Start kubernetes health monitoring for ${component}"
+          if [[ "${component}" == "container-runtime" ]]; then
+            container_runtime_monitoring
+          elif [[ "${component}" == "kubelet" ]]; then
+            kubelet_monitoring
+          else
+            echo "Health monitoring for component ${component} is not supported!"
+          fi
+        encoding: b64
+    path: /opt/bin/health-monitor.sh
+    permissions: 493
+  - content:
+      inline:
+        data: |
           [Journal]
           SystemMaxUse=5G
         encoding: b64
@@ -65,10 +187,8 @@ spec:
           #!/bin/bash
           set -xeuo pipefail
           if systemctl is-active ufw; then systemctl stop ufw; fi
-          systemctl mask ufw
-          systemctl restart systemd-modules-load.service
-          sysctl --system
-          sed -i.orig '/.*swap.*/d' /etc/fstab
+          systemctl mask ufwsystemctl restart systemd-modules-load.service
+          sysctl --systemsed -i.orig '/.*swap.*/d' /etc/fstab
           swapoff -a
 
           apt-get update
@@ -96,26 +216,14 @@ spec:
           curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
           add-apt-repository "deb https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
 
-          cat <<EOF | tee /etc/crictl.yaml
-          runtime-endpoint: unix:///run/containerd/containerd.sock
-          EOF
-
-          mkdir -p /etc/systemd/system/containerd.service.d
-          cat <<EOF | tee /etc/systemd/system/containerd.service.d/environment.conf
-          [Service]
-          Restart=always
-          EnvironmentFile=-/etc/environment
-          EOF
-
           apt-get install -y --allow-downgrades containerd.io=1.4*
           apt-mark hold containerd.io
 
           systemctl daemon-reload
           systemctl enable --now containerd
           opt_bin=/opt/bin
-          cni_bin_dir=/opt/cni/bin
-          mkdir -p /etc/cni/net.d /etc/kubernetes/dynamic-config-dir /etc/kubernetes/manifests "$opt_bin" "$cni_bin_dir"
-          arch=${HOST_ARCH-}
+          usr_local_bin=/usr/local/bin
+          cni_bin_dir=/opt/cni/binmkdir -p /etc/cni/net.d /etc/kubernetes/dynamic-config-dir /etc/kubernetes/manifests "$opt_bin" "$cni_bin_dir"arch=${HOST_ARCH-}
           if [ -z "$arch" ]
           then
           case $(uname -m) in
@@ -130,40 +238,29 @@ spec:
               exit 1
               ;;
           esac
-          fi
-          CNI_VERSION="${CNI_VERSION:-v0.8.7}"
+          fiCNI_VERSION="${CNI_VERSION:-v0.8.7}"
           cni_base_url="https://github.com/containernetworking/plugins/releases/download/$CNI_VERSION"
-          cni_filename="cni-plugins-linux-$arch-$CNI_VERSION.tgz"
-          curl -Lfo "$cni_bin_dir/$cni_filename" "$cni_base_url/$cni_filename"
-          cni_sum=$(curl -Lf "$cni_base_url/$cni_filename.sha256")
-          cd "$cni_bin_dir"
-          sha256sum -c <<<"$cni_sum"
-          tar xvf "$cni_filename"
+          cni_filename="cni-plugins-linux-$arch-$CNI_VERSION.tgz"curl -Lfo "$cni_bin_dir/$cni_filename" "$cni_base_url/$cni_filename"cni_sum=$(curl -Lf "$cni_base_url/$cni_filename.sha256")
+          cd "$cni_bin_dir"sha256sum -c <<<"$cni_sum"tar xvf "$cni_filename"
           rm -f "$cni_filename"
-          cd -
-          KUBE_VERSION="${KUBE_VERSION:-v1.22.1}"
+          cd -CRI_TOOLS_RELEASE="${CRI_TOOLS_RELEASE:-v1.22.0}"
+          cri_tools_base_url="https://github.com/kubernetes-sigs/cri-tools/releases/download/${CRI_TOOLS_RELEASE}"
+          cri_tools_filename="crictl-${CRI_TOOLS_RELEASE}-linux-${arch}.tar.gz"curl -Lfo "$opt_bin/$cri_tools_filename" "$cri_tools_base_url/$cri_tools_filename"cri_tools_sum=$(curl -Lf "$cri_tools_base_url/$cri_tools_filename.sha256" | sed 's/\*\///')
+          cd "$opt_bin"sha256sum -c <<<"$cri_tools_sum"tar xvf "$cri_tools_filename"
+          rm -f "$cri_tools_filename"
+          ln -sf "$opt_bin/crictl" "$usr_local_bin"/crictl || echo "symbolic link is skipped"
+          cd -KUBE_VERSION="${KUBE_VERSION:-v1.22.1}"
           kube_dir="$opt_bin/kubernetes-$KUBE_VERSION"
           kube_base_url="https://storage.googleapis.com/kubernetes-release/release/$KUBE_VERSION/bin/linux/$arch"
-          kube_sum_file="$kube_dir/sha256"
-          mkdir -p "$kube_dir"
+          kube_sum_file="$kube_dir/sha256"mkdir -p "$kube_dir"
           : >"$kube_sum_file"
 
-          for bin in kubelet kubeadm kubectl; do
-              curl -Lfo "$kube_dir/$bin" "$kube_base_url/$bin"
-              chmod +x "$kube_dir/$bin"
-              sum=$(curl -Lf "$kube_base_url/$bin.sha256")
-              echo "$sum  $kube_dir/$bin" >>"$kube_sum_file"
-          done
-          sha256sum -c "$kube_sum_file"
+          for bin in kubelet kubeadm kubectl; docurl -Lfo "$kube_dir/$bin" "$kube_base_url/$bin"
+              chmod +x "$kube_dir/$bin"sum=$(curl -Lf "$kube_base_url/$bin.sha256")echo "$sum  $kube_dir/$bin" >>"$kube_sum_file"
+          donesha256sum -c "$kube_sum_file"
 
-          for bin in kubelet kubeadm kubectl; do
-              ln -sf "$kube_dir/$bin" "$opt_bin"/$bin
+          for bin in kubelet kubeadm kubectl; doln -sf "$kube_dir/$bin" "$opt_bin"/$bin
           done
-
-          if [[ ! -x /opt/bin/health-monitor.sh ]]; then
-              curl -Lfo /opt/bin/health-monitor.sh https://raw.githubusercontent.com/kubermatic/machine-controller/7967a0af2b75f29ad2ab227eeaa26ea7b0f2fbde/pkg/userdata/scripts/health-monitor.sh
-              chmod +x /opt/bin/health-monitor.sh
-          fi
 
           # set kubelet nodeip environment variable
           /opt/bin/setup_net_env.sh
@@ -261,8 +358,13 @@ spec:
             exit 1
           fi
 
-           # get the full hostname
+
+          # get the full hostname
           FULL_HOSTNAME=$(hostname -f)
+          # if /etc/hostname is not empty then use the hostname from there
+          if [ -s /etc/hostname ]; then
+            FULL_HOSTNAME=$(cat /etc/hostname)
+          fi
 
           # write the nodeip_env file
           # we need the line below because flatcar has the same string "coreos" in that file
@@ -406,6 +508,18 @@ spec:
     permissions: 420
   - content:
       inline:
+        data: |
+          runtime-endpoint: unix:///run/containerd/containerd.sock
+    path: /etc/crictl.yaml
+  - content:
+      inline:
+        data: |
+          [Service]
+          Restart=always
+          EnvironmentFile=-/etc/environment
+    path: /etc/systemd/system/containerd.service.d/environment.conf
+  - content:
+      inline:
         data: |+
           version = 2
 
@@ -435,14 +549,7 @@ spec:
 
         encoding: b64
     path: /etc/containerd/config.toml
-    permissions: 420
-  modules:
-    bootcmd:
-    - echo hello
-    - echo world
-    rh_subscription:
-      password: password
-      username: username
+    permissions: 384
   osName: ubuntu
   osVersion: "20.04"
   userSSHKeys:

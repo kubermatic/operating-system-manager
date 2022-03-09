@@ -65,7 +65,7 @@ func main() {
 	// Build config for in-cluster cluster
 	cfg, err := config.GetConfig()
 	if err != nil {
-		klog.Fatalf("error building kubeconfig: %w", err)
+		klog.Fatalf("error building kubeconfig: %v", err)
 	}
 
 	// Build client against in-cluster config
@@ -73,22 +73,22 @@ func main() {
 		Scheme: scheme,
 	})
 	if err != nil {
-		klog.Fatalf("failed to build seed client: %w", err)
+		klog.Fatalf("failed to build seed client: %v", err)
 	}
 
 	srv, err := admission.New(opt.admissionListenAddress, opt.namespace, client)
 	if err != nil {
-		klog.Fatalf("failed to create admission hook: %w", err)
+		klog.Fatalf("failed to create admission hook: %v", err)
 	}
 
 	klog.Infof("starting webhook server on %s", opt.admissionListenAddress)
 
 	if err := srv.ListenAndServeTLS(opt.admissionTLSCertPath, opt.admissionTLSKeyPath); err != nil {
-		klog.Fatalf("failed to start server: %w", err)
+		klog.Fatalf("failed to start server: %v", err)
 	}
 	defer func() {
 		if err := srv.Close(); err != nil {
-			klog.Fatalf("failed to shutdown server: %w", err)
+			klog.Fatalf("failed to shutdown server: %v", err)
 		}
 	}()
 	klog.Infof("Listening on %s", opt.admissionListenAddress)
