@@ -54,7 +54,6 @@ func TestCloudConfigToString(t *testing.T) {
 auth-url    = "https://test"
 application-credential-id     = "redacted"
 application-credential-secret = "redacted"
-domain-name = "domain"
 region      = "unknown"
 
 [LoadBalancer]
