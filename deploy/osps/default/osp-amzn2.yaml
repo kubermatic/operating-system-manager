@@ -423,6 +423,8 @@ spec:
               {{- end }}
               ipvsadm
 
+            systemctl disable --now firewalld || true
+
             {{- template "containerRuntimeInstallation" }}
 
             {{- template "safeDownloadBinariesScript" }}
