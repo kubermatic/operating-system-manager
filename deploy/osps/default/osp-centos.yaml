@@ -445,7 +445,9 @@ spec:
               {{- end }}
               ipvsadm
 
-            {{- /* iscsid service is required on Nutanix machines for CSI driver to attach volumes. */ -}}
+            systemctl disable --now firewalld || true
+
+            {{- /* iscsid service is required on Nutanix machines for CSI driver to attach volumes. */ }}
             {{- if eq .CloudProviderName "nutanix" }}
             systemctl enable --now iscsid
             {{ end }}

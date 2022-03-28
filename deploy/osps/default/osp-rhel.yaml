@@ -424,14 +424,6 @@ spec:
 
             {{ if eq .CloudProviderName "azure" }}
             yum update -y --disablerepo='*' --enablerepo='*microsoft*'
-            {{- range $key, $val := .PodCIDRs }}
-            firewall-cmd --permanent --zone=trusted --add-source={{ $val }}
-            {{- end }}
-            firewall-cmd --permanent --add-port=8472/udp
-            firewall-cmd --permanent --add-port={{ .NodePortRange }}/tcp
-            firewall-cmd --permanent --add-port={{ .NodePortRange }}/udp
-            firewall-cmd --reload
-            systemctl restart firewalld
             {{ end }}
             yum install -y \
               device-mapper-persistent-data \
@@ -452,7 +444,9 @@ spec:
               {{- end }}
               ipvsadm
 
-            {{- /* iscsid service is required on Nutanix machines for CSI driver to attach volumes. */ -}}
+            systemctl disable --now firewalld || true
+
+            {{- /* iscsid service is required on Nutanix machines for CSI driver to attach volumes. */ }}
             {{- if eq .CloudProviderName "nutanix" }}
             systemctl enable --now iscsid
             {{ end }}

@@ -17,13 +17,13 @@ limitations under the License.
 package aws
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 
 	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
 	"k8c.io/operating-system-manager/pkg/cloudprovider/aws/types"
 	"k8c.io/operating-system-manager/pkg/providerconfig/config"
-	jsonutil "k8c.io/operating-system-manager/pkg/util/json"
 )
 
 func GetCloudConfig(pconfig providerconfigtypes.Config) (string, error) {
@@ -45,7 +45,7 @@ func getConfig(pconfig providerconfigtypes.Config) (*types.CloudConfig, error) {
 	}
 
 	rawConfig := types.RawConfig{}
-	if err := jsonutil.StrictUnmarshal(pconfig.CloudProviderSpec.Raw, &rawConfig); err != nil {
+	if err := json.Unmarshal(pconfig.CloudProviderSpec.Raw, &rawConfig); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal CloudProviderSpec: %w", err)
 	}
 

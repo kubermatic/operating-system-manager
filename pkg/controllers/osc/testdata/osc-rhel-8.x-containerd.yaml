@@ -213,6 +213,8 @@ spec:
             wget \
             curl \
             ipvsadm
+
+          systemctl disable --now firewalld || true
           yum install -y yum-utils
           yum-config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repoyum-config-manager --save --setopt=docker-ce-stable.module_hotfixes=true
 
