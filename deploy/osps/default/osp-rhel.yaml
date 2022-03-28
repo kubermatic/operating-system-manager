@@ -424,12 +424,6 @@ spec:
 
             {{ if eq .CloudProviderName "azure" }}
             yum update -y --disablerepo='*' --enablerepo='*microsoft*'
-            firewall-cmd --permanent --zone=trusted --add-source={{ .PodCIDR }}
-            firewall-cmd --permanent --add-port=8472/udp
-            firewall-cmd --permanent --add-port={{ .NodePortRange }}/tcp
-            firewall-cmd --permanent --add-port={{ .NodePortRange }}/udp
-            firewall-cmd --reload
-            systemctl restart firewalld
             {{ end }}
             yum install -y \
               device-mapper-persistent-data \
