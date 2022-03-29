@@ -67,8 +67,6 @@ func GenerateOperatingSystemConfig(
 	initialTaints string,
 	nodeHTTPProxy string,
 	nodeNoProxy string,
-	nodePortRange string,
-	podCIDRs []string,
 	containerRuntimeConfig containerruntime.Config,
 	kubeletFeatureGates map[string]bool,
 ) (*osmv1alpha1.OperatingSystemConfig, error) {
@@ -149,8 +147,6 @@ func GenerateOperatingSystemConfig(
 		ExternalCloudProvider:  externalCloudProvider,
 		PauseImage:             pauseImage,
 		InitialTaints:          initialTaints,
-		PodCIDRs:               podCIDRs,
-		NodePortRange:          nodePortRange,
 		ContainerRuntimeConfig: crConfig,
 		KubeletFeatureGates:    kubeletFeatureGates,
 		kubeletConfig:          kubeletConfigs,
@@ -215,8 +211,6 @@ type filesData struct {
 	InitialTaints          string
 	HTTPProxy              *string
 	NoProxy                *string
-	PodCIDRs               []string
-	NodePortRange          string
 	ContainerRuntimeConfig string
 	KubeletFeatureGates    map[string]bool
 

@@ -73,6 +73,10 @@ sH9BBH38/SzUmAN4QHSPy1gjqm00OAE8NaYDkh/bzE4d7mLGGMWp/WE3KPSu82HF
 kPe6XoSbiLm/kxk32T0=
 -----END CERTIFICATE-----`
 
+const (
+	defaultOSPPathPrefix = "../../../../deploy/osps/default/"
+)
+
 var (
 	update = flag.Bool("update", false, "update testdata files")
 )
@@ -91,7 +95,6 @@ type testConfig struct {
 	containerRuntime string
 	kubeVersion      string
 	clusterDNSIPs    []net.IP
-	podCIDRs         []string
 }
 
 func TestReconciler_Reconcile(t *testing.T) {
@@ -111,7 +114,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 	}{
 		{
 			name:            "Ubuntu OS in AWS with Containerd",
-			ospFile:         "osp-ubuntu.yaml",
+			ospFile:         defaultOSPPathPrefix + "osp-ubuntu.yaml",
 			ospName:         "osp-ubuntu",
 			operatingSystem: providerconfigtypes.OperatingSystemUbuntu,
 			oscFile:         "osc-ubuntu-aws-containerd.yaml",
@@ -129,7 +132,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 		},
 		{
 			name:            "Ubuntu OS in AWS with Docker",
-			ospFile:         "osp-ubuntu.yaml",
+			ospFile:         defaultOSPPathPrefix + "osp-ubuntu.yaml",
 			ospName:         "osp-ubuntu",
 			operatingSystem: providerconfigtypes.OperatingSystemUbuntu,
 			oscFile:         "osc-ubuntu-aws-docker.yaml",
@@ -147,7 +150,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 		},
 		{
 			name:            "Flatcar OS in AWS with Containerd",
-			ospFile:         "osp-flatcar.yaml",
+			ospFile:         defaultOSPPathPrefix + "osp-flatcar.yaml",
 			ospName:         "osp-flatcar",
 			operatingSystem: providerconfigtypes.OperatingSystemFlatcar,
 			oscFile:         "osc-flatcar-aws-containerd.yaml",
@@ -165,7 +168,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 		},
 		{
 			name:            "Flatcar OS in AWS with docker",
-			ospFile:         "osp-flatcar.yaml",
+			ospFile:         defaultOSPPathPrefix + "osp-flatcar.yaml",
 			ospName:         "osp-flatcar",
 			operatingSystem: providerconfigtypes.OperatingSystemFlatcar,
 			oscFile:         "osc-flatcar-aws-docker.yaml",
@@ -183,7 +186,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 		},
 		{
 			name:            "RHEL OS in AWS with Containerd",
-			ospFile:         "osp-rhel.yaml",
+			ospFile:         defaultOSPPathPrefix + "osp-rhel.yaml",
 			ospName:         "osp-rhel",
 			operatingSystem: providerconfigtypes.OperatingSystemRHEL,
 			oscFile:         "osc-rhel-8.x-containerd.yaml",
@@ -195,14 +198,13 @@ func TestReconciler_Reconcile(t *testing.T) {
 				containerRuntime: "containerd",
 				kubeVersion:      "1.22.1",
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
-				podCIDRs:         []string{"172.25.0.0/16", "fd00::/104"},
 			},
 			cloudProvider:     "aws",
 			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
 		},
 		{
 			name:            "RHEL OS on Azure with Containerd",
-			ospFile:         "osp-rhel.yaml",
+			ospFile:         defaultOSPPathPrefix + "osp-rhel.yaml",
 			ospName:         "osp-rhel",
 			operatingSystem: providerconfigtypes.OperatingSystemRHEL,
 			oscFile:         "osc-rhel-8.x-azure-containerd.yaml",
@@ -214,14 +216,13 @@ func TestReconciler_Reconcile(t *testing.T) {
 				containerRuntime: "containerd",
 				kubeVersion:      "1.22.1",
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
-				podCIDRs:         []string{"172.25.0.0/16", "fd00::/104"},
 			},
 			cloudProvider:     "azure",
 			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"securityGroupName": "fake-sg"}`)},
 		},
 		{
 			name:            "Kubelet configuration with docker",
-			ospFile:         "osp-ubuntu.yaml",
+			ospFile:         defaultOSPPathPrefix + "osp-ubuntu.yaml",
 			ospName:         "osp-ubuntu",
 			operatingSystem: providerconfigtypes.OperatingSystemUbuntu,
 			oscFile:         "osc-kubelet-configuration-docker.yaml",
@@ -246,7 +247,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 		},
 		{
 			name:            "Kubelet configuration with containerd",
-			ospFile:         "osp-ubuntu.yaml",
+			ospFile:         defaultOSPPathPrefix + "osp-ubuntu.yaml",
 			ospName:         "osp-ubuntu",
 			operatingSystem: providerconfigtypes.OperatingSystemUbuntu,
 			oscFile:         "osc-kubelet-configuration-containerd.yaml",
@@ -367,7 +368,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 		{
 
 			name:            "test the deletion of machineDeployment",
-			ospFile:         "osp-ubuntu.yaml",
+			ospFile:         defaultOSPPathPrefix + "osp-ubuntu.yaml",
 			ospName:         "osp-ubuntu",
 			operatingSystem: providerconfigtypes.OperatingSystemUbuntu,
 			oscFile:         "osc-ubuntu-aws-containerd.yaml",
@@ -524,6 +525,5 @@ func buildReconciler(fakeClient client.Client, config testConfig) Reconciler {
 		containerRuntime:    config.containerRuntime,
 		clusterDNSIPs:       config.clusterDNSIPs,
 		kubeletFeatureGates: map[string]bool{"GracefulNodeShutdown": true, "IdentifyPodOS": false},
-		podCIDRs:            config.podCIDRs,
 	}
 }

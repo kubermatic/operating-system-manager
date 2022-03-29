@@ -67,8 +67,6 @@ type Reconciler struct {
 	caCert                        string
 	nodeHTTPProxy                 string
 	nodeNoProxy                   string
-	nodePortRange                 string
-	podCIDRs                      []string
 	nodeRegistryCredentialsSecret string
 	containerRuntimeConfig        containerruntime.Config
 	kubeletFeatureGates           map[string]bool
@@ -90,8 +88,6 @@ func Add(
 	initialTaints string,
 	nodeHTTPProxy string,
 	nodeNoProxy string,
-	podCIDRs []string,
-	nodePortRange string,
 	containerRuntimeConfig containerruntime.Config,
 	nodeRegistryCredentialsSecret string,
 	kubeletFeatureGates map[string]bool) error {
@@ -109,8 +105,6 @@ func Add(
 		externalCloudProvider:         externalCloudProvider,
 		nodeHTTPProxy:                 nodeHTTPProxy,
 		nodeNoProxy:                   nodeNoProxy,
-		podCIDRs:                      podCIDRs,
-		nodePortRange:                 nodePortRange,
 		containerRuntimeConfig:        containerRuntimeConfig,
 		nodeRegistryCredentialsSecret: nodeRegistryCredentialsSecret,
 		kubeletFeatureGates:           kubeletFeatureGates,
@@ -216,8 +210,6 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 		r.initialTaints,
 		r.nodeHTTPProxy,
 		r.nodeNoProxy,
-		r.nodePortRange,
-		r.podCIDRs,
 		r.containerRuntimeConfig,
 		r.kubeletFeatureGates,
 	)

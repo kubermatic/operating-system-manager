@@ -60,8 +60,9 @@ func (d *DefaultCloudConfigGenerator) Generate(osc *osmv1alpha1.OperatingSystemC
 		}
 
 		fSpec := &fileSpec{
-			Path:    file.Path,
-			Content: content,
+			Path:     file.Path,
+			Content:  content,
+			Encoding: file.Content.Inline.Encoding,
 		}
 		if file.Permissions != nil {
 			permissions := fmt.Sprintf("%04o", *file.Permissions)
@@ -148,6 +149,7 @@ func getUserDataTemplate(osName osmv1alpha1.OperatingSystem) (string, error) {
 type fileSpec struct {
 	Path        string
 	Content     string
+	Encoding    string
 	Permissions *string
 	Name        string
 }
@@ -178,6 +180,9 @@ write_files:
 - path: '{{ $file.Path }}'
 {{- if $file.Permissions }}
   permissions: '{{ $file.Permissions }}'
+{{- end }}
+{{- if $file.Encoding }}
+  encoding: '{{ $file.Encoding }}'
 {{- end }}
   content: |-
 {{ $file.Content | indent 4 }}
