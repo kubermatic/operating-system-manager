@@ -10,7 +10,7 @@ This project is experimental and currently a work-in-progress. **This is not sup
 
 ### Problem Statement
 
-[Machine-Controller](https://github.com/kubermatic/machine-controller) can be used to create and manage worker nodes in a kubernetes clusters. For each supported operating system(based on the cloud provider), a specific plugin is used to generate cloud configs. These configs are then injected in the worker nodes using either [cloud-init](https://cloud-init.io/) or (ignition)[https://coreos.github.io/ignition/] based on the operating system. Finally the nodes are bootstrapped.
+[Machine-Controller](https://github.com/kubermatic/machine-controller) can be used to create and manage worker nodes in a kubernetes clusters. For each supported operating system(based on the cloud provider), a specific plugin is used to generate cloud configs. These configs are then injected in the worker nodes using either [cloud-init](https://cloud-init.io/) or [ignition](https://coreos.github.io/ignition/) based on the operating system. Finally the nodes are bootstrapped.
 
 Currently this workflow has the following limitations/issues:
 
@@ -29,7 +29,6 @@ Operating System Manager was created to solve the above mentioned issues. It dec
 
 OSM introduces the following resources:
 
-
 ### OperatingSystemProfile
 
 Templatized resource that represents the details of each operating system. OSPs are immutable and default OSPs for supported operating systems are provided/installed automatically by kubermatic. End users can create custom OSPs as well to fit their own use-cases.
@@ -41,7 +40,6 @@ Its dedicated controller runs in the **seed** cluster, in user cluster namespace
 Immutable resource that contains the actual configurations that are going to be used to bootstrap and provision the worker nodes. It is a subset of OperatingSystemProfile, rendered using OperatingSystemProfile, MachineDeployment and flags
 
 Its dedicated controller runs in the **seed** cluster, in user cluster namespace, and is responsible for generating the OSCs in **seed** and secrets in `cloud-init-settings` namespace in the user cluster.
-
 
 For each cluster there are at least two OSC objects:
 
@@ -64,9 +62,15 @@ Information about supported OS versions can be found [here](./docs/compatibility
 
 ## Deploy OSM
 
-[TBD]
+- Install [cert-manager](https://cert-manager.io/) for generating certificates used by webhooks since they serve using HTTPS
 
-_The code and sample YAML files in the master branch of the operating-system-manager repository are under active development and are not guaranteed to be stable. Use them at your own risk!_
+```terminal
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.7.1/cert-manager.yaml
+```
+
+- Run `kubectl create namespace cloud-init-settings` to create namespace where secrets against OSC are stored
+- Run `kubectl apply -f deploy/crd/` to install CRDs
+- Run `kubectl apply -f deploy/` to deploy OSM
 
 ## Development
 

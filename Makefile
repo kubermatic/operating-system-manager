@@ -21,7 +21,7 @@ export GO111MODULE=on
 export GOFLAGS?=-mod=readonly -trimpath
 export GIT_TAG ?= $(shell git tag --points-at HEAD)
 
-GO_VERSION = 1.17.5
+GO_VERSION = 1.17.8
 
 CMD = $(notdir $(wildcard ./cmd/*))
 BUILD_DEST ?= _build
@@ -106,49 +106,6 @@ clean:
 .PHONY: download-gocache
 download-gocache:
 	@./hack/ci/download-gocache.sh
-
-hack/ci/testdata/ca-key.pem:
-	openssl genrsa -out hack/ci/testdata/ca-key.pem 4096
-
-hack/ci/testdata/ca-cert.pem: hack/ci/testdata/ca-key.pem
-	openssl req -x509 -new -nodes -key hack/ci/testdata/ca-key.pem \
-    -subj "/C=US/ST=CA/O=Acme/CN=k8s-machine-controller-ca" \
-		-sha256 -days 10000 -out hack/ci/testdata/ca-cert.pem
-
-hack/ci/testdata/admission-key.pem: hack/ci/testdata/ca-cert.pem
-	openssl genrsa -out hack/ci/testdata/admission-key.pem 2048
-	chmod 0600 hack/ci/testdata/admission-key.pem
-
-hack/ci/testdata/admission-cert.pem: hack/ci/testdata/admission-key.pem
-	openssl req -new -sha256 \
-		-key hack/ci/testdata/admission-key.pem \
-		-config hack/ci/testdata/webhook-certificate.cnf -extensions v3_req \
-		-out hack/ci/testdata/admission.csr
-	openssl x509 -req \
-		-sha256 \
-		-days 10000 \
-		-extensions v3_req \
-		-extfile hack/ci/testdata/webhook-certificate.cnf \
-		-in hack/ci/testdata/admission.csr \
-		-CA hack/ci/testdata/ca-cert.pem \
-		-CAkey hack/ci/testdata/ca-key.pem \
-		-CAcreateserial \
-		-out hack/ci/testdata/admission-cert.pem
-
-clean-certs:
-	cd hack/ci/testdata/ && rm -f admission.csr admission-cert.pem admission-key.pem ca-cert.pem ca-key.pem
-
-.PHONY: deploy
-deploy: hack/ci/testdata/admission-cert.pem
-	@cat deploy/operating-system-manager.yaml \
-		|sed "s/__worker_cluster_kubeconfig__/$(shell cat ~/.kube/config|$(BASE64_ENC))/g" \
-		|kubectl apply -f -
-
-	@cat deploy/operating-system-manager-webhook.yaml \
-         		|sed "s/__admission_cert__/$(shell cat hack/ci/testdata/admission-cert.pem|$(BASE64_ENC))/g" \
-         		|sed "s/__admission_key__/$(shell cat hack/ci/testdata/admission-key.pem|$(BASE64_ENC))/g" \
-         		|sed "s/__admission_ca_cert__/$(shell cat hack/ci/testdata/ca-cert.pem|$(BASE64_ENC))/g" \
-         		|kubectl apply -f -
 
 .PHONY: docker-image
 docker-image:

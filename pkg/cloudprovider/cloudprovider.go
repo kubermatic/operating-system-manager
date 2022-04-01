@@ -33,8 +33,8 @@ import (
 // GetCloudConfig will return the cloud-config for machine
 func GetCloudConfig(pconfig providerconfigtypes.Config, kubeletVersion string) (string, error) {
 	cloudProvider := osmv1alpha1.CloudProvider(pconfig.CloudProvider)
-	switch cloudProvider {
 
+	switch cloudProvider {
 	case osmv1alpha1.CloudProviderAWS:
 		return aws.GetCloudConfig(pconfig)
 	case osmv1alpha1.CloudProviderAzure:

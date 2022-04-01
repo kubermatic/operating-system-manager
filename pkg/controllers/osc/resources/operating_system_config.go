@@ -18,7 +18,6 @@ package resources
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -39,6 +38,7 @@ import (
 	"k8c.io/operating-system-manager/pkg/providerconfig/rhel"
 	"k8c.io/operating-system-manager/pkg/providerconfig/sles"
 	"k8c.io/operating-system-manager/pkg/providerconfig/ubuntu"
+	jsonutil "k8c.io/operating-system-manager/pkg/util/json"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -67,11 +67,10 @@ func GenerateOperatingSystemConfig(
 	initialTaints string,
 	nodeHTTPProxy string,
 	nodeNoProxy string,
-	nodePortRange string,
-	podCidr string,
 	containerRuntimeConfig containerruntime.Config,
 	kubeletFeatureGates map[string]bool,
 ) (*osmv1alpha1.OperatingSystemConfig, error) {
+	var err error
 	ospOriginal := osp.DeepCopy()
 
 	// Set metadata for OSC
@@ -83,10 +82,12 @@ func GenerateOperatingSystemConfig(
 	}
 
 	// Get providerConfig from machineDeployment
+	if len(md.Spec.Template.Spec.ProviderSpec.Value.Raw) == 0 {
+		return nil, fmt.Errorf("providerSpec cannot be empty")
+	}
 	providerConfig := providerconfigtypes.Config{}
-	err := json.Unmarshal(md.Spec.Template.Spec.ProviderSpec.Value.Raw, &providerConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode provider configs: %v", err)
+	if err = jsonutil.StrictUnmarshal(md.Spec.Template.Spec.ProviderSpec.Value.Raw, &providerConfig); err != nil {
+		return nil, fmt.Errorf("failed to decode provider configs: %w", err)
 	}
 
 	var cloudConfig string
@@ -95,7 +96,7 @@ func GenerateOperatingSystemConfig(
 	} else {
 		cloudConfig, err = cloudprovider.GetCloudConfig(providerConfig, md.Spec.Template.Spec.Versions.Kubelet)
 		if err != nil {
-			return nil, fmt.Errorf("failed to fetch cloud-config: %v", err)
+			return nil, fmt.Errorf("failed to fetch cloud-config: %w", err)
 		}
 	}
 
@@ -146,8 +147,6 @@ func GenerateOperatingSystemConfig(
 		ExternalCloudProvider:  externalCloudProvider,
 		PauseImage:             pauseImage,
 		InitialTaints:          initialTaints,
-		PodCIDR:                podCidr,
-		NodePortRange:          nodePortRange,
 		ContainerRuntimeConfig: crConfig,
 		KubeletFeatureGates:    kubeletFeatureGates,
 		kubeletConfig:          kubeletConfigs,
@@ -165,18 +164,18 @@ func GenerateOperatingSystemConfig(
 
 	err = setOperatingSystemConfig(providerConfig.OperatingSystem, providerConfig.OperatingSystemSpec, &data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to add operating system spec: %v", err)
+		return nil, fmt.Errorf("failed to add operating system spec: %w", err)
 	}
 
 	// Handle files
 	osp.Spec.Files = append(osp.Spec.Files, selectAdditionalFiles(osp, containerRuntime)...)
 	additionalTemplates, err := selectAdditionalTemplates(osp, containerRuntime, data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to add OSP templates: %v", err)
+		return nil, fmt.Errorf("failed to add OSP templates: %w", err)
 	}
 	populatedFiles, err := populateFilesList(osp.Spec.Files, additionalTemplates, data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to populate OSP file template: %v", err)
+		return nil, fmt.Errorf("failed to populate OSP file template: %w", err)
 	}
 
 	osc.Spec = osmv1alpha1.OperatingSystemConfigSpec{
@@ -212,8 +211,6 @@ type filesData struct {
 	InitialTaints          string
 	HTTPProxy              *string
 	NoProxy                *string
-	PodCIDR                string
-	NodePortRange          string
 	ContainerRuntimeConfig string
 	KubeletFeatureGates    map[string]bool
 
@@ -244,7 +241,7 @@ func populateFilesList(files []osmv1alpha1.File, additionalTemplates []string, d
 		content := file.Content.Inline.Data
 		tmpl, err := template.New(file.Path).Parse(content)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse OSP file [%s] template: %v", file.Path, err)
+			return nil, fmt.Errorf("failed to parse OSP file [%s] template: %w", file.Path, err)
 		}
 
 		for _, at := range additionalTemplates {
@@ -301,7 +298,7 @@ func selectAdditionalTemplates(osp *osmv1alpha1.OperatingSystemProfile, containe
 	for name, t := range templatesToRender {
 		tmpl, err := template.New(name).Parse(t)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse OSP template [%s]: %v", name, err)
+			return nil, fmt.Errorf("failed to parse OSP template [%s]: %w", name, err)
 		}
 
 		buff := bytes.Buffer{}
@@ -367,7 +364,6 @@ func setOperatingSystemConfig(os providerconfigtypes.OperatingSystem, operatingS
 }
 
 func getKubeletConfigs(annotations map[string]string) kubeletConfig {
-
 	var cfg kubeletConfig
 	kubeletConfigs := common.GetKubeletConfigs(annotations)
 	if len(kubeletConfigs) == 0 {

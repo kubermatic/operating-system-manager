@@ -18,23 +18,32 @@ package main
 
 import (
 	"flag"
+
+	"go.uber.org/zap"
+
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
-	"k8c.io/operating-system-manager/pkg/admission"
+	mdvalidation "k8c.io/operating-system-manager/pkg/admission/machinedeployment/validation"
+	oscvalidation "k8c.io/operating-system-manager/pkg/admission/operatingsystemconfig/validation"
+	ospvalidation "k8c.io/operating-system-manager/pkg/admission/operatingsystemprofile/validation"
 	"k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog"
-	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 type options struct {
 	namespace string
 
-	admissionListenAddress string
-	admissionTLSCertPath   string
-	admissionTLSKeyPath    string
+	metricsAddr          string
+	enableLeaderElection bool
+	probeAddr            string
+	certDir              string
 }
 
 var (
@@ -42,6 +51,8 @@ var (
 )
 
 func init() {
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 	utilruntime.Must(clusterv1alpha1.AddToScheme(scheme))
 }
@@ -51,45 +62,49 @@ func main() {
 
 	opt := &options{}
 
-	flag.StringVar(&opt.admissionListenAddress, "listen-address", ":9876", "The address on which the MutatingWebhook will listen on")
-	flag.StringVar(&opt.admissionTLSCertPath, "tls-cert-path", "/tmp/cert/cert.pem", "The path of the TLS cert for the MutatingWebhook")
-	flag.StringVar(&opt.admissionTLSKeyPath, "tls-key-path", "/tmp/cert/key.pem", "The path of the TLS key for the MutatingWebhook")
+	flag.StringVar(&opt.metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
+	flag.StringVar(&opt.probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.BoolVar(&opt.enableLeaderElection, "leader-elect", false,
+		"Enable leader election for controller manager. "+
+			"Enabling this will ensure there is only one active controller manager.")
 	flag.StringVar(&opt.namespace, "namespace", "", "The namespace where the OSC webhook will run.")
+	flag.StringVar(&opt.certDir, "cert-dir", "/tmp/k8s-webhook-server/serving-certs",
+		"Directory that contains the server key(tls.key) and certificate(tls.crt).")
 	flag.Parse()
 
 	if len(opt.namespace) == 0 {
 		klog.Fatal("-namespace is required")
 	}
 
-	// Build config for in-cluster cluster
-	cfg, err := config.GetConfig()
-	if err != nil {
-		klog.Fatalf("error building kubeconfig: %v", err)
-	}
-
-	// Build client against in-cluster config
-	client, err := ctrlruntimeclient.New(cfg, ctrlruntimeclient.Options{
-		Scheme: scheme,
+	mgr, err := manager.New(config.GetConfigOrDie(), manager.Options{
+		CertDir:                 opt.certDir,
+		HealthProbeBindAddress:  opt.probeAddr,
+		LeaderElection:          opt.enableLeaderElection,
+		LeaderElectionNamespace: opt.namespace,
+		LeaderElectionID:        "operating-system-manager-leader-lock",
+		MetricsBindAddress:      opt.metricsAddr,
+		Port:                    9443,
+		Scheme:                  scheme,
 	})
 	if err != nil {
-		klog.Fatalf("failed to build seed client: %v", err)
+		klog.Fatal("failed to create the manager", zap.Error(err))
 	}
 
-	srv, err := admission.New(opt.admissionListenAddress, opt.namespace, client)
-	if err != nil {
-		klog.Fatalf("failed to create admission hook: %v", err)
+	// Register webhooks
+	oscvalidation.NewAdmissionHandler().SetupWebhookWithManager(mgr)
+	ospvalidation.NewAdmissionHandler().SetupWebhookWithManager(mgr)
+	mdvalidation.NewAdmissionHandler(mgr.GetClient(), opt.namespace).SetupWebhookWithManager(mgr)
+
+	// Add health endpoints
+	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
+		klog.Fatalf("failed to add health check: %v", zap.Error(err))
+	}
+	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
+		klog.Fatalf("failed to add readiness check: %v", zap.Error(err))
 	}
 
-	klog.Infof("starting webhook server on %s", opt.admissionListenAddress)
-
-	if err := srv.ListenAndServeTLS(opt.admissionTLSCertPath, opt.admissionTLSKeyPath); err != nil {
-		klog.Fatalf("failed to start server: %v", err)
+	klog.Info("starting manager")
+	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+		klog.Fatalf("failed to start OSC controller: %v", zap.Error(err))
 	}
-	defer func() {
-		if err := srv.Close(); err != nil {
-			klog.Fatalf("failed to shutdown server: %v", err)
-		}
-	}()
-	klog.Infof("Listening on %s", opt.admissionListenAddress)
-	select {}
 }

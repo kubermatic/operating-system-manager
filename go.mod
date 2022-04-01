@@ -5,11 +5,11 @@ go 1.17
 require (
 	github.com/Masterminds/semver/v3 v3.1.1
 	github.com/Masterminds/sprig/v3 v3.2.2
+	github.com/flatcar-linux/container-linux-config-transpiler v0.9.3
 	github.com/go-test/deep v1.0.7
-	github.com/kinvolk/container-linux-config-transpiler v0.9.1
-	github.com/kubermatic/machine-controller v1.42.2
+	github.com/kubermatic/machine-controller v1.44.0
 	github.com/onsi/ginkgo v1.16.4
-	github.com/pkg/errors v0.9.1
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0
 	go.uber.org/zap v1.19.0
 	gopkg.in/yaml.v2 v2.4.0 // indirect
@@ -26,7 +26,10 @@ require (
 	sigs.k8s.io/yaml v1.2.0
 )
 
-require k8s.io/klog/v2 v2.9.0
+require (
+	github.com/go-logr/logr v0.4.0
+	k8s.io/klog/v2 v2.9.0 // indirect
+)
 
 require (
 	github.com/BurntSushi/toml v0.3.1 // indirect
@@ -46,8 +49,8 @@ require (
 	github.com/emicklei/go-restful v2.11.2+incompatible // indirect
 	github.com/evanphx/json-patch v4.11.0+incompatible // indirect
 	github.com/fatih/color v1.10.0 // indirect
+	github.com/flatcar-linux/ignition v0.36.1 // indirect
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
-	github.com/go-logr/logr v0.4.0 // indirect
 	github.com/go-logr/zapr v0.4.0 // indirect
 	github.com/go-openapi/jsonpointer v0.19.5 // indirect
 	github.com/go-openapi/jsonreference v0.19.5 // indirect
@@ -83,7 +86,7 @@ require (
 	github.com/spf13/cast v1.3.1 // indirect
 	github.com/spf13/cobra v1.1.3 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/vincent-petithory/dataurl v0.0.0-20191104211930-d1553a71de50 // indirect
+	github.com/vincent-petithory/dataurl v1.0.0 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	go4.org v0.0.0-20201209231011-d4a079459e60 // indirect

@@ -11,15 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-apiVersion: v1
-kind: Secret
-metadata:
-  name: operating-system-manager-admission-cert
-  namespace: kube-system
-data:
-  "cert.pem": __admission_cert__
-  "key.pem": __admission_key__
 ---
 apiVersion: v1
 kind: Service
@@ -28,10 +19,10 @@ metadata:
   namespace: kube-system
 spec:
   ports:
-    - name: 443-9876
+    - name: 443-9443
       port: 443
       protocol: TCP
-      targetPort: 9876
+      targetPort: 9443
   selector:
     app: operating-system-manager-webhook
   type: ClusterIP
@@ -41,6 +32,33 @@ kind: ServiceAccount
 metadata:
   name: operating-system-manager-webhook
   namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: operating-system-manager-webhook
+rules:
+  - apiGroups:
+      - "operatingsystemmanager.k8c.io"
+    resources:
+      - "operatingsystemprofiles"
+    verbs:
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: operating-system-manager-webhook
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: operating-system-manager-webhook
+subjects:
+  - kind: ServiceAccount
+    name: operating-system-manager-webhook
+    namespace: kube-system
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -69,21 +87,24 @@ spec:
             - -namespace=kube-system
           volumeMounts:
             - name: operating-system-manager-admission-cert
-              mountPath: /tmp/k8s-webhook-server/serving-certs/
+              mountPath: /tmp/k8s-webhook-server/serving-certs
               readOnly: true
+          ports:
+            - containerPort: 9443
+              name: webhook-server
+              protocol: TCP
           livenessProbe:
             httpGet:
               path: /healthz
-              port: 9876
-              scheme: HTTPS
-            initialDelaySeconds: 5
-            periodSeconds: 5
+              port: 8081
+            initialDelaySeconds: 15
+            periodSeconds: 20
           readinessProbe:
             httpGet:
-              path: /healthz
-              port: 9876
-              scheme: HTTPS
-            periodSeconds: 5
+              path: /readyz
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
           resources:
             requests:
               memory: 256Mi
@@ -94,12 +115,15 @@ spec:
       volumes:
         - name: operating-system-manager-admission-cert
           secret:
-            secretName: cert-manager-webhook-ca
+            defaultMode: 420
+            secretName: webhook-server-cert
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: operatingsystemmanager.k8c.io
+  annotations:
+    cert-manager.io/inject-ca-from: kube-system/operating-system-manager-serving-cert
 webhooks:
   - name: machinedeployments.cluster.k8s.io
     failurePolicy: Fail
@@ -120,7 +144,6 @@ webhooks:
         namespace: kube-system
         name: operating-system-manager-webhook
         path: /machinedeployment
-      caBundle: __admission_ca_cert__
   - name: operatingsystemprofiles.operatingsystemmanager.k8c.io
     failurePolicy: Fail
     sideEffects: None
@@ -140,7 +163,6 @@ webhooks:
         namespace: kube-system
         name: operating-system-manager-webhook
         path: /operatingsystemprofile
-      caBundle: __admission_ca_cert__
   - name: operatingsystemconfigs.operatingsystemmanager.k8c.io
     failurePolicy: Fail
     sideEffects: None
@@ -160,4 +182,3 @@ webhooks:
         namespace: kube-system
         name: operating-system-manager-webhook
         path: /operatingsystemconfig
-      caBundle: __admission_ca_cert__

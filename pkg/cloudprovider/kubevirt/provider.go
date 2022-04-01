@@ -34,12 +34,12 @@ const (
 func GetCloudConfig(pconfig providerconfigtypes.Config) (string, error) {
 	c, err := getConfig(pconfig)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse config: %v", err)
+		return "", fmt.Errorf("failed to parse config: %w", err)
 	}
 
 	s, err := c.ToString()
 	if err != nil {
-		return "", fmt.Errorf("failed to convert cloud-config to string: %v", err)
+		return "", fmt.Errorf("failed to convert cloud-config to string: %w", err)
 	}
 
 	return s, nil
@@ -51,7 +51,7 @@ func getConfig(pconfig providerconfigtypes.Config) (*types.CloudConfig, error) {
 
 	rawConfig := types.RawConfig{}
 	if err := json.Unmarshal(pconfig.CloudProviderSpec.Raw, &rawConfig); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal CloudProviderSpec: %v", err)
+		return nil, fmt.Errorf("failed to unmarshal CloudProviderSpec: %w", err)
 	}
 
 	var (
@@ -61,7 +61,7 @@ func getConfig(pconfig providerconfigtypes.Config) (*types.CloudConfig, error) {
 
 	opts.Kubeconfig, err = config.GetConfigVarResolver().GetConfigVarStringValueOrEnv(rawConfig.Kubeconfig, envKubevirtKubeconfig)
 	if err != nil {
-		return nil, fmt.Errorf(`failed to get value of "kubeconfig" field: %v`, err)
+		return nil, fmt.Errorf(`failed to get value of "kubeconfig" field: %w`, err)
 	}
 
 	cloudConfig := &types.CloudConfig{

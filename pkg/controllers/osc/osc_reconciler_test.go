@@ -73,6 +73,10 @@ sH9BBH38/SzUmAN4QHSPy1gjqm00OAE8NaYDkh/bzE4d7mLGGMWp/WE3KPSu82HF
 kPe6XoSbiLm/kxk32T0=
 -----END CERTIFICATE-----`
 
+const (
+	defaultOSPPathPrefix = "../../../../deploy/osps/default/"
+)
+
 var (
 	update = flag.Bool("update", false, "update testdata files")
 )
@@ -110,7 +114,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 	}{
 		{
 			name:            "Ubuntu OS in AWS with Containerd",
-			ospFile:         "osp-ubuntu.yaml",
+			ospFile:         defaultOSPPathPrefix + "osp-ubuntu.yaml",
 			ospName:         "osp-ubuntu",
 			operatingSystem: providerconfigtypes.OperatingSystemUbuntu,
 			oscFile:         "osc-ubuntu-aws-containerd.yaml",
@@ -124,11 +128,11 @@ func TestReconciler_Reconcile(t *testing.T) {
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
 			cloudProvider:     "aws",
-			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"zone": "eu-central-1b", "vpc": "e-123f", "subnetID": "test-subnet"}`)},
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
 		},
 		{
 			name:            "Ubuntu OS in AWS with Docker",
-			ospFile:         "osp-ubuntu.yaml",
+			ospFile:         defaultOSPPathPrefix + "osp-ubuntu.yaml",
 			ospName:         "osp-ubuntu",
 			operatingSystem: providerconfigtypes.OperatingSystemUbuntu,
 			oscFile:         "osc-ubuntu-aws-docker.yaml",
@@ -142,11 +146,11 @@ func TestReconciler_Reconcile(t *testing.T) {
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
 			cloudProvider:     "aws",
-			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"zone": "eu-central-1b", "vpc": "e-123f", "subnetID": "test-subnet"}`)},
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
 		},
 		{
 			name:            "Flatcar OS in AWS with Containerd",
-			ospFile:         "osp-flatcar.yaml",
+			ospFile:         defaultOSPPathPrefix + "osp-flatcar.yaml",
 			ospName:         "osp-flatcar",
 			operatingSystem: providerconfigtypes.OperatingSystemFlatcar,
 			oscFile:         "osc-flatcar-aws-containerd.yaml",
@@ -160,11 +164,11 @@ func TestReconciler_Reconcile(t *testing.T) {
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
 			cloudProvider:     "aws",
-			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"zone": "eu-central-1b", "vpc": "e-123f", "subnetID": "test-subnet"}`)},
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
 		},
 		{
 			name:            "Flatcar OS in AWS with docker",
-			ospFile:         "osp-flatcar.yaml",
+			ospFile:         defaultOSPPathPrefix + "osp-flatcar.yaml",
 			ospName:         "osp-flatcar",
 			operatingSystem: providerconfigtypes.OperatingSystemFlatcar,
 			oscFile:         "osc-flatcar-aws-docker.yaml",
@@ -178,11 +182,11 @@ func TestReconciler_Reconcile(t *testing.T) {
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
 			cloudProvider:     "aws",
-			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"cloud-config-key": "cloud-config-value"}`)},
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
 		},
 		{
 			name:            "RHEL OS in AWS with Containerd",
-			ospFile:         "osp-rhel.yaml",
+			ospFile:         defaultOSPPathPrefix + "osp-rhel.yaml",
 			ospName:         "osp-rhel",
 			operatingSystem: providerconfigtypes.OperatingSystemRHEL,
 			oscFile:         "osc-rhel-8.x-containerd.yaml",
@@ -196,11 +200,29 @@ func TestReconciler_Reconcile(t *testing.T) {
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
 			cloudProvider:     "aws",
-			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"zone": "eu-central-1b", "vpc": "e-123f", "subnetID": "test-subnet"}`)},
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
+		},
+		{
+			name:            "RHEL OS on Azure with Containerd",
+			ospFile:         defaultOSPPathPrefix + "osp-rhel.yaml",
+			ospName:         "osp-rhel",
+			operatingSystem: providerconfigtypes.OperatingSystemRHEL,
+			oscFile:         "osc-rhel-8.x-azure-containerd.yaml",
+			oscName:         "osp-rhel-azure-kube-system-osc-provisioning",
+			mdName:          "osp-rhel-azure",
+			secretFile:      "secret-rhel-8.x-azure-containerd.yaml",
+			config: testConfig{
+				namespace:        "kube-system",
+				containerRuntime: "containerd",
+				kubeVersion:      "1.22.1",
+				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
+			},
+			cloudProvider:     "azure",
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"securityGroupName": "fake-sg"}`)},
 		},
 		{
 			name:            "Kubelet configuration with docker",
-			ospFile:         "osp-ubuntu.yaml",
+			ospFile:         defaultOSPPathPrefix + "osp-ubuntu.yaml",
 			ospName:         "osp-ubuntu",
 			operatingSystem: providerconfigtypes.OperatingSystemUbuntu,
 			oscFile:         "osc-kubelet-configuration-docker.yaml",
@@ -214,7 +236,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
 			cloudProvider:     "aws",
-			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"zone": "eu-central-1b", "vpc": "e-123f", "subnetID": "test-subnet"}`)},
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
 			additionalAnnotations: map[string]string{
 				"v1.kubelet-config.machine-controller.kubermatic.io/ContainerLogMaxSize":  "300Mi",
 				"v1.kubelet-config.machine-controller.kubermatic.io/ContainerLogMaxFiles": "30",
@@ -225,7 +247,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 		},
 		{
 			name:            "Kubelet configuration with containerd",
-			ospFile:         "osp-ubuntu.yaml",
+			ospFile:         defaultOSPPathPrefix + "osp-ubuntu.yaml",
 			ospName:         "osp-ubuntu",
 			operatingSystem: providerconfigtypes.OperatingSystemUbuntu,
 			oscFile:         "osc-kubelet-configuration-containerd.yaml",
@@ -239,7 +261,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
 			cloudProvider:     "aws",
-			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"zone": "eu-central-1b", "vpc": "e-123f", "subnetID": "test-subnet"}`)},
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
 			additionalAnnotations: map[string]string{
 				"v1.kubelet-config.machine-controller.kubermatic.io/ContainerLogMaxSize":  "300Mi",
 				"v1.kubelet-config.machine-controller.kubermatic.io/ContainerLogMaxFiles": "30",
@@ -346,7 +368,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 		{
 
 			name:            "test the deletion of machineDeployment",
-			ospFile:         "osp-ubuntu.yaml",
+			ospFile:         defaultOSPPathPrefix + "osp-ubuntu.yaml",
 			ospName:         "osp-ubuntu",
 			operatingSystem: providerconfigtypes.OperatingSystemUbuntu,
 			oscFile:         "osc-ubuntu-aws-containerd.yaml",
@@ -358,7 +380,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 				containerRuntime: "containerd",
 			},
 			cloudProvider:     "aws",
-			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"cloudProvider":"aws", "cloudProviderSpec":"test-provider-spec"}`)},
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
 		},
 	}
 
@@ -477,11 +499,11 @@ func generateMachineDeployment(t *testing.T, name, namespace, osp string, os pro
 func loadFile(obj runtime.Object, name string) error {
 	path, err := filepath.Abs(filepath.Join("testdata", name))
 	if err != nil {
-		return fmt.Errorf("failed to get absolute path to testdata %s: %v", name, err)
+		return fmt.Errorf("failed to get absolute path to testdata %s: %w", name, err)
 	}
 	objBytes, err := ioutil.ReadFile(path)
 	if err != nil {
-		return fmt.Errorf("failed to read testdata file: %v", err)
+		return fmt.Errorf("failed to read testdata file: %w", err)
 	}
 
 	err = yaml.Unmarshal(objBytes, obj)

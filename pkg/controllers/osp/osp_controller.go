@@ -59,14 +59,14 @@ type Reconciler struct {
 func Add(mgr manager.Manager, log *zap.SugaredLogger, namespace string, workerCount int) error {
 	ospDefaultDir, err := osps.FS.ReadDir(ospsDefaultDirName)
 	if err != nil {
-		return fmt.Errorf("failed to read osps default directory: %v", err)
+		return fmt.Errorf("failed to read osps default directory: %w", err)
 	}
 
 	var defaultOSPFiles = make(map[string][]byte, len(ospDefaultDir))
 	for _, ospFile := range ospDefaultDir {
 		defaultOSPFile, err := fs.ReadFile(osps.FS, filepath.Join(ospsDefaultDirName, ospFile.Name()))
 		if err != nil {
-			return fmt.Errorf("failed to read osp file %s: %v", ospFile.Name(), err)
+			return fmt.Errorf("failed to read osp file %s: %w", ospFile.Name(), err)
 		}
 
 		defaultOSPFiles[ospFile.Name()] = defaultOSPFile
@@ -112,7 +112,7 @@ func (r *Reconciler) reconcile(ctx context.Context) error {
 	for name, ospFile := range r.defaultOSPFiles {
 		osp, err := parseYAMLToObject(ospFile)
 		if err != nil {
-			return fmt.Errorf("failed to parse osp %s: %v", name, err)
+			return fmt.Errorf("failed to parse osp %s: %w", name, err)
 		}
 
 		// Remove file extension .yaml from the OSP name
@@ -124,7 +124,7 @@ func (r *Reconciler) reconcile(ctx context.Context) error {
 	if err := reconciling.ReconcileOperatingSystemProfiles(ctx,
 		ospCreators,
 		r.namespace, r.Client); err != nil {
-		return fmt.Errorf("failed to reconcile osps: %v", err)
+		return fmt.Errorf("failed to reconcile osps: %w", err)
 	}
 
 	return nil

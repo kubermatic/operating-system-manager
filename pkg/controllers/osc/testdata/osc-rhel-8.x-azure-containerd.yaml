@@ -2,16 +2,14 @@ apiVersion: operatingsystemmanager.k8c.io/v1alpha1
 kind: OperatingSystemConfig
 metadata:
   creationTimestamp: null
-  name: kubelet-configuration-kube-system-osc-provisioning
+  name: osp-rhel-azure-kube-system-osc-provisioning
   namespace: kube-system
   resourceVersion: "1"
 spec:
   cloudProvider:
-    name: aws
+    name: azure
     spec:
-      availabilityZone: eu-central-1b
-      subnetID: test-subnet
-      vpcId: e-123f
+      securityGroupName: fake-sg
   files:
   - content:
       inline:
@@ -177,50 +175,54 @@ spec:
   - content:
       inline:
         data: |
-          # Added by kubermatic machine-controller
-          # Enable cgroups memory and swap accounting
-          GRUB_CMDLINE_LINUX="cgroup_enable=memory swapaccount=1"
+          # This file controls the state of SELinux on the system.
+          # SELINUX= can take one of these three values:
+          #     enforcing - SELinux security policy is enforced.
+          #     permissive - SELinux prints warnings instead of enforcing.
+          #     disabled - No SELinux policy is loaded.
+          SELINUX=permissive
+          # SELINUXTYPE= can take one of three two values:
+          #     targeted - Targeted processes are protected,
+          #     minimum - Modification of targeted policy. Only selected processes are protected.
+          #     mls - Multi Level Security protection.
+          SELINUXTYPE=targeted
         encoding: b64
-    path: /etc/default/grub.d/60-swap-accounting.cfg
+    path: /etc/selinux/config
   - content:
       inline:
         data: |
           #!/bin/bash
           set -xeuo pipefail
-          if systemctl is-active ufw; then systemctl stop ufw; fi
-          systemctl mask ufw
+
+          setenforce 0 || true
           systemctl restart systemd-modules-load.service
           sysctl --system
           sed -i.orig '/.*swap.*/d' /etc/fstab
           swapoff -a
 
-          apt-get update
 
-          DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y \
-            curl \
-            ca-certificates \
-            ceph-common \
-            cifs-utils \
-            conntrack \
-            e2fsprogs \
+          yum update -y --disablerepo='*' --enablerepo='*microsoft*'
+
+          yum install -y \
+            device-mapper-persistent-data \
+            lvm2 \
             ebtables \
             ethtool \
-            glusterfs-client \
-            iptables \
-            jq \
-            kmod \
-            openssh-client \
-            nfs-common \
+            nfs-utils \
+            bash-completion \
+            sudo \
             socat \
-            util-linux \
+            wget \
+            curl \
             ipvsadm
-          apt-get update
-          apt-get install -y apt-transport-https ca-certificates curl software-properties-common lsb-release
-          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
-          add-apt-repository "deb https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
 
-          apt-get install -y --allow-downgrades containerd.io=1.4*
-          apt-mark hold containerd.io
+          systemctl disable --now firewalld || true
+          yum install -y yum-utils
+          yum-config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
+          yum-config-manager --save --setopt=docker-ce-stable.module_hotfixes=true
+
+          yum install -y containerd.io-1.4* yum-plugin-versionlock
+          yum versionlock add containerd.io
 
           systemctl daemon-reload
           systemctl enable --now containerd
@@ -285,6 +287,7 @@ spec:
               ln -sf "$kube_dir/$bin" "$opt_bin"/$bin
           done
 
+          mkdir -p /etc/systemd/system/kubelet.service.d/
           # set kubelet nodeip environment variable
           /opt/bin/setup_net_env.sh
 
@@ -332,8 +335,9 @@ spec:
             --config=/etc/kubernetes/kubelet.conf \
             --network-plugin=cni \
             --cert-dir=/etc/kubernetes/pki \
-            --cloud-provider=aws \
+            --cloud-provider=azure \
             --cloud-config=/etc/kubernetes/cloud-config \
+            --hostname-override=${KUBELET_HOSTNAME} \
             --dynamic-config-dir=/etc/kubernetes/dynamic-config-dir \
             --feature-gates=DynamicKubeletConfig=true \
             --exit-on-lock-contention \
@@ -349,18 +353,7 @@ spec:
   - content:
       inline:
         data: |
-          [Service]
-          Environment="KUBELET_EXTRA_ARGS=--resolv-conf=/run/systemd/resolve/resolv.conf"
-        encoding: b64
-    path: /etc/systemd/system/kubelet.service.d/extras.conf
-  - content:
-      inline:
-        data: |+
-          [global]
-          Zone="eu-central-1b"
-          VPC="e-123f"
-          SubnetID="test-subnet"
-
+          {"cloud":"AZUREPUBLICCLOUD","tenantId":"","subscriptionId":"","aadClientId":"","aadClientSecret":"","resourceGroup":"","location":"","vnetName":"","subnetName":"","routeTableName":"","securityGroupName":"fake-sg","primaryAvailabilitySetName":"","vnetResourceGroup":"","useInstanceMetadata":true,"loadBalancerSku":""}
         encoding: b64
     path: /etc/kubernetes/cloud-config
     permissions: 384
@@ -381,13 +374,8 @@ spec:
             exit 1
           fi
 
-
-          # get the full hostname
+           # get the full hostname
           FULL_HOSTNAME=$(hostname -f)
-          # if /etc/hostname is not empty then use the hostname from there
-          if [ -s /etc/hostname ]; then
-            FULL_HOSTNAME=$(cat /etc/hostname)
-          fi
 
           # write the nodeip_env file
           # we need the line below because flatcar has the same string "coreos" in that file
@@ -478,8 +466,8 @@ spec:
           clusterDNS:
           - "10.0.0.0"
           clusterDomain: cluster.local
-          containerLogMaxSize: 300Mi
-          containerLogMaxFiles: 30
+          containerLogMaxSize: 100Mi
+          containerLogMaxFiles: 5
           featureGates:
             GracefulNodeShutdown: true
             IdentifyPodOS: false
@@ -489,13 +477,18 @@ spec:
           serverTLSBootstrap: true
           staticPodPath: /etc/kubernetes/manifests
           kubeReserved:
-            cpu: 30m
-            ephemeral-storage: 30Gi
+            cpu: 200m
+            ephemeral-storage: 1Gi
+            memory: 200Mi
           systemReserved:
-            cpu: 30m
-            ephemeral-storage: 30Gi
+            cpu: 200m
+            ephemeral-storage: 1Gi
+            memory: 200Mi
           evictionHard:
-            memory.available: 30Mi
+            imagefs.available: 15%
+            memory.available: 100Mi
+            nodefs.available: 10%
+            nodefs.inodesFree: 5%
           tlsCipherSuites:
           - TLS_AES_128_GCM_SHA256
           - TLS_AES_256_GCM_SHA384
@@ -568,7 +561,10 @@ spec:
         encoding: b64
     path: /etc/containerd/config.toml
     permissions: 384
-  osName: ubuntu
-  osVersion: "20.04"
+  modules:
+    bootcmd:
+    - modprobe ip_tables
+  osName: rhel
+  osVersion: "8.4"
   userSSHKeys:
   - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c

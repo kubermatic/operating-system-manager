@@ -50,13 +50,10 @@ import (
 type options struct {
 	workerCount             int
 	namespace               string
-	clusterName             string
 	containerRuntime        string
 	externalCloudProvider   bool
 	pauseImage              string
 	initialTaints           string
-	nodePortRange           string
-	podCidr                 string
 	enableLeaderElection    bool
 	clusterDNSIPs           string
 	workerClusterKubeconfig string
@@ -102,8 +99,6 @@ func main() {
 	flag.StringVar(&opt.pauseImage, "pause-image", "", "pause image to use in Kubelet.")
 	flag.StringVar(&opt.initialTaints, "initial-taints", "", "taints to use when creating the node.")
 
-	flag.StringVar(&opt.podCidr, "pod-cidr", "172.25.0.0/16", "The network ranges from which POD networks are allocated")
-	flag.StringVar(&opt.nodePortRange, "node-port-range", "30000-32767", "A port range to reserve for services with NodePort visibility")
 	flag.StringVar(&opt.kubeletFeatureGates, "node-kubelet-feature-gates", "RotateKubeletServerCertificate=true", "Feature gates to set on the kubelet")
 
 	flag.StringVar(&opt.nodeHTTPProxy, "node-http-proxy", "", "If set, it configures the 'HTTP_PROXY' & 'HTTPS_PROXY' environment variable on the nodes.")
@@ -240,8 +235,6 @@ func main() {
 		opt.initialTaints,
 		opt.nodeHTTPProxy,
 		opt.nodeNoProxy,
-		opt.nodePortRange,
-		opt.podCidr,
 		containerRuntimeConfig,
 		opt.nodeRegistryCredentialsSecret,
 		parsedKubeletFeatureGates,
@@ -272,15 +265,15 @@ func createManager(opt *options) (manager.Manager, error) {
 
 	mgr, err := manager.New(config.GetConfigOrDie(), options)
 	if err != nil {
-		return nil, fmt.Errorf("error building ctrlruntime manager: %v", err)
+		return nil, fmt.Errorf("error building ctrlruntime manager: %w", err)
 	}
 
 	// Add health endpoints
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
-		return nil, fmt.Errorf("failed to add health check: %v", err)
+		return nil, fmt.Errorf("failed to add health check: %w", err)
 	}
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
-		return nil, fmt.Errorf("failed to add readiness check: %v", err)
+		return nil, fmt.Errorf("failed to add readiness check: %w", err)
 	}
 	return mgr, nil
 }
