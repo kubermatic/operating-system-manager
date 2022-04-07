@@ -10,5 +10,6 @@
 | Google Cloud Platform | ✓ | x | x | x |
 | Hetzner | ✓ | ✓ | x | x |
 | KubeVirt | ✓ | ✓ | ✓ | x |
+| Nutanix | ✓ | ✓ | x | x |
 | Openstack | ✓ | ✓ | ✓ | x |
 | VSphere | ✓ | ✓ | ✓ | x |
