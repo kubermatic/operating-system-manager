@@ -172,6 +172,10 @@ func GenerateOperatingSystemConfig(
 		return nil, fmt.Errorf("failed to add operating system spec: %w", err)
 	}
 
+	if providerConfig.OperatingSystem == providerconfigtypes.OperatingSystemRHEL {
+		osp.Spec.CloudInitModules.RHSubscription = rhel.RHSubscription(data.RhelConfig)
+	}
+
 	// Handle files
 	osp.Spec.Files = append(osp.Spec.Files, selectAdditionalFiles(osp, containerRuntime)...)
 	additionalTemplates, err := selectAdditionalTemplates(osp, containerRuntime, data)
@@ -218,6 +222,7 @@ type filesData struct {
 	NoProxy                *string
 	ContainerRuntimeConfig string
 	KubeletFeatureGates    map[string]bool
+	RHSubscription         map[string]string
 
 	kubeletConfig
 	OperatingSystemConfig

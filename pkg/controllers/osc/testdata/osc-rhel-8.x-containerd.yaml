@@ -567,6 +567,10 @@ spec:
   modules:
     bootcmd:
     - modprobe ip_tables
+    rh_subscription:
+      auto-attach: "false"
+      password: ""
+      username: ""
   osName: rhel
   osVersion: "8.4"
   userSSHKeys:
