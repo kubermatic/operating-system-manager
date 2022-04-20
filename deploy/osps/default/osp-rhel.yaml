@@ -418,6 +418,9 @@ spec:
             systemctl restart systemd-modules-load.service
             sysctl --system
 
+            {{- /* restart sshd.service */}}
+            systemctl restart sshd.service
+
             {{- /* Make sure we always disable swap - Otherwise the kubelet won't start'. */}}
             sed -i.orig '/.*swap.*/d' /etc/fstab
             swapoff -a
@@ -573,9 +576,16 @@ spec:
               exit 1
             fi
 
-             # get the full hostname
+            # get the full hostname
             FULL_HOSTNAME=$(hostname -f)
-
+            # if /etc/hostname is not empty then use the hostname from there
+            if [ -s /etc/hostname ]; then
+              FULL_HOSTNAME=$(cat /etc/hostname)
+            fi
+            {{- if eq .CloudProviderName "openstack" }}
+            FULL_HOSTNAME=$(echo $FULL_HOSTNAME | sed -e "s/.novalocal//")
+            {{- end }}
+            
             # write the nodeip_env file
             # we need the line below because flatcar has the same string "coreos" in that file
             if grep -q coreos /etc/os-release
@@ -727,6 +737,7 @@ spec:
 
             [Install]
             WantedBy=multi-user.target
+
   modules:
     bootcmd:
       - modprobe ip_tables

@@ -199,6 +199,7 @@ spec:
           setenforce 0 || true
           systemctl restart systemd-modules-load.service
           sysctl --system
+          systemctl restart sshd.service
           sed -i.orig '/.*swap.*/d' /etc/fstab
           swapoff -a
 
@@ -377,8 +378,12 @@ spec:
             exit 1
           fi
 
-           # get the full hostname
+          # get the full hostname
           FULL_HOSTNAME=$(hostname -f)
+          # if /etc/hostname is not empty then use the hostname from there
+          if [ -s /etc/hostname ]; then
+            FULL_HOSTNAME=$(cat /etc/hostname)
+          fi
 
           # write the nodeip_env file
           # we need the line below because flatcar has the same string "coreos" in that file
