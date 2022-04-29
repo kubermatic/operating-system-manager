@@ -50,13 +50,6 @@ func DeepEqual(a, b metav1.Object) (bool, error) {
 		return true, nil
 	}
 
-	// For informational purpose we use deep.equal as it tells us what the difference is.
-	// We need to calculate the difference in both ways as deep.equal only does a one-way comparison
-	diff := deep.Equal(a, b)
-	if diff == nil {
-		diff = deep.Equal(b, a)
-	}
-
 	return false, nil
 }
 
