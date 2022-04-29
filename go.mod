@@ -14,8 +14,6 @@ require (
 	go.uber.org/zap v1.21.0
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
-	k8c.io/kubermatic/v2 v2.20.2
-	k8s.io/api v0.23.6
 	k8s.io/apimachinery v0.23.6
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/code-generator v0.23.6
@@ -30,6 +28,8 @@ require (
 	github.com/go-logr/logr v1.2.3
 	k8s.io/klog/v2 v2.60.1 // indirect
 )
+
+require k8s.io/api v0.23.6
 
 require (
 	github.com/BurntSushi/toml v1.1.0 // indirect
@@ -82,7 +82,6 @@ require (
 	github.com/prometheus/common v0.34.0 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
-	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/spf13/cast v1.4.1 // indirect
 	github.com/spf13/cobra v1.2.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect

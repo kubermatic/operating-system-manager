@@ -103,7 +103,10 @@ func EnsureNamedObject(ctx context.Context, namespacedName types.NamespacedName,
 		return fmt.Errorf("failed to build Object(%T) '%s': %w", existingObject, namespacedName.String(), err)
 	}
 
-	if DeepEqual(obj.(metav1.Object), existingObject.(metav1.Object)) {
+	equal, err := DeepEqual(obj.(metav1.Object), existingObject.(metav1.Object))
+	if err != nil {
+		klog.Warningf("Failed to compare old to current object: %s", err.Error())
+	} else if equal {
 		return nil
 	}
 
@@ -155,8 +158,12 @@ func waitUntilUpdateIsInCacheConditionFunc(
 			klog.Errorf("failed retrieving object %T %s while waiting for the cache to contain our latest changes: %v", currentObj, namespacedName, err)
 			return false, nil
 		}
+
 		// Check if the object from the store differs the old object
-		if !DeepEqual(currentObj.(metav1.Object), oldObj.(metav1.Object)) {
+		equal, err := DeepEqual(currentObj.(metav1.Object), oldObj.(metav1.Object))
+		if err != nil {
+			klog.Warningf("Failed to compare old to current object: %s", err.Error())
+		} else if !equal {
 			return true, nil
 		}
 		return false, nil

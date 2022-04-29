@@ -18,12 +18,8 @@ package reconciling
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/go-test/deep"
-	"go.uber.org/zap"
-
-	kubermaticlog "k8c.io/kubermatic/v2/pkg/log"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,40 +33,34 @@ func init() {
 }
 
 // DeepEqual compares both objects for equality
-func DeepEqual(a, b metav1.Object) bool {
+func DeepEqual(a, b metav1.Object) (bool, error) {
 	if equality.Semantic.DeepEqual(a, b) {
-		return true
+		return true, nil
 	}
 
 	// For some reason unstructured objects returned from the api have types for their fields
 	// that are not map[string]interface{} and don't even exist in our codebase like
 	// `openshift.infrastructureStatus`, so we have to compare the wire format here.
 	// We only do this for unstrucutred as this comparison is pretty expensive.
-	if _, isUnstructured := a.(*unstructured.Unstructured); isUnstructured && jsonEqual(a, b) {
-		return true
+	if _, isUnstructured := a.(*unstructured.Unstructured); isUnstructured {
+		if equal, err := jsonEqual(a, b); err != nil || !equal {
+			return false, err
+		}
+
+		return true, nil
 	}
 
-	// For informational purpose we use deep.equal as it tells us what the difference is.
-	// We need to calculate the difference in both ways as deep.equal only does a one-way comparison
-	diff := deep.Equal(a, b)
-	if diff == nil {
-		diff = deep.Equal(b, a)
-	}
-
-	kubermaticlog.Logger.Debugw("Object differs from generated one", "type", fmt.Sprintf("%T", a), "namespace", a.GetNamespace(), "name", a.GetName(), "diff", diff)
-	return false
+	return false, nil
 }
 
-func jsonEqual(a, b interface{}) bool {
+func jsonEqual(a, b interface{}) (bool, error) {
 	aJSON, err := json.Marshal(a)
 	if err != nil {
-		kubermaticlog.Logger.Errorw("Failed to marshal aJSON", zap.Error(err))
-		return false
+		return false, err
 	}
 	bJSON, err := json.Marshal(b)
 	if err != nil {
-		kubermaticlog.Logger.Errorw("Failed to marshal bJSON", zap.Error(err))
-		return false
+		return false, err
 	}
-	return string(aJSON) == string(bJSON)
+	return string(aJSON) == string(bJSON), nil
 }
