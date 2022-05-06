@@ -25,6 +25,7 @@ import (
 	"text/template"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/Masterminds/sprig/v3"
 	"github.com/kubermatic/machine-controller/pkg/apis/cluster/common"
 	"github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	"github.com/kubermatic/machine-controller/pkg/containerruntime"
@@ -162,6 +163,10 @@ func GenerateOperatingSystemConfig(
 		data.NetworkConfig = providerConfig.Network
 	}
 
+	if providerConfig.Network.IsStaticIPConfig() && providerConfig.OperatingSystem != providerconfigtypes.OperatingSystemFlatcar {
+		return nil, fmt.Errorf("static IP config is not supported with: %s", providerConfig.OperatingSystem)
+	}
+
 	err = setOperatingSystemConfig(providerConfig.OperatingSystem, providerConfig.OperatingSystemSpec, &data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add operating system spec: %w", err)
@@ -236,10 +241,11 @@ type kubeletConfig struct {
 }
 
 func populateFilesList(files []osmv1alpha1.File, additionalTemplates []string, d filesData) ([]osmv1alpha1.File, error) {
+	funcMap := sprig.TxtFuncMap()
 	var pfiles []osmv1alpha1.File
 	for _, file := range files {
 		content := file.Content.Inline.Data
-		tmpl, err := template.New(file.Path).Parse(content)
+		tmpl, err := template.New(file.Path).Funcs(funcMap).Parse(content)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse OSP file [%s] template: %w", file.Path, err)
 		}
@@ -294,9 +300,11 @@ func selectAdditionalTemplates(osp *osmv1alpha1.OperatingSystemProfile, containe
 	}
 
 	templates := make([]string, 0)
+	funcMap := sprig.TxtFuncMap()
+
 	// render templates
 	for name, t := range templatesToRender {
-		tmpl, err := template.New(name).Parse(t)
+		tmpl, err := template.New(name).Funcs(funcMap).Parse(t)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse OSP template [%s]: %w", name, err)
 		}

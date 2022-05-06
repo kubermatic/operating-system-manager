@@ -65,7 +65,7 @@ spec:
           */}}
           yum-config-manager --save --setopt=docker-ce-stable.module_hotfixes=true
 
-          yum install -y containerd.io-1.4* yum-plugin-versionlock
+          yum install -y containerd.io-1.5* yum-plugin-versionlock
           yum versionlock add containerd.io
 
           systemctl daemon-reload
@@ -104,7 +104,7 @@ spec:
 
           yum install -y \
               docker-ce-cli-19.03* \
-              containerd.io-1.4* \
+              containerd.io-1.5* \
               docker-ce-19.03* \
               yum-plugin-versionlock
           yum versionlock add docker-ce* containerd.io
@@ -509,7 +509,9 @@ spec:
               --bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf \
               --kubeconfig=/var/lib/kubelet/kubeconfig \
               --config=/etc/kubernetes/kubelet.conf \
+              {{- if semverCompare "<1.24" .KubeVersion }}
               --network-plugin=cni \
+              {{- end }}
               --cert-dir=/etc/kubernetes/pki \
               {{- if .ExternalCloudProvider }}
               --cloud-provider=external \

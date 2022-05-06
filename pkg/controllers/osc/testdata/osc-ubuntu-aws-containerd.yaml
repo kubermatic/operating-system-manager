@@ -219,7 +219,7 @@ spec:
           curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
           add-apt-repository "deb https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
 
-          apt-get install -y --allow-downgrades containerd.io=1.4*
+          apt-get install -y --allow-downgrades containerd.io=1.5*
           apt-mark hold containerd.io
 
           systemctl daemon-reload
@@ -266,7 +266,7 @@ spec:
           rm -f "$cri_tools_filename"
           ln -sf "$opt_bin/crictl" "$usr_local_bin"/crictl || echo "symbolic link is skipped"
           cd -
-          KUBE_VERSION="${KUBE_VERSION:-v1.22.1}"
+          KUBE_VERSION="${KUBE_VERSION:-v1.24.2}"
           kube_dir="$opt_bin/kubernetes-$KUBE_VERSION"
           kube_base_url="https://storage.googleapis.com/kubernetes-release/release/$KUBE_VERSION/bin/linux/$arch"
           kube_sum_file="$kube_dir/sha256"
@@ -330,7 +330,6 @@ spec:
             --bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf \
             --kubeconfig=/var/lib/kubelet/kubeconfig \
             --config=/etc/kubernetes/kubelet.conf \
-            --network-plugin=cni \
             --cert-dir=/etc/kubernetes/pki \
             --cloud-provider=aws \
             --cloud-config=/etc/kubernetes/cloud-config \

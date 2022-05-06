@@ -572,7 +572,9 @@ spec:
               --bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf \
               --kubeconfig=/var/lib/kubelet/kubeconfig \
               --config=/etc/kubernetes/kubelet.conf \
+              {{- if semverCompare "<1.24" .KubeVersion }}
               --network-plugin=cni \
+              {{- end }}
               --cert-dir=/etc/kubernetes/pki \
               {{- if .ExternalCloudProvider }}
               --cloud-provider=external \
