@@ -63,7 +63,7 @@ spec:
           curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
           add-apt-repository "deb https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
 
-          apt-get install -y --allow-downgrades containerd.io=1.4*
+          apt-get install -y --allow-downgrades containerd.io=1.5*
           apt-mark hold containerd.io
 
           systemctl daemon-reload
@@ -103,7 +103,7 @@ spec:
           add-apt-repository "deb https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
 
           apt-get install --allow-downgrades -y \
-              containerd.io=1.4* \
+              containerd.io=1.5* \
               docker-ce-cli=5:19.03* \
               docker-ce=5:19.03*
           apt-mark hold docker-ce* containerd.io
@@ -493,7 +493,9 @@ spec:
               --bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf \
               --kubeconfig=/var/lib/kubelet/kubeconfig \
               --config=/etc/kubernetes/kubelet.conf \
+              {{- if semverCompare "<1.24" .KubeVersion }}
               --network-plugin=cni \
+              {{- end }}
               --cert-dir=/etc/kubernetes/pki \
               {{- if .ExternalCloudProvider }}
               --cloud-provider=external \

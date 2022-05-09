@@ -74,7 +74,8 @@ kPe6XoSbiLm/kxk32T0=
 -----END CERTIFICATE-----`
 
 const (
-	defaultOSPPathPrefix = "../../../../deploy/osps/default/"
+	defaultOSPPathPrefix  = "../../../../deploy/osps/default/"
+	defaultKubeletVersion = "1.22.2"
 )
 
 var (
@@ -93,13 +94,13 @@ func init() {
 type testConfig struct {
 	namespace        string
 	containerRuntime string
-	kubeVersion      string
 	clusterDNSIPs    []net.IP
 }
 
 func TestReconciler_Reconcile(t *testing.T) {
 	var testCases = []struct {
 		name                  string
+		kubeletVersion        string
 		ospFile               string
 		ospName               string
 		oscFile               string
@@ -120,11 +121,11 @@ func TestReconciler_Reconcile(t *testing.T) {
 			oscFile:         "osc-ubuntu-aws-containerd.yaml",
 			oscName:         "ubuntu-aws-kube-system-osc-provisioning",
 			mdName:          "ubuntu-aws",
+			kubeletVersion:  "1.24.2",
 			secretFile:      "secret-ubuntu-aws-containerd.yaml",
 			config: testConfig{
 				namespace:        "kube-system",
 				containerRuntime: "containerd",
-				kubeVersion:      "1.22.1",
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
 			cloudProvider:     "aws",
@@ -138,11 +139,11 @@ func TestReconciler_Reconcile(t *testing.T) {
 			oscFile:         "osc-ubuntu-aws-docker.yaml",
 			oscName:         "ubuntu-aws-kube-system-osc-provisioning",
 			mdName:          "ubuntu-aws",
+			kubeletVersion:  defaultKubeletVersion,
 			secretFile:      "secret-ubuntu-aws-docker.yaml",
 			config: testConfig{
 				namespace:        "kube-system",
 				containerRuntime: "docker",
-				kubeVersion:      "1.22.1",
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
 			cloudProvider:     "aws",
@@ -156,11 +157,11 @@ func TestReconciler_Reconcile(t *testing.T) {
 			oscFile:         "osc-flatcar-aws-containerd.yaml",
 			oscName:         "flatcar-aws-containerd-kube-system-osc-provisioning",
 			mdName:          "flatcar-aws-containerd",
+			kubeletVersion:  defaultKubeletVersion,
 			secretFile:      "secret-flatcar-aws-containerd.yaml",
 			config: testConfig{
 				namespace:        "kube-system",
 				containerRuntime: "containerd",
-				kubeVersion:      "1.22.1",
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
 			cloudProvider:     "aws",
@@ -174,11 +175,11 @@ func TestReconciler_Reconcile(t *testing.T) {
 			oscFile:         "osc-flatcar-aws-docker.yaml",
 			oscName:         "flatcar-aws-docker-kube-system-osc-provisioning",
 			mdName:          "flatcar-aws-docker",
+			kubeletVersion:  defaultKubeletVersion,
 			secretFile:      "secret-flatcar-aws-docker.yaml",
 			config: testConfig{
 				namespace:        "kube-system",
 				containerRuntime: "docker",
-				kubeVersion:      "1.22.1",
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
 			cloudProvider:     "aws",
@@ -192,11 +193,11 @@ func TestReconciler_Reconcile(t *testing.T) {
 			oscFile:         "osc-rhel-8.x-containerd.yaml",
 			oscName:         "osp-rhel-aws-kube-system-osc-provisioning",
 			mdName:          "osp-rhel-aws",
+			kubeletVersion:  defaultKubeletVersion,
 			secretFile:      "secret-rhel-8.x-containerd.yaml",
 			config: testConfig{
 				namespace:        "kube-system",
 				containerRuntime: "containerd",
-				kubeVersion:      "1.22.1",
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
 			cloudProvider:     "aws",
@@ -210,11 +211,11 @@ func TestReconciler_Reconcile(t *testing.T) {
 			oscFile:         "osc-rhel-8.x-azure-containerd.yaml",
 			oscName:         "osp-rhel-azure-kube-system-osc-provisioning",
 			mdName:          "osp-rhel-azure",
+			kubeletVersion:  defaultKubeletVersion,
 			secretFile:      "secret-rhel-8.x-azure-containerd.yaml",
 			config: testConfig{
 				namespace:        "kube-system",
 				containerRuntime: "containerd",
-				kubeVersion:      "1.22.1",
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
 			cloudProvider:     "azure",
@@ -228,11 +229,11 @@ func TestReconciler_Reconcile(t *testing.T) {
 			oscFile:         "osc-kubelet-configuration-docker.yaml",
 			oscName:         "kubelet-configuration-kube-system-osc-provisioning",
 			mdName:          "kubelet-configuration",
+			kubeletVersion:  defaultKubeletVersion,
 			secretFile:      "secret-kubelet-configuration-docker.yaml",
 			config: testConfig{
 				namespace:        "kube-system",
 				containerRuntime: "docker",
-				kubeVersion:      "1.22.1",
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
 			cloudProvider:     "aws",
@@ -253,11 +254,11 @@ func TestReconciler_Reconcile(t *testing.T) {
 			oscFile:         "osc-kubelet-configuration-containerd.yaml",
 			oscName:         "kubelet-configuration-kube-system-osc-provisioning",
 			mdName:          "kubelet-configuration",
+			kubeletVersion:  defaultKubeletVersion,
 			secretFile:      "secret-kubelet-configuration-containerd.yaml",
 			config: testConfig{
 				namespace:        "kube-system",
 				containerRuntime: "containerd",
-				kubeVersion:      "1.22.1",
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
 			cloudProvider:     "aws",
@@ -290,7 +291,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 
 		t.Run(testCase.name, func(t *testing.T) {
 			ctx := context.Background()
-			md := generateMachineDeployment(t, testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec, testCase.additionalAnnotations)
+			md := generateMachineDeployment(t, testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.kubeletVersion, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec, testCase.additionalAnnotations)
 
 			// Configure containerRuntimeConfig
 			containerRuntimeOpts := containerruntime.Opts{
@@ -354,6 +355,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 func TestMachineDeploymentDeletion(t *testing.T) {
 	var testCases = []struct {
 		name              string
+		kubeletVersion    string
 		ospFile           string
 		ospName           string
 		operatingSystem   providerconfigtypes.OperatingSystem
@@ -374,6 +376,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 			oscFile:         "osc-ubuntu-aws-containerd.yaml",
 			oscName:         "ubuntu-aws-kube-system-osc-provisioning",
 			mdName:          "ubuntu-aws",
+			kubeletVersion:  defaultKubeletVersion,
 			secretFile:      "secret-ubuntu-aws-containerd.yaml",
 			config: testConfig{
 				namespace:        "kube-system",
@@ -392,7 +395,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 			t.Fatalf("failed loading osp %s from testdata: %v", testCase.name, err)
 		}
 
-		md := generateMachineDeployment(t, testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec, nil)
+		md := generateMachineDeployment(t, testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.kubeletVersion, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec, nil)
 		fakeClient := fakectrlruntimeclient.
 			NewClientBuilder().
 			WithScheme(scheme.Scheme).
@@ -454,7 +457,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 	}
 }
 
-func generateMachineDeployment(t *testing.T, name, namespace, osp string, os providerconfigtypes.OperatingSystem, cloudprovider string, cloudProviderSpec runtime.RawExtension, additionalAnnotations map[string]string) *v1alpha1.MachineDeployment {
+func generateMachineDeployment(t *testing.T, name, namespace, osp, kubeletVersion string, os providerconfigtypes.OperatingSystem, cloudprovider string, cloudProviderSpec runtime.RawExtension, additionalAnnotations map[string]string) *v1alpha1.MachineDeployment {
 	pconfig := providerconfigtypes.Config{
 		SSHPublicKeys:     []string{"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c"},
 		OperatingSystem:   os,
@@ -482,7 +485,7 @@ func generateMachineDeployment(t *testing.T, name, namespace, osp string, os pro
 			Template: v1alpha1.MachineTemplateSpec{
 				Spec: v1alpha1.MachineSpec{
 					Versions: v1alpha1.MachineVersionInfo{
-						Kubelet: "1.22.1",
+						Kubelet: kubeletVersion,
 					},
 					ProviderSpec: v1alpha1.ProviderSpec{
 						Value: &runtime.RawExtension{
