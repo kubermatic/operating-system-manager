@@ -19,7 +19,7 @@ metadata:
   namespace: kube-system
 spec:
   osName: "rhel"
-  osVersion: "8.4"
+  osVersion: "8.5"
   version: "v0.1.2"
   supportedCloudProviders:
     - name: "aws"
@@ -361,6 +361,7 @@ spec:
             #!/usr/bin/env bash
             set -euo pipefail
 
+            modprobe ip_tables
             modprobe ip_vs
             modprobe ip_vs_rr
             modprobe ip_vs_wrr
@@ -422,9 +423,6 @@ spec:
             sed -i.orig '/.*swap.*/d' /etc/fstab
             swapoff -a
 
-            {{ if eq .CloudProviderName "azure" }}
-            yum update -y --disablerepo='*' --enablerepo='*microsoft*'
-            {{ end }}
             yum install -y \
               device-mapper-persistent-data \
               lvm2 \
@@ -573,9 +571,16 @@ spec:
               exit 1
             fi
 
-             # get the full hostname
+            # get the full hostname
             FULL_HOSTNAME=$(hostname -f)
-
+            # if /etc/hostname is not empty then use the hostname from there
+            if [ -s /etc/hostname ]; then
+              FULL_HOSTNAME=$(cat /etc/hostname)
+            fi
+            {{- if eq .CloudProviderName "openstack" }}
+            FULL_HOSTNAME=$(echo $FULL_HOSTNAME | sed -e "s/.novalocal//")
+            {{- end }}
+            
             # write the nodeip_env file
             # we need the line below because flatcar has the same string "coreos" in that file
             if grep -q coreos /etc/os-release
@@ -727,6 +732,3 @@ spec:
 
             [Install]
             WantedBy=multi-user.target
-  modules:
-    bootcmd:
-      - modprobe ip_tables

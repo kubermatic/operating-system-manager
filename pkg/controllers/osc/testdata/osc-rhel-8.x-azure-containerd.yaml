@@ -146,6 +146,7 @@ spec:
           #!/usr/bin/env bash
           set -euo pipefail
 
+          modprobe ip_tables
           modprobe ip_vs
           modprobe ip_vs_rr
           modprobe ip_vs_wrr
@@ -199,9 +200,6 @@ spec:
           sysctl --system
           sed -i.orig '/.*swap.*/d' /etc/fstab
           swapoff -a
-
-
-          yum update -y --disablerepo='*' --enablerepo='*microsoft*'
 
           yum install -y \
             device-mapper-persistent-data \
@@ -374,8 +372,12 @@ spec:
             exit 1
           fi
 
-           # get the full hostname
+          # get the full hostname
           FULL_HOSTNAME=$(hostname -f)
+          # if /etc/hostname is not empty then use the hostname from there
+          if [ -s /etc/hostname ]; then
+            FULL_HOSTNAME=$(cat /etc/hostname)
+          fi
 
           # write the nodeip_env file
           # we need the line below because flatcar has the same string "coreos" in that file
@@ -562,9 +564,11 @@ spec:
     path: /etc/containerd/config.toml
     permissions: 384
   modules:
-    bootcmd:
-    - modprobe ip_tables
+    rh_subscription:
+      auto-attach: "false"
+      password: ""
+      username: ""
   osName: rhel
-  osVersion: "8.4"
+  osVersion: "8.5"
   userSSHKeys:
   - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c

@@ -59,7 +59,7 @@ func getConfig(pconfig providerconfigtypes.Config) (*types.CloudConfig, error) {
 		err  error
 	)
 
-	opts.Kubeconfig, err = config.GetConfigVarResolver().GetConfigVarStringValueOrEnv(rawConfig.Kubeconfig, envKubevirtKubeconfig)
+	opts.Kubeconfig, err = config.GetConfigVarResolver().GetConfigVarStringValueOrEnv(rawConfig.Auth.Kubeconfig, envKubevirtKubeconfig)
 	if err != nil {
 		return nil, fmt.Errorf(`failed to get value of "kubeconfig" field: %w`, err)
 	}

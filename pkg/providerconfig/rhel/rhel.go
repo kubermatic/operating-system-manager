@@ -18,6 +18,8 @@ package rhel
 
 import (
 	"encoding/json"
+	"fmt"
+	"strconv"
 
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -28,6 +30,7 @@ type Config struct {
 	RHELSubscriptionManagerUser     string `json:"rhelSubscriptionManagerUser,omitempty"`
 	RHELSubscriptionManagerPassword string `json:"rhelSubscriptionManagerPassword,omitempty"`
 	RHSMOfflineToken                string `json:"rhsmOfflineToken,omitempty"`
+	AttachSubscription              bool   `json:"attachSubscription"`
 	RHELUseSatelliteServer          bool   `json:"rhelUseSatelliteServer"`
 	RHELSatelliteServer             string `json:"rhelSatelliteServer"`
 	RHELOrganizationName            string `json:"rhelOrganizationName"`
@@ -52,4 +55,21 @@ func LoadConfig(r runtime.RawExtension) (*Config, error) {
 	}
 
 	return &cfg, nil
+}
+
+func RHSubscription(config Config) map[string]string {
+	if config.RHELUseSatelliteServer {
+		return map[string]string{
+			"org":             config.RHELOrganizationName,
+			"activation-key":  config.RHELActivationKey,
+			"server-hostname": config.RHELSatelliteServer,
+			"rhsm-baseurl":    fmt.Sprintf("https://%s/pulp/repos", config.RHELSatelliteServer),
+		}
+	}
+
+	return map[string]string{
+		"username":    config.RHELSubscriptionManagerUser,
+		"password":    config.RHELSubscriptionManagerPassword,
+		"auto-attach": strconv.FormatBool(config.AttachSubscription),
+	}
 }
