@@ -173,6 +173,9 @@ func GenerateOperatingSystemConfig(
 	}
 
 	if providerConfig.OperatingSystem == providerconfigtypes.OperatingSystemRHEL {
+		if osp.Spec.CloudInitModules == nil {
+			osp.Spec.CloudInitModules = &osmv1alpha1.CloudInitModule{}
+		}
 		osp.Spec.CloudInitModules.RHSubscription = rhel.RHSubscription(data.RhelConfig)
 	}
 
