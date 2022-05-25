@@ -133,24 +133,30 @@ func GenerateOperatingSystemConfig(
 		return nil, fmt.Errorf("failed to generate container runtime config: %w", err)
 	}
 
+	crAuthConfig, err := crEngine.AuthConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate container runtime auth config: %w", err)
+	}
+
 	if external {
 		externalCloudProvider = true
 	}
 
 	data := filesData{
-		KubeVersion:            kubeletVersionStr,
-		ClusterDNSIPs:          clusterDNSIPs,
-		KubernetesCACert:       caCert,
-		InTreeCCMAvailable:     inTreeCCM,
-		CloudConfig:            cloudConfig,
-		ContainerRuntime:       containerRuntime,
-		CloudProviderName:      osmv1alpha1.CloudProvider(providerConfig.CloudProvider),
-		ExternalCloudProvider:  externalCloudProvider,
-		PauseImage:             pauseImage,
-		InitialTaints:          initialTaints,
-		ContainerRuntimeConfig: crConfig,
-		KubeletFeatureGates:    kubeletFeatureGates,
-		kubeletConfig:          kubeletConfigs,
+		KubeVersion:                kubeletVersionStr,
+		ClusterDNSIPs:              clusterDNSIPs,
+		KubernetesCACert:           caCert,
+		InTreeCCMAvailable:         inTreeCCM,
+		CloudConfig:                cloudConfig,
+		ContainerRuntime:           containerRuntime,
+		CloudProviderName:          osmv1alpha1.CloudProvider(providerConfig.CloudProvider),
+		ExternalCloudProvider:      externalCloudProvider,
+		PauseImage:                 pauseImage,
+		InitialTaints:              initialTaints,
+		ContainerRuntimeConfig:     crConfig,
+		ContainerRuntimeAuthConfig: crAuthConfig,
+		KubeletFeatureGates:        kubeletFeatureGates,
+		kubeletConfig:              kubeletConfigs,
 	}
 
 	if len(nodeHTTPProxy) > 0 {
@@ -206,26 +212,27 @@ func GenerateOperatingSystemConfig(
 }
 
 type filesData struct {
-	KubeVersion            string
-	KubeletConfiguration   string
-	KubeletSystemdUnit     string
-	InTreeCCMAvailable     bool
-	CNIVersion             string
-	ClusterDNSIPs          []net.IP
-	KubernetesCACert       string
-	ServerAddress          string
-	CloudConfig            string
-	ContainerRuntime       string
-	CloudProviderName      osmv1alpha1.CloudProvider
-	NetworkConfig          *providerconfigtypes.NetworkConfig
-	ExternalCloudProvider  bool
-	PauseImage             string
-	InitialTaints          string
-	HTTPProxy              *string
-	NoProxy                *string
-	ContainerRuntimeConfig string
-	KubeletFeatureGates    map[string]bool
-	RHSubscription         map[string]string
+	KubeVersion                string
+	KubeletConfiguration       string
+	KubeletSystemdUnit         string
+	InTreeCCMAvailable         bool
+	CNIVersion                 string
+	ClusterDNSIPs              []net.IP
+	KubernetesCACert           string
+	ServerAddress              string
+	CloudConfig                string
+	ContainerRuntime           string
+	CloudProviderName          osmv1alpha1.CloudProvider
+	NetworkConfig              *providerconfigtypes.NetworkConfig
+	ExternalCloudProvider      bool
+	PauseImage                 string
+	InitialTaints              string
+	HTTPProxy                  *string
+	NoProxy                    *string
+	ContainerRuntimeConfig     string
+	ContainerRuntimeAuthConfig string
+	KubeletFeatureGates        map[string]bool
+	RHSubscription             map[string]string
 
 	kubeletConfig
 	OperatingSystemConfig

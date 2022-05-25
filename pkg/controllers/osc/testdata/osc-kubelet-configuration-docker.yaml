@@ -318,6 +318,7 @@ spec:
           Documentation=https://kubernetes.io/docs/home/
 
           [Service]
+          User=root
           Restart=always
           StartLimitInterval=0
           RestartSec=10
@@ -545,6 +546,12 @@ spec:
         encoding: b64
     path: /etc/docker/daemon.json
     permissions: 420
+  - content:
+      inline:
+        data: ""
+        encoding: b64
+    path: /root/.docker/config.json
+    permissions: 384
   osName: ubuntu
   osVersion: "20.04"
   userSSHKeys:

@@ -348,6 +348,7 @@ spec:
           Documentation=https://kubernetes.io/docs/home/
 
           [Service]
+          User=root
           Restart=always
           StartLimitInterval=0
           RestartSec=10
@@ -505,6 +506,12 @@ spec:
         data: '{"exec-opts":["native.cgroupdriver=systemd"],"storage-driver":"overlay2","log-driver":"json-file","log-opts":{"max-file":"5","max-size":"100m"},"insecure-registries":["192.168.100.100:5000","10.0.0.1:5000"],"registry-mirrors":["https://registry.docker-cn.com"]}'
     path: /etc/docker/daemon.json
     permissions: 420
+  - content:
+      inline:
+        data: ""
+        encoding: b64
+    path: /root/.docker/config.json
+    permissions: 384
   osName: flatcar
   osVersion: 2983.2.0
   units:
