@@ -96,6 +96,15 @@ spec:
               encoding: b64
               data: |-
                 {{ .ContainerRuntimeConfig }}
+
+        - path: /root/.docker/config.json
+          permissions: 0600
+          content:
+            inline:
+              encoding: b64
+              data: |-
+                {{ .ContainerRuntimeAuthConfig }}
+
       templates:
         containerRuntimeInstallation: |-
           yum install -y yum-utils
@@ -494,6 +503,7 @@ spec:
             Documentation=https://kubernetes.io/docs/home/
 
             [Service]
+            User=root
             Restart=always
             StartLimitInterval=0
             RestartSec=10
