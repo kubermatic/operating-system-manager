@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -41,6 +42,7 @@ import (
 	"k8c.io/operating-system-manager/pkg/providerconfig/ubuntu"
 	jsonutil "k8c.io/operating-system-manager/pkg/util/json"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/pointer"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -118,7 +120,10 @@ func GenerateOperatingSystemConfig(
 	}
 
 	// Handling for kubelet configuration
-	kubeletConfigs := getKubeletConfigs(md.Annotations)
+	kubeletConfigs, err := getKubeletConfigs(md.Annotations)
+	if err != nil {
+		return nil, err
+	}
 	if kubeletConfigs.ContainerLogMaxSize != nil && len(*kubeletConfigs.ContainerLogMaxSize) > 0 {
 		containerRuntimeConfig.ContainerLogMaxSize = *kubeletConfigs.ContainerLogMaxSize
 	}
@@ -251,6 +256,7 @@ type kubeletConfig struct {
 	KubeReserved         *map[string]string
 	SystemReserved       *map[string]string
 	EvictionHard         *map[string]string
+	MaxPods              *int32
 	ContainerLogMaxSize  *string
 	ContainerLogMaxFiles *string
 }
@@ -386,11 +392,11 @@ func setOperatingSystemConfig(os providerconfigtypes.OperatingSystem, operatingS
 	return errors.New("unknown OperatingSystem")
 }
 
-func getKubeletConfigs(annotations map[string]string) kubeletConfig {
+func getKubeletConfigs(annotations map[string]string) (kubeletConfig, error) {
 	var cfg kubeletConfig
 	kubeletConfigs := common.GetKubeletConfigs(annotations)
 	if len(kubeletConfigs) == 0 {
-		return cfg
+		return cfg, nil
 	}
 
 	if val, ok := kubeletConfigs[common.KubeReservedKubeletConfig]; ok {
@@ -405,6 +411,14 @@ func getKubeletConfigs(annotations map[string]string) kubeletConfig {
 		cfg.EvictionHard = getKeyValueMap(val, "<")
 	}
 
+	if val, ok := kubeletConfigs[common.MaxPodsKubeletConfig]; ok {
+		mp, err := strconv.ParseInt(val, 10, 32)
+		if err != nil {
+			return kubeletConfig{}, fmt.Errorf("failed to parse maxPods")
+		}
+		cfg.MaxPods = pointer.Int32Ptr(int32(mp))
+	}
+
 	if val, ok := kubeletConfigs[common.ContainerLogMaxSizeKubeletConfig]; ok {
 		cfg.ContainerLogMaxSize = &val
 	}
@@ -412,7 +426,7 @@ func getKubeletConfigs(annotations map[string]string) kubeletConfig {
 	if val, ok := kubeletConfigs[common.ContainerLogMaxFilesKubeletConfig]; ok {
 		cfg.ContainerLogMaxFiles = &val
 	}
-	return cfg
+	return cfg, nil
 }
 
 func getKeyValueMap(value string, kvDelimeter string) *map[string]string {
