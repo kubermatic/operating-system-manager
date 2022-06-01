@@ -498,6 +498,7 @@ spec:
             ephemeral-storage: 30Gi
           evictionHard:
             memory.available: 30Mi
+          maxPods: 110
           tlsCipherSuites:
           - TLS_AES_128_GCM_SHA256
           - TLS_AES_256_GCM_SHA384
