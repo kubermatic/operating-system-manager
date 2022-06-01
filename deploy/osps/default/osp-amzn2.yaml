@@ -685,6 +685,9 @@ spec:
               nodefs.available: 10%
               nodefs.inodesFree: 5%
             {{- end }}
+            {{- if .MaxPods }}
+            maxPods: {{ .MaxPods }}
+            {{- end }}
             tlsCipherSuites:
             - TLS_AES_128_GCM_SHA256
             - TLS_AES_256_GCM_SHA384

@@ -7,7 +7,7 @@ require (
 	github.com/Masterminds/sprig/v3 v3.2.2
 	github.com/flatcar-linux/container-linux-config-transpiler v0.9.3
 	github.com/go-test/deep v1.0.7
-	github.com/kubermatic/machine-controller v1.50.1-0.20220524122024-10d35a0d7e24
+	github.com/kubermatic/machine-controller v1.51.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0

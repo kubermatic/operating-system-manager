@@ -241,6 +241,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 			additionalAnnotations: map[string]string{
 				"v1.kubelet-config.machine-controller.kubermatic.io/ContainerLogMaxSize":  "300Mi",
 				"v1.kubelet-config.machine-controller.kubermatic.io/ContainerLogMaxFiles": "30",
+				"v1.kubelet-config.machine-controller.kubermatic.io/MaxPods":              "110",
 				"v1.kubelet-config.machine-controller.kubermatic.io/SystemReserved":       "ephemeral-storage=30Gi,cpu=30m",
 				"v1.kubelet-config.machine-controller.kubermatic.io/KubeReserved":         "ephemeral-storage=30Gi,cpu=30m",
 				"v1.kubelet-config.machine-controller.kubermatic.io/EvictionHard":         "memory.available<30Mi",
@@ -266,6 +267,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 			additionalAnnotations: map[string]string{
 				"v1.kubelet-config.machine-controller.kubermatic.io/ContainerLogMaxSize":  "300Mi",
 				"v1.kubelet-config.machine-controller.kubermatic.io/ContainerLogMaxFiles": "30",
+				"v1.kubelet-config.machine-controller.kubermatic.io/MaxPods":              "110",
 				"v1.kubelet-config.machine-controller.kubermatic.io/SystemReserved":       "ephemeral-storage=30Gi,cpu=30m",
 				"v1.kubelet-config.machine-controller.kubermatic.io/KubeReserved":         "ephemeral-storage=30Gi,cpu=30m",
 				"v1.kubelet-config.machine-controller.kubermatic.io/EvictionHard":         "memory.available<30Mi",
