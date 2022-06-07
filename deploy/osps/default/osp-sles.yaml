@@ -65,8 +65,10 @@ spec:
       cni_bin_dir=/opt/cni/bin
 
       {{- /* create all the necessary dirs */}}
-      mkdir -p /etc/cni/net.d /etc/kubernetes/dynamic-config-dir /etc/kubernetes/manifests "$opt_bin" "$cni_bin_dir"
-
+      mkdir -p /etc/cni/net.d /etc/kubernetes/manifests "$opt_bin" "$cni_bin_dir"
+      {{- if semverCompare "<1.23" .KubeVersion }}
+      mkdir -p /etc/kubernetes/dynamic-config-dir
+      {{- end }}
       {{- /* HOST_ARCH can be defined outside of machine-controller (in kubeone for example) */}}
       arch=${HOST_ARCH-}
       if [ -z "$arch" ]
@@ -432,8 +434,10 @@ spec:
               {{- else if and (eq .CloudProviderName "aws") (.ExternalCloudProvider) }}
               --hostname-override=${KUBELET_HOSTNAME} \
               {{- end }}
+              {{- if semverCompare "<1.23" .KubeVersion }}
               --dynamic-config-dir=/etc/kubernetes/dynamic-config-dir \
               --feature-gates=DynamicKubeletConfig=true \
+              {{- end }}
               --exit-on-lock-contention \
               --lock-file=/tmp/kubelet.lock \
               {{- if .PauseImage }}
