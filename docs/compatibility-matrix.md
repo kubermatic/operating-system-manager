@@ -18,7 +18,7 @@ Currently supported K8S versions are:
 | Digitalocean  | ✓ | ✓ | x | x | ✓ |
 | Google Cloud Platform | ✓ | x | x | x | x |
 | Hetzner | ✓ | ✓ | x | x | ✓ |
-| KubeVirt | ✓ | ✓ | ✓ | x | x |
+| KubeVirt | ✓ | ✓ | ✓ | x | ✓ |
 | Nutanix | ✓ | ✓ | x | x | x |
 | Openstack | ✓ | ✓ | ✓ | x | ✓ |
 | VMware Cloud Director | ✓ | x | x | x | x |

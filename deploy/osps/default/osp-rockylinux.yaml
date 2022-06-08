@@ -27,6 +27,7 @@ spec:
     - name: "digitalocean"
     - name: "hetzner"
     - name: "openstack"
+    - name: "kubevirt"
     - name: "vsphere"
   supportedContainerRuntimes:
     - name: containerd
