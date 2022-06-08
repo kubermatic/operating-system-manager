@@ -348,13 +348,6 @@ spec:
             systemctl restart systemd-modules-load.service
             sysctl --system
 
-            {{- /* Make sure we always disable swap - Otherwise the kubelet won't start'. */}}
-            cp /etc/fstab /etc/fstab.orig
-            cat /etc/fstab.orig | awk '$3 ~ /^swap$/ && $1 !~ /^#/ {$0="# commented out by cloudinit\n#"$0} 1' > /etc/fstab.noswap
-            mv /etc/fstab.noswap /etc/fstab
-            swapoff -a
-
-
             zypper --non-interactive --quiet --color install ebtables \
               ceph-common \
               e2fsprogs \
@@ -411,6 +404,7 @@ spec:
             Environment="PATH=/opt/bin:/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin/"
             EnvironmentFile=-/etc/environment
 
+            ExecStartPre=/bin/bash /opt/disable-swap.sh
             ExecStartPre=/bin/bash /opt/load-kernel-modules.sh
             ExecStartPre=/bin/bash /opt/bin/setup_net_env.sh
             ExecStart=/opt/bin/kubelet $KUBELET_EXTRA_ARGS \
@@ -660,3 +654,19 @@ spec:
 
             [Install]
             WantedBy=multi-user.target
+
+    - path: "/opt/disable-swap.sh"
+      permissions: 0755
+      content:
+        inline:
+          encoding: b64
+          data: |
+            #!/usr/bin/env bash
+            set -euo pipefail
+
+            # Make sure we always disable swap - Otherwise the kubelet won't start as for some cloud
+            # providers swap gets enabled on reboot or after the setup script has finished executing.
+            cp /etc/fstab /etc/fstab.orig
+            cat /etc/fstab.orig | awk '$3 ~ /^swap$/ && $1 !~ /^#/ {$0="# commented out by cloudinit\n#"$0} 1' > /etc/fstab.noswap
+            mv /etc/fstab.noswap /etc/fstab
+            swapoff -a

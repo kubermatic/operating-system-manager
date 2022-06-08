@@ -31,6 +31,7 @@ const (
 	OperatingSystemUbuntu       OperatingSystem = "ubuntu"
 	OperatingSystemSLES         OperatingSystem = "sles"
 	OperatingSystemAmazonLinux2 OperatingSystem = "amzn2"
+	OperatingSystemRockyLinux   OperatingSystem = "rockylinux"
 )
 
 // CloudProvider represents supported cloud provider.

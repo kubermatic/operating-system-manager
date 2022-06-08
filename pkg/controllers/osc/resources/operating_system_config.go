@@ -38,6 +38,7 @@ import (
 	"k8c.io/operating-system-manager/pkg/providerconfig/centos"
 	"k8c.io/operating-system-manager/pkg/providerconfig/flatcar"
 	"k8c.io/operating-system-manager/pkg/providerconfig/rhel"
+	"k8c.io/operating-system-manager/pkg/providerconfig/rockylinux"
 	"k8c.io/operating-system-manager/pkg/providerconfig/sles"
 	"k8c.io/operating-system-manager/pkg/providerconfig/ubuntu"
 	jsonutil "k8c.io/operating-system-manager/pkg/util/json"
@@ -250,6 +251,7 @@ type OperatingSystemConfig struct {
 	RhelConfig        rhel.Config
 	SlesConfig        sles.Config
 	UbuntuConfig      ubuntu.Config
+	RockyLinuxConfig  rockylinux.Config
 }
 
 type kubeletConfig struct {
@@ -388,7 +390,15 @@ func setOperatingSystemConfig(os providerconfigtypes.OperatingSystem, operatingS
 		}
 		data.UbuntuConfig = *config
 		return nil
+	case providerconfigtypes.OperatingSystemRockyLinux:
+		config, err := rockylinux.LoadConfig(operatingSystemSpec)
+		if err != nil {
+			return err
+		}
+		data.RockyLinuxConfig = *config
+		return nil
 	}
+
 	return errors.New("unknown OperatingSystem")
 }
 

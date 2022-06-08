@@ -431,10 +431,6 @@ spec:
             systemctl restart systemd-modules-load.service
             sysctl --system
 
-            {{- /* Make sure we always disable swap - Otherwise the kubelet won't start'. */}}
-            sed -i.orig '/.*swap.*/d' /etc/fstab
-            swapoff -a
-
             {{- /* CentOS 8 has reached EOL and all packages were moved to vault.centos.org -- https://www.centos.org/centos-linux-eol/ */}}
             sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
             sudo sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
@@ -517,6 +513,7 @@ spec:
             Environment="PATH=/opt/bin:/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin/"
             EnvironmentFile=-/etc/environment
 
+            ExecStartPre=/bin/bash /opt/disable-swap.sh
             ExecStartPre=/bin/bash /opt/load-kernel-modules.sh
             ExecStartPre=/bin/bash /opt/bin/setup_net_env.sh
             ExecStart=/opt/bin/kubelet $KUBELET_EXTRA_ARGS \
@@ -750,3 +747,17 @@ spec:
 
             [Install]
             WantedBy=multi-user.target
+
+    - path: "/opt/disable-swap.sh"
+      permissions: 0755
+      content:
+        inline:
+          encoding: b64
+          data: |
+            #!/usr/bin/env bash
+            set -euo pipefail
+
+            # Make sure we always disable swap - Otherwise the kubelet won't start as for some cloud
+            # providers swap gets enabled on reboot or after the setup script has finished executing.
+            sed -i.orig '/.*swap.*/d' /etc/fstab
+            swapoff -a

@@ -15,32 +15,22 @@
 apiVersion: operatingsystemmanager.k8c.io/v1alpha1
 kind: OperatingSystemProfile
 metadata:
-  name: osp-ubuntu
+  name: osp-rockylinux
   namespace: kube-system
 spec:
-  osName: "ubuntu"
-  osVersion: "20.04"
-  version: "v0.1.2"
+  osName: "rockylinux"
+  osVersion: "8.6"
+  version: "v0.1.0"
   supportedCloudProviders:
     - name: "aws"
     - name: "azure"
     - name: "digitalocean"
-    - name: "equinixmetal"
-    - name: "gce"
     - name: "hetzner"
-    - name: "kubevirt"
-    - name: "nutanix"
     - name: "openstack"
     - name: "vsphere"
   supportedContainerRuntimes:
     - name: containerd
       files:
-        - path: "/etc/crictl.yaml"
-          content:
-            inline:
-              data: |
-                runtime-endpoint: unix:///run/containerd/containerd.sock
-
         - path: "/etc/systemd/system/containerd.service.d/environment.conf"
           content:
             inline:
@@ -48,6 +38,12 @@ spec:
                 [Service]
                 Restart=always
                 EnvironmentFile=-/etc/environment
+
+        - path: "/etc/crictl.yaml"
+          content:
+            inline:
+              data: |
+                runtime-endpoint: unix:///run/containerd/containerd.sock
 
         - path: "/etc/containerd/config.toml"
           permissions: 0600
@@ -58,13 +54,16 @@ spec:
                 {{ .ContainerRuntimeConfig }}
       templates:
         containerRuntimeInstallation: |-
-          apt-get update
-          apt-get install -y apt-transport-https ca-certificates curl software-properties-common lsb-release
-          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
-          add-apt-repository "deb https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+          yum install -y yum-utils
+          yum-config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
+          {{- /*
+              Due to DNF modules we have to do this on docker-ce repo
+              More info at: https://bugzilla.redhat.com/show_bug.cgi?id=1756473
+          */}}
+          yum-config-manager --save --setopt=docker-ce-stable.module_hotfixes=true
 
-          apt-get install -y --allow-downgrades containerd.io=1.5*
-          apt-mark hold containerd.io
+          yum install -y containerd.io-1.5* yum-plugin-versionlock
+          yum versionlock add containerd.io
 
           systemctl daemon-reload
           systemctl enable --now containerd
@@ -105,16 +104,16 @@ spec:
 
       templates:
         containerRuntimeInstallation: |-
-          apt-get update
-          apt-get install -y apt-transport-https ca-certificates curl software-properties-common lsb-release
-          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
-          add-apt-repository "deb https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+          yum install -y yum-utils
+          yum-config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
+          yum-config-manager --save --setopt=docker-ce-stable.module_hotfixes=true
 
-          apt-get install --allow-downgrades -y \
-              containerd.io=1.5* \
-              docker-ce-cli=5:19.03* \
-              docker-ce=5:19.03*
-          apt-mark hold docker-ce* containerd.io
+          yum install -y \
+              docker-ce-cli-19.03* \
+              containerd.io-1.5* \
+              docker-ce-19.03* \
+              yum-plugin-versionlock
+          yum versionlock add docker-ce* containerd.io
 
           systemctl daemon-reload
           systemctl enable --now docker
@@ -397,14 +396,22 @@ spec:
             fs.inotify.max_user_watches = 1048576
             fs.inotify.max_user_instances = 8192
 
-    - path: "/etc/default/grub.d/60-swap-accounting.cfg"
+    - path: "/etc/selinux/config"
       content:
         inline:
           encoding: b64
           data: |
-            # Added by kubermatic machine-controller
-            # Enable cgroups memory and swap accounting
-            GRUB_CMDLINE_LINUX="cgroup_enable=memory swapaccount=1"
+            # This file controls the state of SELinux on the system.
+            # SELINUX= can take one of these three values:
+            #     enforcing - SELinux security policy is enforced.
+            #     permissive - SELinux prints warnings instead of enforcing.
+            #     disabled - No SELinux policy is loaded.
+            SELINUX=permissive
+            # SELINUXTYPE= can take one of three two values:
+            #     targeted - Targeted processes are protected,
+            #     minimum - Modification of targeted policy. Only selected processes are protected.
+            #     mls - Multi Level Security protection.
+            SELINUXTYPE=targeted
 
     - path: "/opt/bin/setup"
       permissions: 0755
@@ -414,36 +421,39 @@ spec:
           data: |
             #!/bin/bash
             set -xeuo pipefail
-            if systemctl is-active ufw; then systemctl stop ufw; fi
-            systemctl mask ufw
+
+            setenforce 0 || true
 
             {{- /* As we added some modules and don't want to reboot, restart the service */}}
             systemctl restart systemd-modules-load.service
             sysctl --system
-            
-            apt-get update
 
-            DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y \
-              curl \
-              ca-certificates \
-              ceph-common \
-              cifs-utils \
-              conntrack \
-              e2fsprogs \
+            yum install -y \
+              device-mapper-persistent-data \
+              lvm2 \
               ebtables \
               ethtool \
-              glusterfs-client \
-              iptables \
-              jq \
-              kmod \
-              openssh-client \
-              nfs-common \
+              nfs-utils \
+              bash-completion \
+              sudo \
               socat \
-              util-linux \
+              wget \
+              curl \
+              tar \
               {{- if eq .CloudProviderName "vsphere" }}
               open-vm-tools \
               {{- end }}
+              {{- if eq .CloudProviderName "nutanix" }}
+              iscsi-initiator-utils \
+              {{- end }}
               ipvsadm
+
+            systemctl disable --now firewalld || true
+
+            {{- /* iscsid service is required on Nutanix machines for CSI driver to attach volumes. */}}
+            {{- if eq .CloudProviderName "nutanix" }}
+            systemctl enable --now iscsid
+            {{ end }}
 
             {{- template "containerRuntimeInstallation" }}
 
@@ -451,8 +461,13 @@ spec:
 
             {{- template "configureProxyScript" }}
 
+            mkdir -p /etc/systemd/system/kubelet.service.d/
             # set kubelet nodeip environment variable
             /opt/bin/setup_net_env.sh
+
+            {{ if eq .CloudProviderName "vsphere" }}
+            systemctl enable --now vmtoolsd.service
+            {{ end -}}
 
             systemctl enable --now kubelet
             systemctl enable --now --no-block kubelet-healthcheck.service
@@ -537,14 +552,6 @@ spec:
             [Install]
             WantedBy=multi-user.target
 
-    - path: "/etc/systemd/system/kubelet.service.d/extras.conf"
-      content:
-        inline:
-          encoding: b64
-          data: |
-            [Service]
-            Environment="KUBELET_EXTRA_ARGS=--resolv-conf=/run/systemd/resolve/resolv.conf"
-
     - path: "/etc/kubernetes/cloud-config"
       permissions: 0600
       content:
@@ -573,12 +580,11 @@ spec:
               exit 1
             fi
 
-
             # get the full hostname
             FULL_HOSTNAME=$(hostname -f)
             # if /etc/hostname is not empty then use the hostname from there
             if [ -s /etc/hostname ]; then
-              FULL_HOSTNAME=$(cat /etc/hostname)
+                FULL_HOSTNAME=$(cat /etc/hostname)
             fi
 
             # write the nodeip_env file
