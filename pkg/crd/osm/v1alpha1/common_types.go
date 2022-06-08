@@ -35,7 +35,7 @@ const (
 )
 
 // CloudProvider represents supported cloud provider.
-// +kubebuilder:validation:Enum=aws;azure;digitalocean;gce;hetzner;kubevirt;linode;nutanix;openstack;equinixmetal;vsphere;fake;alibaba;anexia;scaleway;baremetal;external
+// +kubebuilder:validation:Enum=aws;azure;digitalocean;gce;hetzner;kubevirt;linode;nutanix;openstack;equinixmetal;vsphere;fake;alibaba;anexia;scaleway;baremetal;external;vmware-cloud-director
 type CloudProvider string
 
 const (
@@ -55,6 +55,7 @@ const (
 	CloudProviderNutanix      CloudProvider = "nutanix"
 	CloudProviderOpenstack    CloudProvider = "openstack"
 	CloudProviderVsphere      CloudProvider = "vsphere"
+	CloudProviderVMwareCloudDirector      CloudProvider = "vmware-cloud-director"
 	CloudProviderScaleway     CloudProvider = "scaleway"
 )
 

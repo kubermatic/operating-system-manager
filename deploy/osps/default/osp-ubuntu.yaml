@@ -31,6 +31,7 @@ spec:
     - name: "kubevirt"
     - name: "nutanix"
     - name: "openstack"
+    - name: "vmware-cloud-director"
     - name: "vsphere"
   supportedContainerRuntimes:
     - name: containerd
@@ -420,7 +421,7 @@ spec:
             {{- /* As we added some modules and don't want to reboot, restart the service */}}
             systemctl restart systemd-modules-load.service
             sysctl --system
-            
+
             apt-get update
 
             DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y \
@@ -440,7 +441,7 @@ spec:
               nfs-common \
               socat \
               util-linux \
-              {{- if eq .CloudProviderName "vsphere" }}
+              {{- if or (eq .CloudProviderName "vsphere") (eq .CloudProviderName "vmware-cloud-director") }}
               open-vm-tools \
               {{- end }}
               ipvsadm
