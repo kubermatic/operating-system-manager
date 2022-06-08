@@ -200,8 +200,6 @@ spec:
           setenforce 0 || true
           systemctl restart systemd-modules-load.service
           sysctl --system
-          sed -i.orig '/.*swap.*/d' /etc/fstab
-          swapoff -a
 
           yum install -y \
             device-mapper-persistent-data \
@@ -288,6 +286,14 @@ spec:
               ln -sf "$kube_dir/$bin" "$opt_bin"/$bin
           done
 
+          DEFAULT_IFC_NAME=$(ip -o route get 1  | grep -oP "dev \K\S+")
+
+          # enable DHCPv6 on the default interface
+          echo NETWORKING_IPV6=yes >> /etc/sysconfig/network
+          echo IPV6INIT=yes >> /etc/sysconfig/network-scripts/ifcfg-$DEFAULT_IFC_NAME
+          echo DHCPV6C=yes >> /etc/sysconfig/network-scripts/ifcfg-$DEFAULT_IFC_NAME
+          ifdown $DEFAULT_IFC_NAME && ifup $DEFAULT_IFC_NAME
+
           mkdir -p /etc/systemd/system/kubelet.service.d/
           # set kubelet nodeip environment variable
           /opt/bin/setup_net_env.sh
@@ -329,6 +335,7 @@ spec:
           Environment="PATH=/opt/bin:/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin/"
           EnvironmentFile=-/etc/environment
 
+          ExecStartPre=/bin/bash /opt/disable-swap.sh
           ExecStartPre=/bin/bash /opt/load-kernel-modules.sh
           ExecStartPre=/bin/bash /opt/bin/setup_net_env.sh
           ExecStart=/opt/bin/kubelet $KUBELET_EXTRA_ARGS \
@@ -526,6 +533,19 @@ spec:
         encoding: b64
     path: /etc/systemd/system/kubelet-healthcheck.service
     permissions: 420
+  - content:
+      inline:
+        data: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          # Make sure we always disable swap - Otherwise the kubelet won't start as for some cloud
+          # providers swap gets enabled on reboot or after the setup script has finished executing.
+          sed -i.orig '/.*swap.*/d' /etc/fstab
+          swapoff -a
+        encoding: b64
+    path: /opt/disable-swap.sh
+    permissions: 493
   - content:
       inline:
         data: |

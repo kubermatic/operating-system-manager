@@ -21,7 +21,7 @@ import (
 )
 
 // OperatingSystem represents supported operating system.
-// +kubebuilder:validation:Enum=flatcar;rhel;centos;ubuntu;sles;amzn2
+// +kubebuilder:validation:Enum=flatcar;rhel;centos;ubuntu;sles;amzn2;rockylinux
 type OperatingSystem string
 
 const (
@@ -31,30 +31,32 @@ const (
 	OperatingSystemUbuntu       OperatingSystem = "ubuntu"
 	OperatingSystemSLES         OperatingSystem = "sles"
 	OperatingSystemAmazonLinux2 OperatingSystem = "amzn2"
+	OperatingSystemRockyLinux   OperatingSystem = "rockylinux"
 )
 
 // CloudProvider represents supported cloud provider.
-// +kubebuilder:validation:Enum=aws;azure;digitalocean;gce;hetzner;kubevirt;linode;nutanix;openstack;equinixmetal;vsphere;fake;alibaba;anexia;scaleway;baremetal;external
+// +kubebuilder:validation:Enum=aws;azure;digitalocean;gce;hetzner;kubevirt;linode;nutanix;openstack;equinixmetal;vsphere;fake;alibaba;anexia;scaleway;baremetal;external;vmware-cloud-director
 type CloudProvider string
 
 const (
-	CloudProviderAlibaba      CloudProvider = "alibaba"
-	CloudProviderAnexia       CloudProvider = "anexia"
-	CloudProviderAWS          CloudProvider = "aws"
-	CloudProviderAzure        CloudProvider = "azure"
-	CloudProviderBaremetal    CloudProvider = "baremetal"
-	CloudProviderDigitalocean CloudProvider = "digitalocean"
-	CloudProviderEquinixMetal CloudProvider = "equinixmetal"
-	CloudProviderExternal     CloudProvider = "external"
-	CloudProviderFake         CloudProvider = "fake"
-	CloudProviderGoogle       CloudProvider = "gce"
-	CloudProviderHetzner      CloudProvider = "hetzner"
-	CloudProviderKubeVirt     CloudProvider = "kubevirt"
-	CloudProviderLinode       CloudProvider = "linode"
-	CloudProviderNutanix      CloudProvider = "nutanix"
-	CloudProviderOpenstack    CloudProvider = "openstack"
-	CloudProviderVsphere      CloudProvider = "vsphere"
-	CloudProviderScaleway     CloudProvider = "scaleway"
+	CloudProviderAlibaba             CloudProvider = "alibaba"
+	CloudProviderAnexia              CloudProvider = "anexia"
+	CloudProviderAWS                 CloudProvider = "aws"
+	CloudProviderAzure               CloudProvider = "azure"
+	CloudProviderBaremetal           CloudProvider = "baremetal"
+	CloudProviderDigitalocean        CloudProvider = "digitalocean"
+	CloudProviderEquinixMetal        CloudProvider = "equinixmetal"
+	CloudProviderExternal            CloudProvider = "external"
+	CloudProviderFake                CloudProvider = "fake"
+	CloudProviderGoogle              CloudProvider = "gce"
+	CloudProviderHetzner             CloudProvider = "hetzner"
+	CloudProviderKubeVirt            CloudProvider = "kubevirt"
+	CloudProviderLinode              CloudProvider = "linode"
+	CloudProviderNutanix             CloudProvider = "nutanix"
+	CloudProviderOpenstack           CloudProvider = "openstack"
+	CloudProviderVsphere             CloudProvider = "vsphere"
+	CloudProviderVMwareCloudDirector CloudProvider = "vmware-cloud-director"
+	CloudProviderScaleway            CloudProvider = "scaleway"
 )
 
 // ContainerRuntime represents supported container runtime

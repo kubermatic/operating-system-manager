@@ -27,6 +27,9 @@ type CloudConfig struct {
 type GlobalOpts struct {
 	// Kubeconfig used to connect to the cluster that runs KubeVirt
 	Kubeconfig string `yaml:"kubeconfig"`
+
+	// Namespace used in KubeVirt cloud-controller-manager as infra cluster namespace.
+	Namespace string `yaml:"namespace"`
 }
 
 // ToString renders the cloud configuration as string.

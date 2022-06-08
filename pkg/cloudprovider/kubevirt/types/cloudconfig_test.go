@@ -31,10 +31,12 @@ func TestCloudConfigToString(t *testing.T) {
 			config: &CloudConfig{
 				Global: GlobalOpts{
 					Kubeconfig: "redacted",
+					Namespace:  "kube-system",
 				},
 			},
 			expected: `global:
     kubeconfig: redacted
+    namespace: kube-system
 `},
 	}
 
@@ -44,6 +46,7 @@ func TestCloudConfigToString(t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed to convert to string: %v", err)
 			}
+
 			if s != test.expected {
 				t.Fatalf("output is not as expected")
 			}
