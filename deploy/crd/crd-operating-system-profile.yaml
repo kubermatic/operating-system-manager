@@ -117,6 +117,7 @@ spec:
                     - ubuntu
                     - sles
                     - amzn2
+                    - rockylinux
                 osVersion:
                   description: OSVersion the version of the operating system
                   type: string
@@ -150,6 +151,7 @@ spec:
                           - scaleway
                           - baremetal
                           - external
+                          - vmware-cloud-director
                       spec:
                         description: Spec represents the os/image reference in the supported cloud provider
                         type: object

@@ -21,7 +21,7 @@ import (
 )
 
 // OperatingSystem represents supported operating system.
-// +kubebuilder:validation:Enum=flatcar;rhel;centos;ubuntu;sles;amzn2
+// +kubebuilder:validation:Enum=flatcar;rhel;centos;ubuntu;sles;amzn2;rockylinux
 type OperatingSystem string
 
 const (
