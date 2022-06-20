@@ -18,6 +18,7 @@ package osc
 
 import (
 	"context"
+	"crypto/sha1"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -350,6 +351,139 @@ func TestReconciler_Reconcile(t *testing.T) {
 				t.Fatalf(err.Error())
 			}
 			testUtil.CompareOutput(t, testCase.secretFile, string(buff), *update)
+		})
+	}
+}
+
+func TestOSCAndSecretRotation(t *testing.T) {
+	var testCases = []struct {
+		name              string
+		kubeletVersion    string
+		ospFile           string
+		ospName           string
+		operatingSystem   providerconfigtypes.OperatingSystem
+		oscFile           string
+		oscName           string
+		mdName            string
+		secretFile        string
+		config            testConfig
+		cloudProvider     string
+		cloudProviderSpec runtime.RawExtension
+	}{
+		{
+
+			name:            "test updates of machineDeployment",
+			ospFile:         defaultOSPPathPrefix + "osp-ubuntu.yaml",
+			ospName:         "osp-ubuntu",
+			operatingSystem: providerconfigtypes.OperatingSystemUbuntu,
+			oscFile:         "osc-ubuntu-aws-containerd.yaml",
+			oscName:         "ubuntu-aws-kube-system-osc-provisioning",
+			mdName:          "ubuntu-aws",
+			kubeletVersion:  defaultKubeletVersion,
+			secretFile:      "secret-ubuntu-aws-containerd.yaml",
+			config: testConfig{
+				namespace:        "kube-system",
+				containerRuntime: "containerd",
+			},
+			cloudProvider:     "aws",
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+
+		osp := &osmv1alpha1.OperatingSystemProfile{}
+		if err := loadFile(osp, testCase.ospFile); err != nil {
+			t.Fatalf("failed loading osp %s from testdata: %v", testCase.name, err)
+		}
+
+		md := generateMachineDeployment(t, testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.kubeletVersion, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec, nil)
+		fakeClient := fakectrlruntimeclient.
+			NewClientBuilder().
+			WithScheme(scheme.Scheme).
+			WithObjects(osp, md).
+			Build()
+
+		reconciler := buildReconciler(fakeClient, testCase.config)
+
+		t.Run(testCase.name, func(t *testing.T) {
+			ctx := context.Background()
+
+			if err := reconciler.reconcile(ctx, md); err != nil {
+				t.Fatalf("failed to reconcile: %v", err)
+			}
+
+			// Ensure that OperatingSystemConfig was created
+			osc := &osmv1alpha1.OperatingSystemConfig{}
+			if err := fakeClient.Get(ctx, types.NamespacedName{
+				Namespace: testCase.config.namespace,
+				Name:      testCase.oscName},
+				osc); err != nil {
+				t.Fatalf("failed to get osc: %v", err)
+			}
+
+			// Ensure that corresponding secret was created
+			secret := &corev1.Secret{}
+			if err := fakeClient.Get(ctx, types.NamespacedName{
+				Namespace: CloudInitSettingsNamespace,
+				Name:      testCase.oscName},
+				secret); err != nil {
+				t.Fatalf("failed to get secret: %v", err)
+			}
+
+			oscChecksum := osc.Annotations[MachineDeploymentChecksum]
+			secretChecksum := secret.Annotations[MachineDeploymentChecksum]
+			checksum := fmt.Sprintf("%x", sha1.Sum([]byte(md.Spec.Template.String())))
+
+			if checksum != oscChecksum {
+				t.Fatal("checksum for machine deployment and OSC didn't match")
+			}
+			if checksum != secretChecksum {
+				t.Fatal("checksum for machine deployment and secret didn't match")
+			}
+
+			// Change the spec to trigger OSC and secret rotation
+			if md.Spec.Template.Annotations == nil {
+				md.Spec.Template.Annotations = map[string]string{}
+			}
+			md.Spec.Template.Annotations["test"] = "test"
+
+			// Reconcile to trigger delete workflow
+			if err := reconciler.reconcile(ctx, md); err != nil {
+				t.Fatalf("failed to reconcile: %v", err)
+			}
+
+			// Ensure that OperatingSystemConfig exists
+			if err := fakeClient.Get(ctx, types.NamespacedName{
+				Namespace: testCase.config.namespace,
+				Name:      testCase.oscName},
+				osc); err != nil {
+				t.Fatalf("failed to get osc: %v", err)
+			}
+
+			// Ensure that corresponding secret exists
+			if err := fakeClient.Get(ctx, types.NamespacedName{
+				Namespace: CloudInitSettingsNamespace,
+				Name:      testCase.oscName},
+				secret); err != nil {
+				t.Fatalf("failed to get secret: %v", err)
+			}
+
+			oscChecksum = osc.Annotations[MachineDeploymentChecksum]
+			secretChecksum = secret.Annotations[MachineDeploymentChecksum]
+			newChecksum := fmt.Sprintf("%x", sha1.Sum([]byte(md.Spec.Template.String())))
+
+			if checksum == newChecksum {
+				t.Fatal("machine deployment wasn't updated")
+			}
+
+			if newChecksum != oscChecksum {
+				t.Fatal("checksum for machine deployment and OSC didn't match")
+			}
+			if newChecksum != secretChecksum {
+				t.Fatal("checksum for machine deployment and secret didn't match")
+			}
 		})
 	}
 }

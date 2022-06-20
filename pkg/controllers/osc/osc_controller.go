@@ -18,6 +18,7 @@ package osc
 
 import (
 	"context"
+	"crypto/sha1"
 	"fmt"
 	"net"
 
@@ -49,6 +50,8 @@ const (
 	MachineDeploymentCleanupFinalizer = "kubermatic.io/cleanup-operating-system-configs"
 	// CloudInitSettingsNamespace is the namespace in which OSCs and secrets are created by OSC controller
 	CloudInitSettingsNamespace = "cloud-init-settings"
+	// MachineDeploymentChecksum is the checksum generated against MachineDeployment Spec
+	MachineDeploymentChecksum = "machine-deployment-checksum"
 )
 
 type Reconciler struct {
@@ -161,6 +164,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrlruntime.Request) (re
 }
 
 func (r *Reconciler) reconcile(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
+	// Check if OSC and secret need to be rotated
+	if err := r.handleOSCAndSecretRotation(ctx, md); err != nil {
+		return fmt.Errorf("failed to perform rotation for OSC and secrets: %w", err)
+	}
+
 	if err := r.reconcileOperatingSystemConfigs(ctx, md); err != nil {
 		return fmt.Errorf("failed to reconcile operating system config: %w", err)
 	}
@@ -217,6 +225,9 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 		return fmt.Errorf("failed to generate %s osc: %w", oscName, err)
 	}
 
+	// Add machine deployment checksum to OSC
+	osc.Annotations = addMachineDeploymentChecksum(&md.Spec.Template, osc.Annotations)
+
 	// Create resource in cluster
 	if err := r.Create(ctx, osc); err != nil {
 		return fmt.Errorf("failed to create %s osc: %w", oscName, err)
@@ -247,6 +258,9 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.M
 
 	// Generate secret for cloud-config
 	secret = resources.GenerateCloudConfigSecret(oscName, CloudInitSettingsNamespace, provisionData)
+
+	// Add machine deployment checksum to secret
+	secret.Annotations = addMachineDeploymentChecksum(&md.Spec.Template, secret.Annotations)
 
 	// Create resource in cluster
 	if err := r.workerClient.Create(ctx, secret); err != nil {
@@ -313,9 +327,51 @@ func (r *Reconciler) deleteGeneratedSecrets(ctx context.Context, md *clusterv1al
 	return nil
 }
 
+func (r *Reconciler) handleOSCAndSecretRotation(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
+	oscName := fmt.Sprintf(resources.MachineDeploymentSubresourceNamePattern, md.Name, md.Namespace, resources.ProvisioningCloudConfig)
+	osc := &osmv1alpha1.OperatingSystemConfig{}
+	if err := r.Get(ctx, types.NamespacedName{Name: oscName, Namespace: r.namespace}, osc); err != nil && !kerrors.IsNotFound(err) {
+		return err
+	} else if err != nil && kerrors.IsNotFound(err) {
+		// OSC doesn't exist and we need to create it.
+		return nil
+	}
+
+	// OSC already exists, we need to check if the template in machine deployment was updated. If it's updated then we need to rotate
+	// the OSC and secrets.
+	checksum := fmt.Sprintf("%x", sha1.Sum([]byte(md.Spec.Template.String())))
+	existingChecksum := osc.Annotations[MachineDeploymentChecksum]
+
+	if checksum == existingChecksum {
+		// Rotation is not required.
+		return nil
+	}
+
+	// Delete the existing OSC and let the controller re-create them.
+	if err := r.Delete(ctx, osc); err != nil {
+		return fmt.Errorf("failed to delete OperatingSystemConfig %s: %v against MachineDeployment %w", oscName, md.Name, err)
+	}
+
+	// Delete the existing secrets and let the controller re-create them.
+	if err := r.deleteGeneratedSecrets(ctx, md); err != nil {
+		return err
+	}
+	return nil
+}
+
 // filterMachineDeploymentPredicate will filter machine deployments based on the presence of OSP annotation
 func filterMachineDeploymentPredicate() predicate.Predicate {
 	return predicate.NewPredicateFuncs(func(o client.Object) bool {
 		return o.GetAnnotations()[resources.MachineDeploymentOSPAnnotation] != ""
 	})
+}
+
+func addMachineDeploymentChecksum(template *clusterv1alpha1.MachineTemplateSpec, annotations map[string]string) map[string]string {
+	checksum := sha1.Sum([]byte(template.String()))
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
+
+	annotations[MachineDeploymentChecksum] = fmt.Sprintf("%x", checksum)
+	return annotations
 }

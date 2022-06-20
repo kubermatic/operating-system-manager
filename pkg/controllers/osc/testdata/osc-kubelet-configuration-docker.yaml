@@ -1,6 +1,8 @@
 apiVersion: operatingsystemmanager.k8c.io/v1alpha1
 kind: OperatingSystemConfig
 metadata:
+  annotations:
+    machine-deployment-checksum: 57f1d564d9ac37a7904612eb83d851f6f8d6677c
   creationTimestamp: null
   name: kubelet-configuration-kube-system-osc-provisioning
   namespace: kube-system
