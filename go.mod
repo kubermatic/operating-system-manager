@@ -112,4 +112,4 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
 )
 
-replace k8s.io/client-go => k8s.io/client-go v0.24.0
+replace k8s.io/client-go => k8s.io/client-go v0.24.2
