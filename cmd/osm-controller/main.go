@@ -37,7 +37,6 @@ import (
 
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -77,7 +76,6 @@ type options struct {
 }
 
 func init() {
-	utilruntime.Must(clientgoscheme.AddToScheme(scheme.Scheme))
 	utilruntime.Must(osmv1alpha1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(clusterv1alpha1.AddToScheme(scheme.Scheme))
 }
