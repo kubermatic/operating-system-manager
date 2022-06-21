@@ -51,6 +51,13 @@ type OperatingSystemProfileSpec struct {
 	Version string `json:"version"`
 	// SupportedCloudProviders represent the cloud providers that support the given operating system version
 	SupportedCloudProviders []CloudProviderSpec `json:"supportedCloudProviders"`
+	// Bootstrap config is used for initial configuration of machine and to fetch the kubernetes secret that contains the provisioning config.
+	BootstrapConfig OSPConfig `json:"bootstrapConfig"`
+	// Provisioning Config is used for provisioning the worker node.
+	ProvisioningConfig OSPConfig `json:"provisioningConfig"`
+}
+
+type OSPConfig struct {
 	// SupportedContainerRuntimes represents the container runtimes supported by the given OS
 	SupportedContainerRuntimes []ContainerRuntimeSpec `json:"supportedContainerRuntimes"`
 	// Templates to be included in units and files
