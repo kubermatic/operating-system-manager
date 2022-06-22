@@ -137,6 +137,16 @@ spec:
                       type: array
                       items:
                         type: string
+                    yum_repo_dir:
+                      description: 'YumRepoDir the repo parts directory where individual yum repo config files will be written. Default: /etc/yum.repos.d'
+                      type: string
+                    yum_repos:
+                      description: YumRepos adds yum repository configuration to the system.
+                      type: object
+                      additionalProperties:
+                        type: object
+                        additionalProperties:
+                          type: string
                 osName:
                   description: 'OSType represent the operating system name e.g: ubuntu'
                   type: string
