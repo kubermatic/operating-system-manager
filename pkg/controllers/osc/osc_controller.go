@@ -250,18 +250,18 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.M
 		return fmt.Errorf("failed to list OperatingSystemConfigs: %w", err)
 	}
 
-	if err := r.ensureCloudConfigSecret(ctx, osc.Spec.BootstrapConfig, resources.BootstrapCloudConfig, osc.Spec.OSName, md.Name, md.Namespace); err != nil {
+	if err := r.ensureCloudConfigSecret(ctx, osc.Spec.BootstrapConfig, resources.BootstrapCloudConfig, osc.Spec.OSName, osc.Spec.CloudProvider.Name, md.Name, md.Namespace); err != nil {
 		return fmt.Errorf("failed to reconcile bootstrapping config secret: %w", err)
 	}
 
-	if err := r.ensureCloudConfigSecret(ctx, osc.Spec.ProvisioningConfig, resources.ProvisioningCloudConfig, osc.Spec.OSName, md.Name, md.Namespace); err != nil {
+	if err := r.ensureCloudConfigSecret(ctx, osc.Spec.ProvisioningConfig, resources.ProvisioningCloudConfig, osc.Spec.OSName, osc.Spec.CloudProvider.Name, md.Name, md.Namespace); err != nil {
 		return fmt.Errorf("failed to reconcile provisioning config secret: %w", err)
 	}
 
 	return nil
 }
 
-func (r *Reconciler) ensureCloudConfigSecret(ctx context.Context, config osmv1alpha1.OSCConfig, secretType resources.CloudConfigSecret, operatingSystem osmv1alpha1.OperatingSystem, mdName, mdNamespace string) error {
+func (r *Reconciler) ensureCloudConfigSecret(ctx context.Context, config osmv1alpha1.OSCConfig, secretType resources.CloudConfigSecret, operatingSystem osmv1alpha1.OperatingSystem, cloudProvider osmv1alpha1.CloudProvider, mdName, mdNamespace string) error {
 	secretName := fmt.Sprintf(resources.CloudConfigSecretNamePattern, mdName, mdNamespace, secretType)
 
 	// Check if secret already exists, in that case we don't need to do anything since secrets are immutable
@@ -271,7 +271,7 @@ func (r *Reconciler) ensureCloudConfigSecret(ctx context.Context, config osmv1al
 		return nil
 	}
 
-	provisionData, err := r.generator.Generate(&config, operatingSystem)
+	provisionData, err := r.generator.Generate(&config, operatingSystem, cloudProvider)
 	if err != nil {
 		return fmt.Errorf("failed to generate %s data", secretType)
 	}
