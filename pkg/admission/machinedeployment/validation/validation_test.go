@@ -116,18 +116,20 @@ func getOperatingSystemProfile() *osmv1alpha1.OperatingSystemProfile {
 					Name: "aws",
 				},
 			},
-			SupportedContainerRuntimes: []osmv1alpha1.ContainerRuntimeSpec{
-				{
-					Name: "containerd",
+			ProvisioningConfig: osmv1alpha1.OSPConfig{
+				SupportedContainerRuntimes: []osmv1alpha1.ContainerRuntimeSpec{
+					{
+						Name: "containerd",
+					},
 				},
-			},
-			Files: []osmv1alpha1.File{
-				{
-					Path: "/etc/systemd/journald.conf.d/max_disk_use.conf",
-					Content: osmv1alpha1.FileContent{
-						Inline: &osmv1alpha1.FileContentInline{
-							Encoding: "b64",
-							Data:     "test",
+				Files: []osmv1alpha1.File{
+					{
+						Path: "/etc/systemd/journald.conf.d/max_disk_use.conf",
+						Content: osmv1alpha1.FileContent{
+							Inline: &osmv1alpha1.FileContentInline{
+								Encoding: "b64",
+								Data:     "test",
+							},
 						},
 					},
 				},

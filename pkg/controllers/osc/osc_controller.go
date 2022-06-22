@@ -32,6 +32,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrlruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -174,7 +175,7 @@ func (r *Reconciler) reconcile(ctx context.Context, md *clusterv1alpha1.MachineD
 
 func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
 	// Check if OSC already exists, in that case we don't need to do anything since OSC are immutable
-	oscName := fmt.Sprintf(resources.MachineDeploymentSubresourceNamePattern, md.Name, md.Namespace, resources.ProvisioningCloudConfig)
+	oscName := fmt.Sprintf(resources.OperatingSystemConfigNamePattern, md.Name, md.Namespace)
 	osc := &osmv1alpha1.OperatingSystemConfig{}
 	if err := r.Get(ctx, types.NamespacedName{Name: oscName, Namespace: r.namespace}, osc); err == nil {
 		// Early return since the object already exists
@@ -226,33 +227,46 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 }
 
 func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
-	oscName := fmt.Sprintf(resources.MachineDeploymentSubresourceNamePattern, md.Name, md.Namespace, resources.ProvisioningCloudConfig)
-
-	// Check if secret already exists, in that case we don't need to do anything since secrets are immutable
-	secret := &corev1.Secret{}
-	if err := r.workerClient.Get(ctx, types.NamespacedName{Name: oscName, Namespace: CloudInitSettingsNamespace}, secret); err == nil {
-		// Early return since the object already exists
-		return nil
-	}
-
+	oscName := fmt.Sprintf(resources.OperatingSystemConfigNamePattern, md.Name, md.Namespace)
 	osc := &osmv1alpha1.OperatingSystemConfig{}
 	if err := r.Get(ctx, types.NamespacedName{Namespace: r.namespace, Name: oscName}, osc); err != nil {
 		return fmt.Errorf("failed to list OperatingSystemConfigs: %w", err)
 	}
 
-	provisionData, err := r.generator.Generate(osc)
+	if err := r.ensureCloudConfigSecret(ctx, osc.Spec.BootstrapConfig, resources.BootstrapCloudConfig, osc.Spec.OSName, md.Name, md.Namespace); err != nil {
+		return fmt.Errorf("failed to reconcile bootstrapping config secret: %w", err)
+	}
+
+	if err := r.ensureCloudConfigSecret(ctx, osc.Spec.ProvisioningConfig, resources.ProvisioningCloudConfig, osc.Spec.OSName, md.Name, md.Namespace); err != nil {
+		return fmt.Errorf("failed to reconcile provisioning config secret: %w", err)
+	}
+
+	return nil
+}
+
+func (r *Reconciler) ensureCloudConfigSecret(ctx context.Context, config osmv1alpha1.OSCConfig, secretType resources.CloudConfigSecret, operatingSystem osmv1alpha1.OperatingSystem, mdName, mdNamespace string) error {
+	secretName := fmt.Sprintf(resources.CloudConfigSecretNamePattern, mdName, mdNamespace, secretType)
+
+	// Check if secret already exists, in that case we don't need to do anything since secrets are immutable
+	secret := &corev1.Secret{}
+	if err := r.workerClient.Get(ctx, types.NamespacedName{Name: secretName, Namespace: CloudInitSettingsNamespace}, secret); err == nil {
+		// Early return since the object already exists
+		return nil
+	}
+
+	provisionData, err := r.generator.Generate(&config, operatingSystem)
 	if err != nil {
-		return fmt.Errorf("failed to generate provisioning data")
+		return fmt.Errorf("failed to generate %s data", secretType)
 	}
 
 	// Generate secret for cloud-config
-	secret = resources.GenerateCloudConfigSecret(oscName, CloudInitSettingsNamespace, provisionData)
+	secret = resources.GenerateCloudConfigSecret(secretName, CloudInitSettingsNamespace, provisionData)
 
 	// Create resource in cluster
 	if err := r.workerClient.Create(ctx, secret); err != nil {
-		return fmt.Errorf("failed to create %s provisioning secret: %w", oscName, err)
+		return fmt.Errorf("failed to create %s %s secret: %w", secretName, secretType, err)
 	}
-	r.log.Infof("successfully generated provisioning secret: %v", oscName)
+	r.log.Infof("successfully generated %s secret: %v", secretType, secretName)
 	return nil
 }
 
@@ -282,15 +296,15 @@ func (r *Reconciler) handleMachineDeploymentCleanup(ctx context.Context, md *clu
 
 // deleteOperatingSystemConfig deletes the OperatingSystemConfig created against a MachineDeployment
 func (r *Reconciler) deleteOperatingSystemConfig(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
-	oscName := fmt.Sprintf(resources.MachineDeploymentSubresourceNamePattern, md.Name, md.Namespace, resources.ProvisioningCloudConfig)
-	osc := &osmv1alpha1.OperatingSystemConfig{}
-	if err := r.Get(ctx, types.NamespacedName{Name: oscName, Namespace: r.namespace}, osc); err != nil {
-		if kerrors.IsNotFound(err) {
-			return nil
-		}
-		return fmt.Errorf("failed to retrieve OperatingSystemConfig %s against MachineDeployment %s: %w", oscName, md.Name, err)
+	oscName := fmt.Sprintf(resources.OperatingSystemConfigNamePattern, md.Name, md.Namespace)
+	osc := &osmv1alpha1.OperatingSystemConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      oscName,
+			Namespace: r.namespace,
+		},
 	}
-	if err := r.Delete(ctx, osc); err != nil {
+
+	if err := r.Delete(ctx, osc); err != nil && !kerrors.IsNotFound(err) {
 		return fmt.Errorf("failed to delete OperatingSystemConfig %s: %v against MachineDeployment %w", oscName, md.Name, err)
 	}
 	return nil
@@ -298,17 +312,25 @@ func (r *Reconciler) deleteOperatingSystemConfig(ctx context.Context, md *cluste
 
 // deleteGeneratedSecrets deletes the secrets created against a MachineDeployment
 func (r *Reconciler) deleteGeneratedSecrets(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
-	secretName := fmt.Sprintf(resources.MachineDeploymentSubresourceNamePattern, md.Name, md.Namespace, resources.ProvisioningCloudConfig)
-	secret := &corev1.Secret{}
-	if err := r.workerClient.Get(ctx, types.NamespacedName{Name: secretName, Namespace: CloudInitSettingsNamespace}, secret); err != nil {
-		if kerrors.IsNotFound(err) {
-			return nil
-		}
-		return fmt.Errorf("failed to retrieve secret %s against MachineDeployment %s: %w", secret, md.Name, err)
+	// Delete provisioning secret
+	provisioningSecretName := fmt.Sprintf(resources.CloudConfigSecretNamePattern, md.Name, md.Namespace, resources.ProvisioningCloudConfig)
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      provisioningSecretName,
+			Namespace: CloudInitSettingsNamespace,
+		},
 	}
 
-	if err := r.workerClient.Delete(ctx, secret); err != nil {
-		return fmt.Errorf("failed to delete secret %s against MachineDeployment %s: %w", secret, md.Name, err)
+	if err := r.Delete(ctx, secret); err != nil && !kerrors.IsNotFound(err) {
+		return fmt.Errorf("failed to delete provisioning secret %s against MachineDeployment %s: %w", secret, md.Name, err)
+	}
+
+	// Delete bootstrap secret
+	bootstrapSecretName := fmt.Sprintf(resources.CloudConfigSecretNamePattern, md.Name, md.Namespace, resources.BootstrapCloudConfig)
+	secret.Name = bootstrapSecretName
+
+	if err := r.Delete(ctx, secret); err != nil && !kerrors.IsNotFound(err) {
+		return fmt.Errorf("failed to delete bootstrap secret %s against MachineDeployment %s: %w", secret, md.Name, err)
 	}
 	return nil
 }

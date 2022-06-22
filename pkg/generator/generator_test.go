@@ -36,34 +36,36 @@ func TestDefaultCloudConfigGenerator_Generate(t *testing.T) {
 				Spec: osmv1alpha1.OperatingSystemConfigSpec{
 					OSName:    "ubuntu",
 					OSVersion: "20.04",
-					Files: []osmv1alpha1.File{
-						{
-							Path:        "/opt/bin/test.service",
-							Permissions: pointer.Int32Ptr(0700),
-							Content: osmv1alpha1.FileContent{
-								Inline: &osmv1alpha1.FileContentInline{
-									Data: "    #!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    cloud-init init\n    systemctl start provision.service",
+					ProvisioningConfig: osmv1alpha1.OSCConfig{
+						Files: []osmv1alpha1.File{
+							{
+								Path:        "/opt/bin/test.service",
+								Permissions: pointer.Int32Ptr(0700),
+								Content: osmv1alpha1.FileContent{
+									Inline: &osmv1alpha1.FileContentInline{
+										Data: "    #!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    cloud-init init\n    systemctl start provision.service",
+									},
+								},
+							},
+							{
+								Path:        "/opt/bin/setup.service",
+								Permissions: pointer.Int32Ptr(0700),
+								Content: osmv1alpha1.FileContent{
+									Inline: &osmv1alpha1.FileContentInline{
+										Data: "    #!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    cloud-init init\n    systemctl start provision.service",
+									},
 								},
 							},
 						},
-						{
-							Path:        "/opt/bin/setup.service",
-							Permissions: pointer.Int32Ptr(0700),
-							Content: osmv1alpha1.FileContent{
-								Inline: &osmv1alpha1.FileContentInline{
-									Data: "    #!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    cloud-init init\n    systemctl start provision.service",
-								},
-							},
+						UserSSHKeys: []string{
+							"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3",
+							"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4",
 						},
-					},
-					UserSSHKeys: []string{
-						"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3",
-						"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4",
-					},
-					CloudInitModules: &osmv1alpha1.CloudInitModule{
-						BootCMD:        []string{"echo hello-world", "echo hello-osm"},
-						RHSubscription: map[string]string{"username": "test_username", "password": "test_password"},
-						RunCMD:         []string{"systemctl restart test.service", "systemctl restart setup.service", "systemctl daemon-reload"},
+						CloudInitModules: &osmv1alpha1.CloudInitModule{
+							BootCMD:        []string{"echo hello-world", "echo hello-osm"},
+							RHSubscription: map[string]string{"username": "test_username", "password": "test_password"},
+							RunCMD:         []string{"systemctl restart test.service", "systemctl restart setup.service", "systemctl daemon-reload"},
+						},
 					},
 				},
 			},
@@ -111,23 +113,25 @@ rh_subscription:
 				Spec: osmv1alpha1.OperatingSystemConfigSpec{
 					OSName:    "ubuntu",
 					OSVersion: "20.04",
-					Files: []osmv1alpha1.File{
-						{
-							Path:        "/opt/bin/test",
-							Permissions: pointer.Int32Ptr(0700),
-							Content: osmv1alpha1.FileContent{
-								Inline: &osmv1alpha1.FileContentInline{
-									Data: "    #!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    cloud-init init\n    systemctl start provision.service",
+					ProvisioningConfig: osmv1alpha1.OSCConfig{
+						Files: []osmv1alpha1.File{
+							{
+								Path:        "/opt/bin/test",
+								Permissions: pointer.Int32Ptr(0700),
+								Content: osmv1alpha1.FileContent{
+									Inline: &osmv1alpha1.FileContentInline{
+										Data: "    #!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    cloud-init init\n    systemctl start provision.service",
+									},
 								},
 							},
 						},
-					},
-					UserSSHKeys: []string{
-						"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3",
-						"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4",
-					},
-					CloudInitModules: &osmv1alpha1.CloudInitModule{
-						RunCMD: []string{"systemctl daemon-reload"},
+						UserSSHKeys: []string{
+							"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3",
+							"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4",
+						},
+						CloudInitModules: &osmv1alpha1.CloudInitModule{
+							RunCMD: []string{"systemctl daemon-reload"},
+						},
 					},
 				},
 			},
@@ -157,19 +161,21 @@ runcmd:
 				Spec: osmv1alpha1.OperatingSystemConfigSpec{
 					OSName:    "ubuntu",
 					OSVersion: "20.04",
-					Files: []osmv1alpha1.File{
-						{
-							Path:        "/opt/bin/test",
-							Permissions: pointer.Int32Ptr(0700),
-							Content: osmv1alpha1.FileContent{
-								Inline: &osmv1alpha1.FileContentInline{
-									Data: "    #!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    cloud-init init\n    systemctl start provision.service",
+					ProvisioningConfig: osmv1alpha1.OSCConfig{
+						Files: []osmv1alpha1.File{
+							{
+								Path:        "/opt/bin/test",
+								Permissions: pointer.Int32Ptr(0700),
+								Content: osmv1alpha1.FileContent{
+									Inline: &osmv1alpha1.FileContentInline{
+										Data: "    #!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    cloud-init init\n    systemctl start provision.service",
+									},
 								},
 							},
 						},
-					},
-					CloudInitModules: &osmv1alpha1.CloudInitModule{
-						RunCMD: []string{"systemctl daemon-reload"},
+						CloudInitModules: &osmv1alpha1.CloudInitModule{
+							RunCMD: []string{"systemctl daemon-reload"},
+						},
 					},
 				},
 			},
@@ -197,29 +203,31 @@ runcmd:
 				Spec: osmv1alpha1.OperatingSystemConfigSpec{
 					OSName:    "flatcar",
 					OSVersion: "2605.22.1",
-					Files: []osmv1alpha1.File{
-						{
-							Path:        "/opt/bin/test.service",
-							Permissions: pointer.Int32Ptr(0700),
-							Content: osmv1alpha1.FileContent{
-								Inline: &osmv1alpha1.FileContentInline{
-									Data: "    #!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    cloud-init init\n    systemctl start provision.service",
+					ProvisioningConfig: osmv1alpha1.OSCConfig{
+						Files: []osmv1alpha1.File{
+							{
+								Path:        "/opt/bin/test.service",
+								Permissions: pointer.Int32Ptr(0700),
+								Content: osmv1alpha1.FileContent{
+									Inline: &osmv1alpha1.FileContentInline{
+										Data: "    #!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    cloud-init init\n    systemctl start provision.service",
+									},
+								},
+							},
+							{
+								Path:        "/opt/bin/setup.service",
+								Permissions: pointer.Int32Ptr(0700),
+								Content: osmv1alpha1.FileContent{
+									Inline: &osmv1alpha1.FileContentInline{
+										Data: "    #!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    cloud-init init\n    systemctl start provision.service",
+									},
 								},
 							},
 						},
-						{
-							Path:        "/opt/bin/setup.service",
-							Permissions: pointer.Int32Ptr(0700),
-							Content: osmv1alpha1.FileContent{
-								Inline: &osmv1alpha1.FileContentInline{
-									Data: "    #!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    cloud-init init\n    systemctl start provision.service",
-								},
-							},
+						UserSSHKeys: []string{
+							"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3",
+							"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4",
 						},
-					},
-					UserSSHKeys: []string{
-						"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3",
-						"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4",
 					},
 				},
 			},
@@ -231,7 +239,7 @@ runcmd:
 		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
 			generator := NewDefaultCloudConfigGenerator("")
-			userData, err := generator.Generate(testCase.osc)
+			userData, err := generator.Generate(&testCase.osc.Spec.ProvisioningConfig, testCase.osc.Spec.OSName)
 			if err != nil {
 				t.Fatalf("failed to generate cloud config: %v", err)
 			}

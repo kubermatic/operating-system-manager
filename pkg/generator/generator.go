@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"text/template"
 
+	"k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 )
 
@@ -32,7 +33,7 @@ const (
 
 // CloudConfigGenerator generates the machine provisioning configurations for the corresponding operating system config
 type CloudConfigGenerator interface {
-	Generate(osc *osmv1alpha1.OperatingSystemConfig) ([]byte, error)
+	Generate(config *osmv1alpha1.OSCConfig, operatingSystem v1alpha1.OperatingSystem) ([]byte, error)
 }
 
 // DefaultCloudConfigGenerator represents the default generator of the machine provisioning configurations
@@ -51,9 +52,9 @@ func NewDefaultCloudConfigGenerator(unitsPath string) CloudConfigGenerator {
 	}
 }
 
-func (d *DefaultCloudConfigGenerator) Generate(osc *osmv1alpha1.OperatingSystemConfig) ([]byte, error) {
+func (d *DefaultCloudConfigGenerator) Generate(config *osmv1alpha1.OSCConfig, operatingSystem v1alpha1.OperatingSystem) ([]byte, error) {
 	var files []*fileSpec
-	for _, file := range osc.Spec.Files {
+	for _, file := range config.Files {
 		content := file.Content.Inline.Data
 		if file.Content.Inline.Encoding == base64Encoding {
 			content = base64.StdEncoding.EncodeToString([]byte(file.Content.Inline.Data))
@@ -73,7 +74,7 @@ func (d *DefaultCloudConfigGenerator) Generate(osc *osmv1alpha1.OperatingSystemC
 	}
 
 	var units []*unitSpec
-	for _, unit := range osc.Spec.Units {
+	for _, unit := range config.Units {
 		uSpec := &unitSpec{
 			Name: unit.Name,
 		}
@@ -101,7 +102,7 @@ func (d *DefaultCloudConfigGenerator) Generate(osc *osmv1alpha1.OperatingSystemC
 	}
 
 	// Fetch user data template based on the provisioning utility
-	userDataTemplate, err := getUserDataTemplate(osc.Spec.OSName)
+	userDataTemplate, err := getUserDataTemplate(operatingSystem)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get an appropriate user-data template: %w", err)
 	}
@@ -120,13 +121,13 @@ func (d *DefaultCloudConfigGenerator) Generate(osc *osmv1alpha1.OperatingSystemC
 	}{
 		Files:            files,
 		Units:            units,
-		UserSSHKeys:      osc.Spec.UserSSHKeys,
-		CloudInitModules: osc.Spec.CloudInitModules,
+		UserSSHKeys:      config.UserSSHKeys,
+		CloudInitModules: config.CloudInitModules,
 	}); err != nil {
 		return nil, err
 	}
 
-	if GetProvisioningUtility(osc.Spec.OSName) == CloudInit {
+	if GetProvisioningUtility(operatingSystem) == CloudInit {
 		return buf.Bytes(), nil
 	}
 
