@@ -29,6 +29,9 @@ spec:
         auto-attach: "false"
         password: ""
         username: ""
+      runcmd:
+      - systemctl restart bootstrap.service
+      - systemctl daemon-reload
     units:
     - content: |
         [Install]

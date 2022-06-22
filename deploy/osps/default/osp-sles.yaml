@@ -65,6 +65,11 @@ spec:
               systemctl daemon-reload
               systemctl restart setup.service
 
+    modules:
+      runcmd:
+        - systemctl restart bootstrap.service
+        - systemctl daemon-reload
+
   provisioningConfig:
     supportedContainerRuntimes:
       - name: docker

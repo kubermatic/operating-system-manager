@@ -67,14 +67,20 @@ spec:
               cloud-init --file /etc/cloud/cloud.cfg.d/{{ .SecretName }}.cfg init
               systemctl daemon-reload
 
-              {{- /* The default cloud-init configurations files have a bug on Digital Ocean that causes the machine to be in-accessible on the 2nd cloud-init. We have to manually run the module */}}
+              {{- /* The default cloud-init configurations files have a bug on Digital Ocean that causes the machine to be in-accessible on the 2nd cloud-init. Hence we disable network configuration. */}}
               {{- if eq .CloudProviderName "digitalocean" }}
               rm /etc/netplan/50-cloud-init.yaml
+              echo "network: {config: disabled}" > /etc/cloud/cloud.cfg.d/99-custom-networking.cfg
               netplan generate
               netplan apply
               {{- end }}
 
               systemctl restart setup.service
+
+    modules:
+      runcmd:
+        - systemctl restart bootstrap.service
+        - systemctl daemon-reload
 
   provisioningConfig:
     supportedContainerRuntimes:

@@ -62,6 +62,11 @@ spec:
               rm /etc/machine-id
               reboot
 
+    modules:
+      runcmd:
+        - systemctl restart bootstrap.service
+        - systemctl daemon-reload
+
   provisioningConfig:
     supportedContainerRuntimes:
       - name: containerd

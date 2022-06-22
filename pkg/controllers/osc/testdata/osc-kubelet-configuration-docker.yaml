@@ -19,6 +19,10 @@ spec:
           encoding: b64
       path: /opt/bin/bootstrap
       permissions: 493
+    modules:
+      runcmd:
+      - systemctl restart bootstrap.service
+      - systemctl daemon-reload
     units:
     - content: |
         [Install]
