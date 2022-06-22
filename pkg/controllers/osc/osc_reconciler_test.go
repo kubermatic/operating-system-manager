@@ -18,7 +18,6 @@ package osc
 
 import (
 	"context"
-	"crypto/sha1"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -30,6 +29,7 @@ import (
 
 	"github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	"github.com/kubermatic/machine-controller/pkg/containerruntime"
+	machinecontrollerutil "github.com/kubermatic/machine-controller/pkg/controller/util"
 	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
 	"k8c.io/operating-system-manager/pkg/controllers/osc/resources"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
@@ -432,15 +432,15 @@ func TestOSCAndSecretRotation(t *testing.T) {
 				t.Fatalf("failed to get secret: %v", err)
 			}
 
-			oscChecksum := osc.Annotations[MachineDeploymentChecksum]
-			secretChecksum := secret.Annotations[MachineDeploymentChecksum]
-			checksum := fmt.Sprintf("%x", sha1.Sum([]byte(md.Spec.Template.String())))
+			oscRevision := osc.Annotations[MachineDeploymentRevision]
+			secretRevision := secret.Annotations[MachineDeploymentRevision]
+			revision := md.Annotations[machinecontrollerutil.RevisionAnnotation]
 
-			if checksum != oscChecksum {
-				t.Fatal("checksum for machine deployment and OSC didn't match")
+			if revision != oscRevision {
+				t.Fatal("revision for machine deployment and OSC didn't match")
 			}
-			if checksum != secretChecksum {
-				t.Fatal("checksum for machine deployment and secret didn't match")
+			if revision != secretRevision {
+				t.Fatal("revision for machine deployment and secret didn't match")
 			}
 
 			// Change the spec to trigger OSC and secret rotation
@@ -470,19 +470,19 @@ func TestOSCAndSecretRotation(t *testing.T) {
 				t.Fatalf("failed to get secret: %v", err)
 			}
 
-			oscChecksum = osc.Annotations[MachineDeploymentChecksum]
-			secretChecksum = secret.Annotations[MachineDeploymentChecksum]
-			newChecksum := fmt.Sprintf("%x", sha1.Sum([]byte(md.Spec.Template.String())))
+			oscRevision = osc.Annotations[MachineDeploymentRevision]
+			secretRevision = secret.Annotations[MachineDeploymentRevision]
+			updatedRevision := md.Annotations[machinecontrollerutil.RevisionAnnotation]
 
-			if checksum == newChecksum {
+			if revision == updatedRevision {
 				t.Fatal("machine deployment wasn't updated")
 			}
 
-			if newChecksum != oscChecksum {
-				t.Fatal("checksum for machine deployment and OSC didn't match")
+			if updatedRevision != oscRevision {
+				t.Fatal("revision for machine deployment and OSC didn't match")
 			}
-			if newChecksum != secretChecksum {
-				t.Fatal("checksum for machine deployment and secret didn't match")
+			if updatedRevision != secretRevision {
+				t.Fatal("revision for machine deployment and secret didn't match")
 			}
 		})
 	}
