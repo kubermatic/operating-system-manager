@@ -439,15 +439,13 @@ func TestOSCAndSecretRotation(t *testing.T) {
 			if revision != oscRevision {
 				t.Fatal("revision for machine deployment and OSC didn't match")
 			}
+
 			if revision != secretRevision {
 				t.Fatal("revision for machine deployment and secret didn't match")
 			}
 
-			// Change the spec to trigger OSC and secret rotation
-			if md.Spec.Template.Annotations == nil {
-				md.Spec.Template.Annotations = map[string]string{}
-			}
-			md.Spec.Template.Annotations["test"] = "test"
+			// Change the revision manually to trigger OSC and secret rotation
+			md.Annotations[machinecontrollerutil.RevisionAnnotation] = "2"
 
 			// Reconcile to trigger delete workflow
 			if err := reconciler.reconcile(ctx, md); err != nil {
@@ -481,6 +479,7 @@ func TestOSCAndSecretRotation(t *testing.T) {
 			if updatedRevision != oscRevision {
 				t.Fatal("revision for machine deployment and OSC didn't match")
 			}
+
 			if updatedRevision != secretRevision {
 				t.Fatal("revision for machine deployment and secret didn't match")
 			}
@@ -606,6 +605,7 @@ func generateMachineDeployment(t *testing.T, name, namespace, osp, kubeletVersio
 	}
 
 	annotations := make(map[string]string)
+	annotations[machinecontrollerutil.RevisionAnnotation] = "1"
 	annotations[resources.MachineDeploymentOSPAnnotation] = osp
 	for k, v := range additionalAnnotations {
 		annotations[k] = v

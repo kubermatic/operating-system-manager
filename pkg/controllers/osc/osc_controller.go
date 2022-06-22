@@ -262,7 +262,7 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.M
 
 	// Add machine deployment revision to secret
 	revision := md.Annotations[machinecontrollerutil.RevisionAnnotation]
-	osc.Annotations = addMachineDeploymentRevision(revision, osc.Annotations)
+	secret.Annotations = addMachineDeploymentRevision(revision, secret.Annotations)
 
 	// Create resource in cluster
 	if err := r.workerClient.Create(ctx, secret); err != nil {
