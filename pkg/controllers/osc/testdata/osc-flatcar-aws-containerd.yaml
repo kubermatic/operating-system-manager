@@ -389,7 +389,7 @@ spec:
             users:
             - name: c
               user:
-                token: zkpp5q.x6jwts6hjzpxjhxh
+                token: test.test
 
       path: /etc/kubernetes/bootstrap-kubelet.conf
     - content:

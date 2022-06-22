@@ -491,7 +491,7 @@ spec:
             users:
             - name: c
               user:
-                token: njm2w7.x4gp7rp5g78wp52r
+                token: test.test
 
           encoding: b64
       path: /etc/kubernetes/bootstrap-kubelet.conf

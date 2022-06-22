@@ -39,7 +39,7 @@ import (
 
 const (
 	secretTypeBootstrapToken      corev1.SecretType = "bootstrap.kubernetes.io/token"
-	machineDeploymentNameLabelKey string            = "machinedeployment.k8s.io/machine.name"
+	machineDeploymentNameLabelKey string            = "machinedeployment.k8s.io/name"
 	tokenIDKey                    string            = "token-id"
 	tokenSecretKey                string            = "token-secret"
 	expirationKey                 string            = "expiration"

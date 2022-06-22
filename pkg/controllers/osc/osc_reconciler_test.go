@@ -300,13 +300,14 @@ func TestReconciler_Reconcile(t *testing.T) {
 		if err := loadFile(osp, testCase.ospFile); err != nil {
 			t.Fatalf("failed loading osp %s from testdata: %v", testCase.name, err)
 		}
-		objects := []controllerruntimeclient.Object{&corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "cluster-info",
-				Namespace: "kube-public",
+		objects := []controllerruntimeclient.Object{
+			&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cluster-info",
+					Namespace: "kube-public",
+				},
+				Data: map[string]string{"kubeconfig": clusterInfoKubeconfig},
 			},
-			Data: map[string]string{"kubeconfig": clusterInfoKubeconfig},
-		},
 			&corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "cloud-init-getter-token-xyz",
@@ -314,6 +315,18 @@ func TestReconciler_Reconcile(t *testing.T) {
 				},
 				Data: map[string][]byte{
 					"token": []byte("top-secret"),
+				},
+			},
+			&corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "bootstrap-token",
+					Namespace: "kube-system",
+					Labels:    map[string]string{"machinedeployment.k8s.io/name": fmt.Sprintf("%s-%s", testCase.config.namespace, testCase.mdName)},
+				},
+				Data: map[string][]byte{
+					"token-id":     []byte("test"),
+					"token-secret": []byte("test"),
+					"expiration":   []byte(metav1.Now().Add(10 * time.Hour).Format(time.RFC3339)),
 				},
 			},
 		}
@@ -454,13 +467,14 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 			t.Fatalf("failed loading osp %s from testdata: %v", testCase.name, err)
 		}
 
-		objects := []controllerruntimeclient.Object{&corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "cluster-info",
-				Namespace: "kube-public",
+		objects := []controllerruntimeclient.Object{
+			&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cluster-info",
+					Namespace: "kube-public",
+				},
+				Data: map[string]string{"kubeconfig": clusterInfoKubeconfig},
 			},
-			Data: map[string]string{"kubeconfig": clusterInfoKubeconfig},
-		},
 			&corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "cloud-init-getter-token-xyz",
@@ -468,6 +482,18 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 				},
 				Data: map[string][]byte{
 					"token": []byte("top-secret"),
+				},
+			},
+			&corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "bootstrap-token",
+					Namespace: "kube-system",
+					Labels:    map[string]string{"machinedeployment.k8s.io/name": fmt.Sprintf("%s-%s", testCase.config.namespace, testCase.mdName)},
+				},
+				Data: map[string][]byte{
+					"token-id":     []byte("test"),
+					"token-secret": []byte("test"),
+					"expiration":   []byte(metav1.Now().Add(10 * time.Hour).Format(time.RFC3339)),
 				},
 			},
 		}
