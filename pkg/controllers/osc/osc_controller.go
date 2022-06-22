@@ -25,6 +25,7 @@ import (
 
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	"github.com/kubermatic/machine-controller/pkg/containerruntime"
+	"k8c.io/operating-system-manager/pkg/bootstrap"
 	"k8c.io/operating-system-manager/pkg/controllers/osc/resources"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/generator"
@@ -58,6 +59,8 @@ type Reconciler struct {
 
 	log *zap.SugaredLogger
 
+	bootstrap bootstrap.Bootstrap
+
 	namespace                     string
 	containerRuntime              string
 	externalCloudProvider         bool
@@ -78,6 +81,7 @@ func Add(
 	log *zap.SugaredLogger,
 	workerClient client.Client,
 	client client.Client,
+	bootstrap bootstrap.Bootstrap,
 	caCert string,
 	namespace string,
 	workerCount int,
@@ -96,6 +100,7 @@ func Add(
 		log:                           log,
 		workerClient:                  workerClient,
 		Client:                        client,
+		bootstrap:                     bootstrap,
 		caCert:                        caCert,
 		namespace:                     namespace,
 		generator:                     generator,
@@ -197,10 +202,22 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 		r.containerRuntimeConfig.RegistryCredentials = registryCredentials
 	}
 
+	bootstrapKubeconfig, err := r.bootstrap.CreateBootstrapKubeconfig(ctx, fmt.Sprintf("%s-%s", md.Namespace, md.Name))
+	if err != nil {
+		return fmt.Errorf("failed to create bootstrap kubeconfig: %w", err)
+	}
+
+	token, err := bootstrap.ExtractAPIServerToken(ctx, r.workerClient)
+	if err != nil {
+		return fmt.Errorf("failed to fetch api-server token: %w", err)
+	}
+
 	// We need to create OSC resource as it doesn't exist
-	osc, err := resources.GenerateOperatingSystemConfig(
+	osc, err = resources.GenerateOperatingSystemConfig(
 		md,
 		osp,
+		bootstrapKubeconfig,
+		token,
 		oscName,
 		r.namespace,
 		r.caCert,

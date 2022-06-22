@@ -24,9 +24,9 @@ import (
 	"os"
 
 	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
-
 	"k8c.io/operating-system-manager/pkg/cloudprovider/kubevirt/types"
 	"k8c.io/operating-system-manager/pkg/providerconfig/config"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

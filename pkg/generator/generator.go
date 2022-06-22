@@ -31,7 +31,7 @@ const (
 	base64Encoding   = "b64"
 )
 
-// CloudConfigGenerator generates the machine provisioning configurations for the corresponding operating system config
+// CloudConfigGenerator generates the machine bootstrapping and provisioning configurations for the corresponding operating system config
 type CloudConfigGenerator interface {
 	Generate(config *osmv1alpha1.OSCConfig, operatingSystem v1alpha1.OperatingSystem) ([]byte, error)
 }

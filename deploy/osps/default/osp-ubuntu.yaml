@@ -650,6 +650,13 @@ spec:
             data: |
               {{ .KubernetesCACert }}
 
+      - path: "/etc/kubernetes/bootstrap-kubelet.conf"
+        content:
+          inline:
+            encoding: b64
+            data: |
+              {{ .BootstrapKubeconfig }}
+
       - path: "/etc/systemd/system/setup.service"
         permissions: 0644
         content:

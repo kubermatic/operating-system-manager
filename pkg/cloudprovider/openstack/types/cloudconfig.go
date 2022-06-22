@@ -23,6 +23,7 @@ import (
 	"text/template"
 
 	"github.com/Masterminds/sprig/v3"
+
 	"github.com/kubermatic/machine-controller/pkg/ini"
 )
 

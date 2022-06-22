@@ -2,588 +2,642 @@ apiVersion: operatingsystemmanager.k8c.io/v1alpha1
 kind: OperatingSystemConfig
 metadata:
   creationTimestamp: null
-  name: kubelet-configuration-kube-system-osc-provisioning
+  name: kubelet-configuration-kube-system-osc
   namespace: kube-system
   resourceVersion: "1"
 spec:
+  bootstrapConfig:
+    files:
+    - content:
+        inline:
+          data: "#!/bin/bash\nset -xeuo pipefail\n\nexport DEBIAN_FRONTEND=noninteractive\napt
+            update && apt install -y curl jq\ncurl -s -k -v --header 'Authorization:
+            Bearer top-secret'\thttps://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/kubelet-configuration-kube-system-provisioning-secret
+            | jq '.data[\"cloud-config\"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/kubelet-configuration-kube-system-provisioning-secret.cfg\ncloud-init
+            clean\ncloud-init --file /etc/cloud/cloud.cfg.d/kubelet-configuration-kube-system-provisioning-secret.cfg
+            init\nsystemctl daemon-reload\n\nsystemctl restart setup.service\n"
+          encoding: b64
+      path: /opt/bin/bootstrap
+      permissions: 493
+    units:
+    - content: |
+        [Install]
+        WantedBy=multi-user.target
+
+        [Unit]
+        Requires=network-online.target
+        After=network-online.target
+        [Service]
+        Type=oneshot
+        RemainAfterExit=true
+        ExecStart=/opt/bin/bootstrap
+      enable: true
+      name: bootstrap.service
+    userSSHKeys:
+    - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c
   cloudProvider:
     name: aws
     spec:
       availabilityZone: eu-central-1b
       subnetID: test-subnet
       vpcId: e-123f
-  files:
-  - content:
-      inline:
-        data: |
-          #!/usr/bin/env bash
-
-          # Copyright 2016 The Kubernetes Authors.
-          #
-          # Licensed under the Apache License, Version 2.0 (the "License");
-          # you may not use this file except in compliance with the License.
-          # You may obtain a copy of the License at
-          #
-          #     http://www.apache.org/licenses/LICENSE-2.0
-          #
-          # Unless required by applicable law or agreed to in writing, software
-          # distributed under the License is distributed on an "AS IS" BASIS,
-          # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-          # See the License for the specific language governing permissions and
-          # limitations under the License.
-
-          # This script is for master and node instance health monitoring, which is
-          # packed in kube-manifest tarball. It is executed through a systemd service
-          # in cluster/gce/gci/<master/node>.yaml. The env variables come from an env
-          # file provided by the systemd service.
-
-          # This script is a slightly adjusted version of
-          # https://github.com/kubernetes/kubernetes/blob/e1a1aa211224fcd9b213420b80b2ae680669683d/cluster/gce/gci/health-monitor.sh
-          # Adjustments are:
-          # * Kubelet health port is 10248 not 10255
-          # * Removal of all all references to the KUBE_ENV file
-
-          set -o nounset
-          set -o pipefail
-
-          # We simply kill the process when there is a failure. Another systemd service will
-          # automatically restart the process.
-          function container_runtime_monitoring() {
-            local -r max_attempts=5
-            local attempt=1
-            local -r container_runtime_name="${CONTAINER_RUNTIME_NAME:-docker}"
-            # We still need to use 'docker ps' when container runtime is "docker". This is because
-            # dockershim is still part of kubelet today. When kubelet is down, crictl pods
-            # will also fail, and docker will be killed. This is undesirable especially when
-            # docker live restore is disabled.
-            local healthcheck_command="docker ps"
-            if [[ "${CONTAINER_RUNTIME:-docker}" != "docker" ]]; then
-              healthcheck_command="crictl pods"
-            fi
-            # Container runtime startup takes time. Make initial attempts before starting
-            # killing the container runtime.
-            until timeout 60 ${healthcheck_command} > /dev/null; do
-              if ((attempt == max_attempts)); then
-                echo "Max attempt ${max_attempts} reached! Proceeding to monitor container runtime healthiness."
-                break
-              fi
-              echo "$attempt initial attempt \"${healthcheck_command}\"! Trying again in $attempt seconds..."
-              sleep "$((2 ** attempt++))"
-            done
-            while true; do
-              if ! timeout 60 ${healthcheck_command} > /dev/null; then
-                echo "Container runtime ${container_runtime_name} failed!"
-                if [[ "$container_runtime_name" == "docker" ]]; then
-                  # Dump stack of docker daemon for investigation.
-                  # Log file name looks like goroutine-stacks-TIMESTAMP and will be saved to
-                  # the exec root directory, which is /var/run/docker/ on Ubuntu and COS.
-                  pkill -SIGUSR1 dockerd
-                fi
-                systemctl kill --kill-who=main "${container_runtime_name}"
-                # Wait for a while, as we don't want to kill it again before it is really up.
-                sleep 120
-              else
-                sleep "${SLEEP_SECONDS}"
-              fi
-            done
-          }
-
-          function kubelet_monitoring() {
-            echo "Wait for 2 minutes for kubelet to be functional"
-            sleep 120
-            local -r max_seconds=10
-            local output=""
-            while true; do
-              local failed=false
-
-              if journalctl -u kubelet -n 1 | grep -q "use of closed network connection"; then
-                failed=true
-                echo "Kubelet stopped posting node status. Restarting"
-              elif ! output=$(curl -m "${max_seconds}" -f -s -S http://127.0.0.1:10248/healthz 2>&1); then
-                failed=true
-                # Print the response and/or errors.
-                echo "$output"
-              fi
-
-              if [[ "$failed" == "true" ]]; then
-                echo "Kubelet is unhealthy!"
-                systemctl kill kubelet
-                # Wait for a while, as we don't want to kill it again before it is really up.
-                sleep 60
-              else
-                sleep "${SLEEP_SECONDS}"
-              fi
-            done
-          }
-
-          ############## Main Function ################
-          if [[ "$#" -ne 1 ]]; then
-            echo "Usage: health-monitor.sh <container-runtime/kubelet>"
-            exit 1
-          fi
-
-          SLEEP_SECONDS=10
-          component=$1
-          echo "Start kubernetes health monitoring for ${component}"
-          if [[ "${component}" == "container-runtime" ]]; then
-            container_runtime_monitoring
-          elif [[ "${component}" == "kubelet" ]]; then
-            kubelet_monitoring
-          else
-            echo "Health monitoring for component ${component} is not supported!"
-          fi
-        encoding: b64
-    path: /opt/bin/health-monitor.sh
-    permissions: 493
-  - content:
-      inline:
-        data: |
-          [Journal]
-          SystemMaxUse=5G
-        encoding: b64
-    path: /etc/systemd/journald.conf.d/max_disk_use.conf
-  - content:
-      inline:
-        data: |
-          #!/usr/bin/env bash
-          set -euo pipefail
-
-          modprobe ip_vs
-          modprobe ip_vs_rr
-          modprobe ip_vs_wrr
-          modprobe ip_vs_sh
-
-          if modinfo nf_conntrack_ipv4 &> /dev/null; then
-            modprobe nf_conntrack_ipv4
-          else
-            modprobe nf_conntrack
-          fi
-        encoding: b64
-    path: /opt/load-kernel-modules.sh
-    permissions: 493
-  - content:
-      inline:
-        data: |
-          net.bridge.bridge-nf-call-ip6tables = 1
-          net.bridge.bridge-nf-call-iptables = 1
-          kernel.panic_on_oops = 1
-          kernel.panic = 10
-          net.ipv4.ip_forward = 1
-          vm.overcommit_memory = 1
-          fs.inotify.max_user_watches = 1048576
-          fs.inotify.max_user_instances = 8192
-        encoding: b64
-    path: /etc/sysctl.d/k8s.conf
-  - content:
-      inline:
-        data: |
-          # Added by kubermatic machine-controller
-          # Enable cgroups memory and swap accounting
-          GRUB_CMDLINE_LINUX="cgroup_enable=memory swapaccount=1"
-        encoding: b64
-    path: /etc/default/grub.d/60-swap-accounting.cfg
-  - content:
-      inline:
-        data: |
-          #!/bin/bash
-          set -xeuo pipefail
-          if systemctl is-active ufw; then systemctl stop ufw; fi
-          systemctl mask ufw
-          systemctl restart systemd-modules-load.service
-          sysctl --system
-
-          apt-get update
-
-          DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y \
-            curl \
-            ca-certificates \
-            ceph-common \
-            cifs-utils \
-            conntrack \
-            e2fsprogs \
-            ebtables \
-            ethtool \
-            glusterfs-client \
-            iptables \
-            jq \
-            kmod \
-            openssh-client \
-            nfs-common \
-            socat \
-            util-linux \
-            ipvsadm
-          apt-get update
-          apt-get install -y apt-transport-https ca-certificates curl software-properties-common lsb-release
-          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
-          add-apt-repository "deb https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-
-          apt-get install -y --allow-downgrades containerd.io=1.5*
-          apt-mark hold containerd.io
-
-          systemctl daemon-reload
-          systemctl enable --now containerd
-
-          opt_bin=/opt/bin
-          usr_local_bin=/usr/local/bin
-          cni_bin_dir=/opt/cni/bin
-          mkdir -p /etc/cni/net.d /etc/kubernetes/manifests "$opt_bin" "$cni_bin_dir"
-          mkdir -p /etc/kubernetes/dynamic-config-dir
-          arch=${HOST_ARCH-}
-          if [ -z "$arch" ]
-          then
-          case $(uname -m) in
-          x86_64)
-              arch="amd64"
-              ;;
-          aarch64)
-              arch="arm64"
-              ;;
-          *)
-              echo "unsupported CPU architecture, exiting"
-              exit 1
-              ;;
-          esac
-          fi
-          CNI_VERSION="${CNI_VERSION:-v0.8.7}"
-          cni_base_url="https://github.com/containernetworking/plugins/releases/download/$CNI_VERSION"
-          cni_filename="cni-plugins-linux-$arch-$CNI_VERSION.tgz"
-          curl -Lfo "$cni_bin_dir/$cni_filename" "$cni_base_url/$cni_filename"
-          cni_sum=$(curl -Lf "$cni_base_url/$cni_filename.sha256")
-          cd "$cni_bin_dir"
-          sha256sum -c <<<"$cni_sum"
-          tar xvf "$cni_filename"
-          rm -f "$cni_filename"
-          cd -
-          CRI_TOOLS_RELEASE="${CRI_TOOLS_RELEASE:-v1.22.0}"
-          cri_tools_base_url="https://github.com/kubernetes-sigs/cri-tools/releases/download/${CRI_TOOLS_RELEASE}"
-          cri_tools_filename="crictl-${CRI_TOOLS_RELEASE}-linux-${arch}.tar.gz"
-          curl -Lfo "$opt_bin/$cri_tools_filename" "$cri_tools_base_url/$cri_tools_filename"
-          cri_tools_sum=$(curl -Lf "$cri_tools_base_url/$cri_tools_filename.sha256" | sed 's/\*\///')
-          cd "$opt_bin"
-          sha256sum -c <<<"$cri_tools_sum"
-          tar xvf "$cri_tools_filename"
-          rm -f "$cri_tools_filename"
-          ln -sf "$opt_bin/crictl" "$usr_local_bin"/crictl || echo "symbolic link is skipped"
-          cd -
-          KUBE_VERSION="${KUBE_VERSION:-v1.22.2}"
-          kube_dir="$opt_bin/kubernetes-$KUBE_VERSION"
-          kube_base_url="https://storage.googleapis.com/kubernetes-release/release/$KUBE_VERSION/bin/linux/$arch"
-          kube_sum_file="$kube_dir/sha256"
-          mkdir -p "$kube_dir"
-          : >"$kube_sum_file"
-
-          for bin in kubelet kubeadm kubectl; do
-              curl -Lfo "$kube_dir/$bin" "$kube_base_url/$bin"
-              chmod +x "$kube_dir/$bin"
-              sum=$(curl -Lf "$kube_base_url/$bin.sha256")
-              echo "$sum  $kube_dir/$bin" >>"$kube_sum_file"
-          done
-          sha256sum -c "$kube_sum_file"
-
-          for bin in kubelet kubeadm kubectl; do
-              ln -sf "$kube_dir/$bin" "$opt_bin"/$bin
-          done
-
-          # set kubelet nodeip environment variable
-          /opt/bin/setup_net_env.sh
-
-          systemctl enable --now kubelet
-          systemctl enable --now --no-block kubelet-healthcheck.service
-        encoding: b64
-    path: /opt/bin/setup
-    permissions: 493
-  - content:
-      inline:
-        data: |
-          #!/bin/bash
-          set -xeuo pipefail
-          while ! "$@"; do
-            sleep 1
-          done
-        encoding: b64
-    path: /opt/bin/supervise.sh
-    permissions: 493
-  - content:
-      inline:
-        data: |
-          [Unit]
-          After=containerd.service
-          Requires=containerd.service
-
-          Description=kubelet: The Kubernetes Node Agent
-          Documentation=https://kubernetes.io/docs/home/
-
-          [Service]
-          User=root
-          Restart=always
-          StartLimitInterval=0
-          RestartSec=10
-          CPUAccounting=true
-          MemoryAccounting=true
-
-          Environment="PATH=/opt/bin:/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin/"
-          EnvironmentFile=-/etc/environment
-
-          ExecStartPre=/bin/bash /opt/disable-swap.sh
-          ExecStartPre=/bin/bash /opt/load-kernel-modules.sh
-          ExecStartPre=/bin/bash /opt/bin/setup_net_env.sh
-          ExecStart=/opt/bin/kubelet $KUBELET_EXTRA_ARGS \
-            --bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf \
-            --kubeconfig=/var/lib/kubelet/kubeconfig \
-            --config=/etc/kubernetes/kubelet.conf \
-            --network-plugin=cni \
-            --cert-dir=/etc/kubernetes/pki \
-            --cloud-provider=aws \
-            --cloud-config=/etc/kubernetes/cloud-config \
-            --dynamic-config-dir=/etc/kubernetes/dynamic-config-dir \
-            --feature-gates=DynamicKubeletConfig=true \
-            --exit-on-lock-contention \
-            --lock-file=/tmp/kubelet.lock \
-            --container-runtime=remote \
-            --container-runtime-endpoint=unix:///run/containerd/containerd.sock \
-            --node-ip ${KUBELET_NODE_IP}
-
-          [Install]
-          WantedBy=multi-user.target
-        encoding: b64
-    path: /etc/systemd/system/kubelet.service
-  - content:
-      inline:
-        data: |
-          [Service]
-          Environment="KUBELET_EXTRA_ARGS=--resolv-conf=/run/systemd/resolve/resolv.conf"
-        encoding: b64
-    path: /etc/systemd/system/kubelet.service.d/extras.conf
-  - content:
-      inline:
-        data: |+
-          [global]
-          Zone="eu-central-1b"
-          VPC="e-123f"
-          SubnetID="test-subnet"
-
-        encoding: b64
-    path: /etc/kubernetes/cloud-config
-    permissions: 384
-  - content:
-      inline:
-        data: |
-          #!/usr/bin/env bash
-          echodate() {
-            echo "[$(date -Is)]" "$@"
-          }
-
-          # get the default interface IP address
-          DEFAULT_IFC_IP=$(ip -o  route get 1 | grep -oP "src \K\S+")
-
-          if [ -z "${DEFAULT_IFC_IP}" ]
-          then
-            echodate "Failed to get IP address for the default route interface"
-            exit 1
-          fi
-
-
-          # get the full hostname
-          FULL_HOSTNAME=$(hostname -f)
-          # if /etc/hostname is not empty then use the hostname from there
-          if [ -s /etc/hostname ]; then
-            FULL_HOSTNAME=$(cat /etc/hostname)
-          fi
-
-          # write the nodeip_env file
-          # we need the line below because flatcar has the same string "coreos" in that file
-          if grep -q coreos /etc/os-release
-          then
-            echo "KUBELET_NODE_IP=${DEFAULT_IFC_IP}\nKUBELET_HOSTNAME=${FULL_HOSTNAME}" > /etc/kubernetes/nodeip.conf
-          elif [ ! -d /etc/systemd/system/kubelet.service.d ]
-          then
-            echodate "Can't find kubelet service extras directory"
-            exit 1
-          else
-            echo -e "[Service]\nEnvironment=\"KUBELET_NODE_IP=${DEFAULT_IFC_IP}\"\nEnvironment=\"KUBELET_HOSTNAME=${FULL_HOSTNAME}\"" > /etc/systemd/system/kubelet.service.d/nodeip.conf
-          fi
-        encoding: b64
-    path: /opt/bin/setup_net_env.sh
-    permissions: 493
-  - content:
-      inline:
-        data: |
-          -----BEGIN CERTIFICATE-----
-          MIIEWjCCA0KgAwIBAgIJALfRlWsI8YQHMA0GCSqGSIb3DQEBBQUAMHsxCzAJBgNV
-          BAYTAlVTMQswCQYDVQQIEwJDQTEWMBQGA1UEBxMNU2FuIEZyYW5jaXNjbzEUMBIG
-          A1UEChMLQnJhZGZpdHppbmMxEjAQBgNVBAMTCWxvY2FsaG9zdDEdMBsGCSqGSIb3
-          DQEJARYOYnJhZEBkYW5nYS5jb20wHhcNMTQwNzE1MjA0NjA1WhcNMTcwNTA0MjA0
-          NjA1WjB7MQswCQYDVQQGEwJVUzELMAkGA1UECBMCQ0ExFjAUBgNVBAcTDVNhbiBG
-          cmFuY2lzY28xFDASBgNVBAoTC0JyYWRmaXR6aW5jMRIwEAYDVQQDEwlsb2NhbGhv
-          c3QxHTAbBgkqhkiG9w0BCQEWDmJyYWRAZGFuZ2EuY29tMIIBIjANBgkqhkiG9w0B
-          AQEFAAOCAQ8AMIIBCgKCAQEAt5fAjp4fTcekWUTfzsp0kyih1OYbsGL0KX1eRbSS
-          R8Od0+9Q62Hyny+GFwMTb4A/KU8mssoHvcceSAAbwfbxFK/+s51TobqUnORZrOoT
-          ZjkUygbyXDSK99YBbcR1Pip8vwMTm4XKuLtCigeBBdjjAQdgUO28LENGlsMnmeYk
-          JfODVGnVmr5Ltb9ANA8IKyTfsnHJ4iOCS/PlPbUj2q7YnoVLposUBMlgUb/CykX3
-          mOoLb4yJJQyA/iST6ZxiIEj36D4yWZ5lg7YJl+UiiBQHGCnPdGyipqV06ex0heYW
-          caiW8LWZSUQ93jQ+WVCH8hT7DQO1dmsvUmXlq/JeAlwQ/QIDAQABo4HgMIHdMB0G
-          A1UdDgQWBBRcAROthS4P4U7vTfjByC569R7E6DCBrQYDVR0jBIGlMIGigBRcAROt
-          hS4P4U7vTfjByC569R7E6KF/pH0wezELMAkGA1UEBhMCVVMxCzAJBgNVBAgTAkNB
-          MRYwFAYDVQQHEw1TYW4gRnJhbmNpc2NvMRQwEgYDVQQKEwtCcmFkZml0emluYzES
-          MBAGA1UEAxMJbG9jYWxob3N0MR0wGwYJKoZIhvcNAQkBFg5icmFkQGRhbmdhLmNv
-          bYIJALfRlWsI8YQHMAwGA1UdEwQFMAMBAf8wDQYJKoZIhvcNAQEFBQADggEBAG6h
-          U9f9sNH0/6oBbGGy2EVU0UgITUQIrFWo9rFkrW5k/XkDjQm+3lzjT0iGR4IxE/Ao
-          eU6sQhua7wrWeFEn47GL98lnCsJdD7oZNhFmQ95Tb/LnDUjs5Yj9brP0NWzXfYU4
-          UK2ZnINJRcJpB8iRCaCxE8DdcUF0XqIEq6pA272snoLmiXLMvNl3kYEdm+je6voD
-          58SNVEUsztzQyXmJEhCpwVI0A6QCjzXj+qvpmw3ZZHi8JwXei8ZZBLTSFBki8Z7n
-          sH9BBH38/SzUmAN4QHSPy1gjqm00OAE8NaYDkh/bzE4d7mLGGMWp/WE3KPSu82HF
-          kPe6XoSbiLm/kxk32T0=
-          -----END CERTIFICATE-----
-        encoding: b64
-    path: /etc/kubernetes/pki/ca.crt
-  - content:
-      inline:
-        data: |
-          [Install]
-          WantedBy=multi-user.target
-
-          [Unit]
-          Requires=network-online.target
-          After=network-online.target
-
-          [Service]
-          Type=oneshot
-          RemainAfterExit=true
-          EnvironmentFile=-/etc/environment
-          ExecStart=/opt/bin/supervise.sh /opt/bin/setup
-        encoding: b64
-    path: /etc/systemd/system/setup.service
-    permissions: 420
-  - content:
-      inline:
-        data: |
-          export PATH="/opt/bin:$PATH"
-        encoding: b64
-    path: /etc/profile.d/opt-bin-path.sh
-    permissions: 420
-  - content:
-      inline:
-        data: |
-          apiVersion: kubelet.config.k8s.io/v1beta1
-          kind: KubeletConfiguration
-          authentication:
-            anonymous:
-              enabled: false
-            webhook:
-              enabled: true
-            x509:
-              clientCAFile: /etc/kubernetes/pki/ca.crt
-          authorization:
-            mode: Webhook
-          cgroupDriver: systemd
-          clusterDNS:
-          - "10.0.0.0"
-          clusterDomain: cluster.local
-          containerLogMaxSize: 300Mi
-          containerLogMaxFiles: 30
-          featureGates:
-            GracefulNodeShutdown: true
-            IdentifyPodOS: false
-          protectKernelDefaults: true
-          readOnlyPort: 0
-          rotateCertificates: true
-          serverTLSBootstrap: true
-          staticPodPath: /etc/kubernetes/manifests
-          kubeReserved:
-            cpu: 30m
-            ephemeral-storage: 30Gi
-          systemReserved:
-            cpu: 30m
-            ephemeral-storage: 30Gi
-          evictionHard:
-            memory.available: 30Mi
-          maxPods: 110
-          tlsCipherSuites:
-          - TLS_AES_128_GCM_SHA256
-          - TLS_AES_256_GCM_SHA384
-          - TLS_CHACHA20_POLY1305_SHA256
-          - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
-          - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
-          - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
-          - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
-          - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-          - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
-          volumePluginDir: /var/lib/kubelet/volumeplugins
-        encoding: b64
-    path: /etc/kubernetes/kubelet.conf
-  - content:
-      inline:
-        data: |
-          [Unit]
-          Requires=kubelet.service
-          After=kubelet.service
-
-          [Service]
-          ExecStart=/opt/bin/health-monitor.sh kubelet
-
-          [Install]
-          WantedBy=multi-user.target
-        encoding: b64
-    path: /etc/systemd/system/kubelet-healthcheck.service
-    permissions: 420
-  - content:
-      inline:
-        data: |
-          #!/usr/bin/env bash
-          set -euo pipefail
-
-          # Make sure we always disable swap - Otherwise the kubelet won't start as for some cloud
-          # providers swap gets enabled on reboot or after the setup script has finished executing.
-          sed -i.orig '/.*swap.*/d' /etc/fstab
-          swapoff -a
-        encoding: b64
-    path: /opt/disable-swap.sh
-    permissions: 493
-  - content:
-      inline:
-        data: |
-          runtime-endpoint: unix:///run/containerd/containerd.sock
-    path: /etc/crictl.yaml
-  - content:
-      inline:
-        data: |
-          [Service]
-          Restart=always
-          EnvironmentFile=-/etc/environment
-    path: /etc/systemd/system/containerd.service.d/environment.conf
-  - content:
-      inline:
-        data: |+
-          version = 2
-
-          [metrics]
-          address = "127.0.0.1:1338"
-
-          [plugins]
-          [plugins."io.containerd.grpc.v1.cri"]
-          sandbox_image = "192.168.100.100:5000/kubernetes/pause:v3.1"
-          [plugins."io.containerd.grpc.v1.cri".containerd]
-          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
-          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-          runtime_type = "io.containerd.runc.v2"
-          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
-          SystemdCgroup = true
-          [plugins."io.containerd.grpc.v1.cri".registry]
-          [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
-          [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
-          endpoint = ["https://registry.docker-cn.com"]
-          [plugins."io.containerd.grpc.v1.cri".registry.configs]
-          [plugins."io.containerd.grpc.v1.cri".registry.configs."10.0.0.1:5000"]
-          [plugins."io.containerd.grpc.v1.cri".registry.configs."10.0.0.1:5000".tls]
-          insecure_skip_verify = true
-          [plugins."io.containerd.grpc.v1.cri".registry.configs."192.168.100.100:5000"]
-          [plugins."io.containerd.grpc.v1.cri".registry.configs."192.168.100.100:5000".tls]
-          insecure_skip_verify = true
-
-        encoding: b64
-    path: /etc/containerd/config.toml
-    permissions: 384
   osName: ubuntu
   osVersion: "20.04"
-  userSSHKeys:
-  - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c
+  provisioningConfig:
+    files:
+    - content:
+        inline:
+          data: |
+            #!/usr/bin/env bash
+
+            # Copyright 2016 The Kubernetes Authors.
+            #
+            # Licensed under the Apache License, Version 2.0 (the "License");
+            # you may not use this file except in compliance with the License.
+            # You may obtain a copy of the License at
+            #
+            #     http://www.apache.org/licenses/LICENSE-2.0
+            #
+            # Unless required by applicable law or agreed to in writing, software
+            # distributed under the License is distributed on an "AS IS" BASIS,
+            # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+            # See the License for the specific language governing permissions and
+            # limitations under the License.
+
+            # This script is for master and node instance health monitoring, which is
+            # packed in kube-manifest tarball. It is executed through a systemd service
+            # in cluster/gce/gci/<master/node>.yaml. The env variables come from an env
+            # file provided by the systemd service.
+
+            # This script is a slightly adjusted version of
+            # https://github.com/kubernetes/kubernetes/blob/e1a1aa211224fcd9b213420b80b2ae680669683d/cluster/gce/gci/health-monitor.sh
+            # Adjustments are:
+            # * Kubelet health port is 10248 not 10255
+            # * Removal of all all references to the KUBE_ENV file
+
+            set -o nounset
+            set -o pipefail
+
+            # We simply kill the process when there is a failure. Another systemd service will
+            # automatically restart the process.
+            function container_runtime_monitoring() {
+              local -r max_attempts=5
+              local attempt=1
+              local -r container_runtime_name="${CONTAINER_RUNTIME_NAME:-docker}"
+              # We still need to use 'docker ps' when container runtime is "docker". This is because
+              # dockershim is still part of kubelet today. When kubelet is down, crictl pods
+              # will also fail, and docker will be killed. This is undesirable especially when
+              # docker live restore is disabled.
+              local healthcheck_command="docker ps"
+              if [[ "${CONTAINER_RUNTIME:-docker}" != "docker" ]]; then
+                healthcheck_command="crictl pods"
+              fi
+              # Container runtime startup takes time. Make initial attempts before starting
+              # killing the container runtime.
+              until timeout 60 ${healthcheck_command} > /dev/null; do
+                if ((attempt == max_attempts)); then
+                  echo "Max attempt ${max_attempts} reached! Proceeding to monitor container runtime healthiness."
+                  break
+                fi
+                echo "$attempt initial attempt \"${healthcheck_command}\"! Trying again in $attempt seconds..."
+                sleep "$((2 ** attempt++))"
+              done
+              while true; do
+                if ! timeout 60 ${healthcheck_command} > /dev/null; then
+                  echo "Container runtime ${container_runtime_name} failed!"
+                  if [[ "$container_runtime_name" == "docker" ]]; then
+                    # Dump stack of docker daemon for investigation.
+                    # Log file name looks like goroutine-stacks-TIMESTAMP and will be saved to
+                    # the exec root directory, which is /var/run/docker/ on Ubuntu and COS.
+                    pkill -SIGUSR1 dockerd
+                  fi
+                  systemctl kill --kill-who=main "${container_runtime_name}"
+                  # Wait for a while, as we don't want to kill it again before it is really up.
+                  sleep 120
+                else
+                  sleep "${SLEEP_SECONDS}"
+                fi
+              done
+            }
+
+            function kubelet_monitoring() {
+              echo "Wait for 2 minutes for kubelet to be functional"
+              sleep 120
+              local -r max_seconds=10
+              local output=""
+              while true; do
+                local failed=false
+
+                if journalctl -u kubelet -n 1 | grep -q "use of closed network connection"; then
+                  failed=true
+                  echo "Kubelet stopped posting node status. Restarting"
+                elif ! output=$(curl -m "${max_seconds}" -f -s -S http://127.0.0.1:10248/healthz 2>&1); then
+                  failed=true
+                  # Print the response and/or errors.
+                  echo "$output"
+                fi
+
+                if [[ "$failed" == "true" ]]; then
+                  echo "Kubelet is unhealthy!"
+                  systemctl kill kubelet
+                  # Wait for a while, as we don't want to kill it again before it is really up.
+                  sleep 60
+                else
+                  sleep "${SLEEP_SECONDS}"
+                fi
+              done
+            }
+
+            ############## Main Function ################
+            if [[ "$#" -ne 1 ]]; then
+              echo "Usage: health-monitor.sh <container-runtime/kubelet>"
+              exit 1
+            fi
+
+            SLEEP_SECONDS=10
+            component=$1
+            echo "Start kubernetes health monitoring for ${component}"
+            if [[ "${component}" == "container-runtime" ]]; then
+              container_runtime_monitoring
+            elif [[ "${component}" == "kubelet" ]]; then
+              kubelet_monitoring
+            else
+              echo "Health monitoring for component ${component} is not supported!"
+            fi
+          encoding: b64
+      path: /opt/bin/health-monitor.sh
+      permissions: 493
+    - content:
+        inline:
+          data: |
+            [Journal]
+            SystemMaxUse=5G
+          encoding: b64
+      path: /etc/systemd/journald.conf.d/max_disk_use.conf
+    - content:
+        inline:
+          data: |
+            #!/usr/bin/env bash
+            set -euo pipefail
+
+            modprobe ip_vs
+            modprobe ip_vs_rr
+            modprobe ip_vs_wrr
+            modprobe ip_vs_sh
+
+            if modinfo nf_conntrack_ipv4 &> /dev/null; then
+              modprobe nf_conntrack_ipv4
+            else
+              modprobe nf_conntrack
+            fi
+          encoding: b64
+      path: /opt/load-kernel-modules.sh
+      permissions: 493
+    - content:
+        inline:
+          data: |
+            net.bridge.bridge-nf-call-ip6tables = 1
+            net.bridge.bridge-nf-call-iptables = 1
+            kernel.panic_on_oops = 1
+            kernel.panic = 10
+            net.ipv4.ip_forward = 1
+            vm.overcommit_memory = 1
+            fs.inotify.max_user_watches = 1048576
+            fs.inotify.max_user_instances = 8192
+          encoding: b64
+      path: /etc/sysctl.d/k8s.conf
+    - content:
+        inline:
+          data: |
+            # Added by kubermatic machine-controller
+            # Enable cgroups memory and swap accounting
+            GRUB_CMDLINE_LINUX="cgroup_enable=memory swapaccount=1"
+          encoding: b64
+      path: /etc/default/grub.d/60-swap-accounting.cfg
+    - content:
+        inline:
+          data: |
+            #!/bin/bash
+            set -xeuo pipefail
+            if systemctl is-active ufw; then systemctl stop ufw; fi
+            systemctl mask ufw
+            systemctl restart systemd-modules-load.service
+            sysctl --system
+
+            apt-get update
+
+            DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y \
+              curl \
+              ca-certificates \
+              ceph-common \
+              cifs-utils \
+              conntrack \
+              e2fsprogs \
+              ebtables \
+              ethtool \
+              glusterfs-client \
+              iptables \
+              jq \
+              kmod \
+              openssh-client \
+              nfs-common \
+              socat \
+              util-linux \
+              ipvsadm
+            apt-get update
+            apt-get install -y apt-transport-https ca-certificates curl software-properties-common lsb-release
+            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+            add-apt-repository "deb https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+
+            apt-get install -y --allow-downgrades containerd.io=1.5*
+            apt-mark hold containerd.io
+
+            systemctl daemon-reload
+            systemctl enable --now containerd
+
+            opt_bin=/opt/bin
+            usr_local_bin=/usr/local/bin
+            cni_bin_dir=/opt/cni/bin
+            mkdir -p /etc/cni/net.d /etc/kubernetes/manifests "$opt_bin" "$cni_bin_dir"
+            mkdir -p /etc/kubernetes/dynamic-config-dir
+            arch=${HOST_ARCH-}
+            if [ -z "$arch" ]
+            then
+            case $(uname -m) in
+            x86_64)
+                arch="amd64"
+                ;;
+            aarch64)
+                arch="arm64"
+                ;;
+            *)
+                echo "unsupported CPU architecture, exiting"
+                exit 1
+                ;;
+            esac
+            fi
+            CNI_VERSION="${CNI_VERSION:-v0.8.7}"
+            cni_base_url="https://github.com/containernetworking/plugins/releases/download/$CNI_VERSION"
+            cni_filename="cni-plugins-linux-$arch-$CNI_VERSION.tgz"
+            curl -Lfo "$cni_bin_dir/$cni_filename" "$cni_base_url/$cni_filename"
+            cni_sum=$(curl -Lf "$cni_base_url/$cni_filename.sha256")
+            cd "$cni_bin_dir"
+            sha256sum -c <<<"$cni_sum"
+            tar xvf "$cni_filename"
+            rm -f "$cni_filename"
+            cd -
+            CRI_TOOLS_RELEASE="${CRI_TOOLS_RELEASE:-v1.22.0}"
+            cri_tools_base_url="https://github.com/kubernetes-sigs/cri-tools/releases/download/${CRI_TOOLS_RELEASE}"
+            cri_tools_filename="crictl-${CRI_TOOLS_RELEASE}-linux-${arch}.tar.gz"
+            curl -Lfo "$opt_bin/$cri_tools_filename" "$cri_tools_base_url/$cri_tools_filename"
+            cri_tools_sum=$(curl -Lf "$cri_tools_base_url/$cri_tools_filename.sha256" | sed 's/\*\///')
+            cd "$opt_bin"
+            sha256sum -c <<<"$cri_tools_sum"
+            tar xvf "$cri_tools_filename"
+            rm -f "$cri_tools_filename"
+            ln -sf "$opt_bin/crictl" "$usr_local_bin"/crictl || echo "symbolic link is skipped"
+            cd -
+            KUBE_VERSION="${KUBE_VERSION:-v1.22.2}"
+            kube_dir="$opt_bin/kubernetes-$KUBE_VERSION"
+            kube_base_url="https://storage.googleapis.com/kubernetes-release/release/$KUBE_VERSION/bin/linux/$arch"
+            kube_sum_file="$kube_dir/sha256"
+            mkdir -p "$kube_dir"
+            : >"$kube_sum_file"
+
+            for bin in kubelet kubeadm kubectl; do
+                curl -Lfo "$kube_dir/$bin" "$kube_base_url/$bin"
+                chmod +x "$kube_dir/$bin"
+                sum=$(curl -Lf "$kube_base_url/$bin.sha256")
+                echo "$sum  $kube_dir/$bin" >>"$kube_sum_file"
+            done
+            sha256sum -c "$kube_sum_file"
+
+            for bin in kubelet kubeadm kubectl; do
+                ln -sf "$kube_dir/$bin" "$opt_bin"/$bin
+            done
+
+            # set kubelet nodeip environment variable
+            /opt/bin/setup_net_env.sh
+
+            systemctl enable --now kubelet
+            systemctl enable --now --no-block kubelet-healthcheck.service
+          encoding: b64
+      path: /opt/bin/setup
+      permissions: 493
+    - content:
+        inline:
+          data: |
+            #!/bin/bash
+            set -xeuo pipefail
+            while ! "$@"; do
+              sleep 1
+            done
+          encoding: b64
+      path: /opt/bin/supervise.sh
+      permissions: 493
+    - content:
+        inline:
+          data: |
+            [Unit]
+            After=containerd.service
+            Requires=containerd.service
+
+            Description=kubelet: The Kubernetes Node Agent
+            Documentation=https://kubernetes.io/docs/home/
+
+            [Service]
+            User=root
+            Restart=always
+            StartLimitInterval=0
+            RestartSec=10
+            CPUAccounting=true
+            MemoryAccounting=true
+
+            Environment="PATH=/opt/bin:/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin/"
+            EnvironmentFile=-/etc/environment
+
+            ExecStartPre=/bin/bash /opt/disable-swap.sh
+            ExecStartPre=/bin/bash /opt/load-kernel-modules.sh
+            ExecStartPre=/bin/bash /opt/bin/setup_net_env.sh
+            ExecStart=/opt/bin/kubelet $KUBELET_EXTRA_ARGS \
+              --bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf \
+              --kubeconfig=/var/lib/kubelet/kubeconfig \
+              --config=/etc/kubernetes/kubelet.conf \
+              --network-plugin=cni \
+              --cert-dir=/etc/kubernetes/pki \
+              --cloud-provider=aws \
+              --cloud-config=/etc/kubernetes/cloud-config \
+              --dynamic-config-dir=/etc/kubernetes/dynamic-config-dir \
+              --feature-gates=DynamicKubeletConfig=true \
+              --exit-on-lock-contention \
+              --lock-file=/tmp/kubelet.lock \
+              --container-runtime=remote \
+              --container-runtime-endpoint=unix:///run/containerd/containerd.sock \
+              --node-ip ${KUBELET_NODE_IP}
+
+            [Install]
+            WantedBy=multi-user.target
+          encoding: b64
+      path: /etc/systemd/system/kubelet.service
+    - content:
+        inline:
+          data: |
+            [Service]
+            Environment="KUBELET_EXTRA_ARGS=--resolv-conf=/run/systemd/resolve/resolv.conf"
+          encoding: b64
+      path: /etc/systemd/system/kubelet.service.d/extras.conf
+    - content:
+        inline:
+          data: |+
+            [global]
+            Zone="eu-central-1b"
+            VPC="e-123f"
+            SubnetID="test-subnet"
+
+          encoding: b64
+      path: /etc/kubernetes/cloud-config
+      permissions: 384
+    - content:
+        inline:
+          data: |
+            #!/usr/bin/env bash
+            echodate() {
+              echo "[$(date -Is)]" "$@"
+            }
+
+            # get the default interface IP address
+            DEFAULT_IFC_IP=$(ip -o  route get 1 | grep -oP "src \K\S+")
+
+            if [ -z "${DEFAULT_IFC_IP}" ]
+            then
+              echodate "Failed to get IP address for the default route interface"
+              exit 1
+            fi
+
+
+            # get the full hostname
+            FULL_HOSTNAME=$(hostname -f)
+            # if /etc/hostname is not empty then use the hostname from there
+            if [ -s /etc/hostname ]; then
+              FULL_HOSTNAME=$(cat /etc/hostname)
+            fi
+
+            # write the nodeip_env file
+            # we need the line below because flatcar has the same string "coreos" in that file
+            if grep -q coreos /etc/os-release
+            then
+              echo "KUBELET_NODE_IP=${DEFAULT_IFC_IP}\nKUBELET_HOSTNAME=${FULL_HOSTNAME}" > /etc/kubernetes/nodeip.conf
+            elif [ ! -d /etc/systemd/system/kubelet.service.d ]
+            then
+              echodate "Can't find kubelet service extras directory"
+              exit 1
+            else
+              echo -e "[Service]\nEnvironment=\"KUBELET_NODE_IP=${DEFAULT_IFC_IP}\"\nEnvironment=\"KUBELET_HOSTNAME=${FULL_HOSTNAME}\"" > /etc/systemd/system/kubelet.service.d/nodeip.conf
+            fi
+          encoding: b64
+      path: /opt/bin/setup_net_env.sh
+      permissions: 493
+    - content:
+        inline:
+          data: |
+            -----BEGIN CERTIFICATE-----
+            MIIEWjCCA0KgAwIBAgIJALfRlWsI8YQHMA0GCSqGSIb3DQEBBQUAMHsxCzAJBgNV
+            BAYTAlVTMQswCQYDVQQIEwJDQTEWMBQGA1UEBxMNU2FuIEZyYW5jaXNjbzEUMBIG
+            A1UEChMLQnJhZGZpdHppbmMxEjAQBgNVBAMTCWxvY2FsaG9zdDEdMBsGCSqGSIb3
+            DQEJARYOYnJhZEBkYW5nYS5jb20wHhcNMTQwNzE1MjA0NjA1WhcNMTcwNTA0MjA0
+            NjA1WjB7MQswCQYDVQQGEwJVUzELMAkGA1UECBMCQ0ExFjAUBgNVBAcTDVNhbiBG
+            cmFuY2lzY28xFDASBgNVBAoTC0JyYWRmaXR6aW5jMRIwEAYDVQQDEwlsb2NhbGhv
+            c3QxHTAbBgkqhkiG9w0BCQEWDmJyYWRAZGFuZ2EuY29tMIIBIjANBgkqhkiG9w0B
+            AQEFAAOCAQ8AMIIBCgKCAQEAt5fAjp4fTcekWUTfzsp0kyih1OYbsGL0KX1eRbSS
+            R8Od0+9Q62Hyny+GFwMTb4A/KU8mssoHvcceSAAbwfbxFK/+s51TobqUnORZrOoT
+            ZjkUygbyXDSK99YBbcR1Pip8vwMTm4XKuLtCigeBBdjjAQdgUO28LENGlsMnmeYk
+            JfODVGnVmr5Ltb9ANA8IKyTfsnHJ4iOCS/PlPbUj2q7YnoVLposUBMlgUb/CykX3
+            mOoLb4yJJQyA/iST6ZxiIEj36D4yWZ5lg7YJl+UiiBQHGCnPdGyipqV06ex0heYW
+            caiW8LWZSUQ93jQ+WVCH8hT7DQO1dmsvUmXlq/JeAlwQ/QIDAQABo4HgMIHdMB0G
+            A1UdDgQWBBRcAROthS4P4U7vTfjByC569R7E6DCBrQYDVR0jBIGlMIGigBRcAROt
+            hS4P4U7vTfjByC569R7E6KF/pH0wezELMAkGA1UEBhMCVVMxCzAJBgNVBAgTAkNB
+            MRYwFAYDVQQHEw1TYW4gRnJhbmNpc2NvMRQwEgYDVQQKEwtCcmFkZml0emluYzES
+            MBAGA1UEAxMJbG9jYWxob3N0MR0wGwYJKoZIhvcNAQkBFg5icmFkQGRhbmdhLmNv
+            bYIJALfRlWsI8YQHMAwGA1UdEwQFMAMBAf8wDQYJKoZIhvcNAQEFBQADggEBAG6h
+            U9f9sNH0/6oBbGGy2EVU0UgITUQIrFWo9rFkrW5k/XkDjQm+3lzjT0iGR4IxE/Ao
+            eU6sQhua7wrWeFEn47GL98lnCsJdD7oZNhFmQ95Tb/LnDUjs5Yj9brP0NWzXfYU4
+            UK2ZnINJRcJpB8iRCaCxE8DdcUF0XqIEq6pA272snoLmiXLMvNl3kYEdm+je6voD
+            58SNVEUsztzQyXmJEhCpwVI0A6QCjzXj+qvpmw3ZZHi8JwXei8ZZBLTSFBki8Z7n
+            sH9BBH38/SzUmAN4QHSPy1gjqm00OAE8NaYDkh/bzE4d7mLGGMWp/WE3KPSu82HF
+            kPe6XoSbiLm/kxk32T0=
+            -----END CERTIFICATE-----
+          encoding: b64
+      path: /etc/kubernetes/pki/ca.crt
+    - content:
+        inline:
+          data: |+
+            apiVersion: v1
+            clusters:
+            - cluster:
+                certificate-authority-data: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURHRENDQWdDZ0F3SUJBZ0lCQURBTkJna3Foa2lHOXcwQkFRc0ZBREE5TVRzd09RWURWUVFERXpKeWIyOTAKTFdOaExuUTNjV3R4ZURWeGRDNWxkWEp2Y0dVdGQyVnpkRE10WXk1a1pYWXVhM1ZpWlhKdFlYUnBZeTVwYnpBZQpGdzB4T0RBeU1ERXhNelUyTURoYUZ3MHlPREF4TXpBeE16VTJNRGhhTUQweE96QTVCZ05WQkFNVE1uSnZiM1F0ClkyRXVkRGR4YTNGNE5YRjBMbVYxY205d1pTMTNaWE4wTXkxakxtUmxkaTVyZFdKbGNtMWhkR2xqTG1sdk1JSUIKSWpBTkJna3Foa2lHOXcwQkFRRUZBQU9DQVE4QU1JSUJDZ0tDQVFFQXA2SDZWNTZiWUh2Q2V6TGtyZkl6TTgxYgppbzcvWmF3L0xLRXcwZUYrTE12NEUrL1EvZkZoc0hDK21oZUxnMUhXVVBGUFJrNFBRODVtQS80dGppbWpTUEZECms2U0ltektGTFlRZ3dDZ2dpVzhOMmhPKzl6ckJVQUxKRkdCNjRvT2NiQmo2RXIvK05sUEdJM1JSV1dkaUVUV0YKV1lDNGpmSmpiRjVQYnl5WEhuc0dmdFNOWVpCTDcxVzdoOWpMV3B5VVdLTDZaWUFOd0RPTjJSYnA3dHB1dzBYNgprayswQVZ3VnprMzArTU56bWY1MHF3K284MThiZkxVRGthTk1mTFM2STB3UW03UkdnK01nVlJEeTNDdVlxZklXClkyeng2YzdQcXpGc1ZWZklyYTBiMHFhdE5sMVhIajh0K0dOcWRiaTIvRlFqQ3hpbFROdW50VDN2eTJlT0hRSUQKQVFBQm95TXdJVEFPQmdOVkhROEJBZjhFQkFNQ0FxUXdEd1lEVlIwVEFRSC9CQVV3QXdFQi96QU5CZ2txaGtpRwo5dzBCQVFzRkFBT0NBUUVBSW1FbklYVjNEeW1DcTlxUDdwK3VKNTV1Zlhka1IyZ2hEVVlyVFRjUHdqUjJqVEhhCmlaQStnOG42UXJVb0NENnN6RytsaGFsN2hQNnhkV3VSalhGSE83Yk52NjNJcUVHelJEZ3c1Z3djcVVUWkV2d2cKZ216NzU5dy9hRmYxVjEyaDFhZlBtQTlFRzVOZEh4c3g5QWxIK0Y2dHlzcHBXaFU4WEVRVUFLQ1BqbndVbUs0cAo3Z3ZUWnIyeno0bndoWm8zTDg5MDNxcHRjcTFsWjRPWXNEb1hvbDF1emFRSDgyeHl3ZVNLQ0tYcE9iaXplNVowCndwbmpkRHVIODd4NHI0TGpNWnB1M3ZYNkxqQkRNUFdrSEhQTjVBaW0xSkx0Ny9STFBnVHRqc0pNclRBUzdoZ1oKZktMTDlRTVFsNnMxckhKNEtrL2U3S0c4SEE0aEVORWhrOVlEZlE9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+                server: https://foo.bar:6443
+              name: c
+            contexts:
+            - context:
+                cluster: c
+                user: c
+              name: c
+            current-context: c
+            kind: Config
+            preferences: {}
+            users:
+            - name: c
+              user:
+                token: fcmdjq.szrncd8n7z8mhk8k
+
+          encoding: b64
+      path: /etc/kubernetes/bootstrap-kubelet.conf
+    - content:
+        inline:
+          data: |
+            [Install]
+            WantedBy=multi-user.target
+
+            [Unit]
+            Requires=network-online.target
+            After=network-online.target
+
+            [Service]
+            Type=oneshot
+            RemainAfterExit=true
+            EnvironmentFile=-/etc/environment
+            ExecStart=/opt/bin/supervise.sh /opt/bin/setup
+          encoding: b64
+      path: /etc/systemd/system/setup.service
+      permissions: 420
+    - content:
+        inline:
+          data: |
+            export PATH="/opt/bin:$PATH"
+          encoding: b64
+      path: /etc/profile.d/opt-bin-path.sh
+      permissions: 420
+    - content:
+        inline:
+          data: |
+            apiVersion: kubelet.config.k8s.io/v1beta1
+            kind: KubeletConfiguration
+            authentication:
+              anonymous:
+                enabled: false
+              webhook:
+                enabled: true
+              x509:
+                clientCAFile: /etc/kubernetes/pki/ca.crt
+            authorization:
+              mode: Webhook
+            cgroupDriver: systemd
+            clusterDNS:
+            - "10.0.0.0"
+            clusterDomain: cluster.local
+            containerLogMaxSize: 300Mi
+            containerLogMaxFiles: 30
+            featureGates:
+              GracefulNodeShutdown: true
+              IdentifyPodOS: false
+            protectKernelDefaults: true
+            readOnlyPort: 0
+            rotateCertificates: true
+            serverTLSBootstrap: true
+            staticPodPath: /etc/kubernetes/manifests
+            kubeReserved:
+              cpu: 30m
+              ephemeral-storage: 30Gi
+            systemReserved:
+              cpu: 30m
+              ephemeral-storage: 30Gi
+            evictionHard:
+              memory.available: 30Mi
+            maxPods: 110
+            tlsCipherSuites:
+            - TLS_AES_128_GCM_SHA256
+            - TLS_AES_256_GCM_SHA384
+            - TLS_CHACHA20_POLY1305_SHA256
+            - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+            - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+            - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
+            - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+            - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+            - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
+            volumePluginDir: /var/lib/kubelet/volumeplugins
+          encoding: b64
+      path: /etc/kubernetes/kubelet.conf
+    - content:
+        inline:
+          data: |
+            [Unit]
+            Requires=kubelet.service
+            After=kubelet.service
+
+            [Service]
+            ExecStart=/opt/bin/health-monitor.sh kubelet
+
+            [Install]
+            WantedBy=multi-user.target
+          encoding: b64
+      path: /etc/systemd/system/kubelet-healthcheck.service
+      permissions: 420
+    - content:
+        inline:
+          data: |
+            #!/usr/bin/env bash
+            set -euo pipefail
+
+            # Make sure we always disable swap - Otherwise the kubelet won't start as for some cloud
+            # providers swap gets enabled on reboot or after the setup script has finished executing.
+            sed -i.orig '/.*swap.*/d' /etc/fstab
+            swapoff -a
+          encoding: b64
+      path: /opt/disable-swap.sh
+      permissions: 493
+    - content:
+        inline:
+          data: |
+            runtime-endpoint: unix:///run/containerd/containerd.sock
+      path: /etc/crictl.yaml
+    - content:
+        inline:
+          data: |
+            [Service]
+            Restart=always
+            EnvironmentFile=-/etc/environment
+      path: /etc/systemd/system/containerd.service.d/environment.conf
+    - content:
+        inline:
+          data: |+
+            version = 2
+
+            [metrics]
+            address = "127.0.0.1:1338"
+
+            [plugins]
+            [plugins."io.containerd.grpc.v1.cri"]
+            sandbox_image = "192.168.100.100:5000/kubernetes/pause:v3.1"
+            [plugins."io.containerd.grpc.v1.cri".containerd]
+            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
+            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+            runtime_type = "io.containerd.runc.v2"
+            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+            SystemdCgroup = true
+            [plugins."io.containerd.grpc.v1.cri".registry]
+            [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
+            [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
+            endpoint = ["https://registry.docker-cn.com"]
+            [plugins."io.containerd.grpc.v1.cri".registry.configs]
+            [plugins."io.containerd.grpc.v1.cri".registry.configs."10.0.0.1:5000"]
+            [plugins."io.containerd.grpc.v1.cri".registry.configs."10.0.0.1:5000".tls]
+            insecure_skip_verify = true
+            [plugins."io.containerd.grpc.v1.cri".registry.configs."192.168.100.100:5000"]
+            [plugins."io.containerd.grpc.v1.cri".registry.configs."192.168.100.100:5000".tls]
+            insecure_skip_verify = true
+
+          encoding: b64
+      path: /etc/containerd/config.toml
+      permissions: 384
+    userSSHKeys:
+    - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c

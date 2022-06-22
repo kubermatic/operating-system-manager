@@ -27,11 +27,11 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/Masterminds/sprig/v3"
+
 	"github.com/kubermatic/machine-controller/pkg/apis/cluster/common"
 	"github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	"github.com/kubermatic/machine-controller/pkg/containerruntime"
 	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
-
 	"k8c.io/operating-system-manager/pkg/cloudprovider"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/providerconfig/amzn2"
@@ -42,10 +42,12 @@ import (
 	"k8c.io/operating-system-manager/pkg/providerconfig/sles"
 	"k8c.io/operating-system-manager/pkg/providerconfig/ubuntu"
 	jsonutil "k8c.io/operating-system-manager/pkg/util/json"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/utils/pointer"
+	kubeconfigutil "k8c.io/operating-system-manager/pkg/util/kubeconfig"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/utils/pointer"
 )
 
 type CloudConfigSecret string
@@ -63,6 +65,8 @@ const (
 func GenerateOperatingSystemConfig(
 	md *v1alpha1.MachineDeployment,
 	osp *osmv1alpha1.OperatingSystemProfile,
+	bootstrapKubeconfig *clientcmdapi.Config,
+	apiServerToken string,
 	oscName string,
 	namespace string,
 	caCert string,
@@ -150,6 +154,25 @@ func GenerateOperatingSystemConfig(
 		externalCloudProvider = true
 	}
 
+	bootstrapKubeconfigString, err := kubeconfigutil.StringifyKubeconfig(bootstrapKubeconfig)
+	if err != nil {
+		return nil, err
+	}
+	provisioningSecretName := fmt.Sprintf(CloudConfigSecretNamePattern, md.Name, md.Namespace, ProvisioningCloudConfig)
+
+	var clusterName string
+	for key := range bootstrapKubeconfig.Clusters {
+		clusterName = key
+		break
+	}
+	serverURL := bootstrapKubeconfig.Clusters[clusterName].Server
+
+	bc := bootstrapConfig{
+		Token:      apiServerToken,
+		SecretName: provisioningSecretName,
+		ServerURL:  serverURL,
+	}
+
 	data := filesData{
 		KubeVersion:                kubeletVersionStr,
 		ClusterDNSIPs:              clusterDNSIPs,
@@ -165,6 +188,8 @@ func GenerateOperatingSystemConfig(
 		ContainerRuntimeAuthConfig: crAuthConfig,
 		KubeletFeatureGates:        kubeletFeatureGates,
 		kubeletConfig:              kubeletConfigs,
+		BootstrapKubeconfig:        bootstrapKubeconfigString,
+		bootstrapConfig:            bc,
 	}
 
 	if len(nodeHTTPProxy) > 0 {
@@ -238,6 +263,7 @@ type filesData struct {
 	KubeVersion                string
 	KubeletConfiguration       string
 	KubeletSystemdUnit         string
+	BootstrapKubeconfig        string
 	InTreeCCMAvailable         bool
 	CNIVersion                 string
 	ClusterDNSIPs              []net.IP
@@ -258,10 +284,11 @@ type filesData struct {
 	RHSubscription             map[string]string
 
 	kubeletConfig
-	OperatingSystemConfig
+	operatingSystemConfig
+	bootstrapConfig
 }
 
-type OperatingSystemConfig struct {
+type operatingSystemConfig struct {
 	AmazonLinuxConfig amzn2.Config
 	CentOSConfig      centos.Config
 	FlatcarConfig     flatcar.Config
@@ -278,6 +305,12 @@ type kubeletConfig struct {
 	MaxPods              *int32
 	ContainerLogMaxSize  *string
 	ContainerLogMaxFiles *string
+}
+
+type bootstrapConfig struct {
+	Token      string
+	ServerURL  string
+	SecretName string
 }
 
 func renderedFiles(config osmv1alpha1.OSPConfig, containerRuntime string, data filesData) ([]osmv1alpha1.File, error) {

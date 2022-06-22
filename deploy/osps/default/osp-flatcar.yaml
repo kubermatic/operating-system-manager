@@ -589,6 +589,12 @@ spec:
             data: |
               {{ .KubernetesCACert }}
 
+      - path: /etc/kubernetes/bootstrap-kubelet.conf
+        content:
+          inline:
+            data: |
+              {{ .BootstrapKubeconfig }}
+
       - path: /etc/systemd/system/kubelet.service
         content:
           inline:
