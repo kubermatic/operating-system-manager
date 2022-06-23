@@ -25,6 +25,7 @@ import (
 
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	"github.com/kubermatic/machine-controller/pkg/containerruntime"
+	machinecontrollerutil "github.com/kubermatic/machine-controller/pkg/controller/util"
 	"k8c.io/operating-system-manager/pkg/controllers/osc/resources"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/generator"
@@ -49,6 +50,8 @@ const (
 	MachineDeploymentCleanupFinalizer = "kubermatic.io/cleanup-operating-system-configs"
 	// CloudInitSettingsNamespace is the namespace in which OSCs and secrets are created by OSC controller
 	CloudInitSettingsNamespace = "cloud-init-settings"
+	// MachineDeploymentRevision is the revision for Machine Deployment.
+	MachineDeploymentRevision = "k8c.io/machine-deployment-revision"
 )
 
 type Reconciler struct {
@@ -161,6 +164,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrlruntime.Request) (re
 }
 
 func (r *Reconciler) reconcile(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
+	// Check if OSC and secret need to be rotated
+	if err := r.handleOSCAndSecretRotation(ctx, md); err != nil {
+		return fmt.Errorf("failed to perform rotation for OSC and secrets: %w", err)
+	}
+
 	if err := r.reconcileOperatingSystemConfigs(ctx, md); err != nil {
 		return fmt.Errorf("failed to reconcile operating system config: %w", err)
 	}
@@ -217,6 +225,10 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 		return fmt.Errorf("failed to generate %s osc: %w", oscName, err)
 	}
 
+	// Add machine deployment revision to OSC
+	revision := md.Annotations[machinecontrollerutil.RevisionAnnotation]
+	osc.Annotations = addMachineDeploymentRevision(revision, osc.Annotations)
+
 	// Create resource in cluster
 	if err := r.Create(ctx, osc); err != nil {
 		return fmt.Errorf("failed to create %s osc: %w", oscName, err)
@@ -247,6 +259,10 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.M
 
 	// Generate secret for cloud-config
 	secret = resources.GenerateCloudConfigSecret(oscName, CloudInitSettingsNamespace, provisionData)
+
+	// Add machine deployment revision to secret
+	revision := md.Annotations[machinecontrollerutil.RevisionAnnotation]
+	secret.Annotations = addMachineDeploymentRevision(revision, secret.Annotations)
 
 	// Create resource in cluster
 	if err := r.workerClient.Create(ctx, secret); err != nil {
@@ -313,9 +329,51 @@ func (r *Reconciler) deleteGeneratedSecrets(ctx context.Context, md *clusterv1al
 	return nil
 }
 
+func (r *Reconciler) handleOSCAndSecretRotation(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
+	oscName := fmt.Sprintf(resources.MachineDeploymentSubresourceNamePattern, md.Name, md.Namespace, resources.ProvisioningCloudConfig)
+	osc := &osmv1alpha1.OperatingSystemConfig{}
+	if err := r.Get(ctx, types.NamespacedName{Name: oscName, Namespace: r.namespace}, osc); err != nil {
+		if kerrors.IsNotFound(err) {
+			// OSC doesn't exist and we need to create it.
+			return nil
+		}
+		return err
+	}
+
+	// OSC already exists, we need to check if the template in machine deployment was updated. If it's updated then we need to rotate
+	// the OSC and secrets.
+	currentRevision := md.Annotations[machinecontrollerutil.RevisionAnnotation]
+	existingRevision := osc.Annotations[MachineDeploymentRevision]
+
+	if currentRevision == existingRevision {
+		// Rotation is not required.
+		return nil
+	}
+
+	// Delete the existing OSC and let the controller re-create them.
+	if err := r.Delete(ctx, osc); err != nil {
+		return fmt.Errorf("failed to delete OperatingSystemConfig %s: %v against MachineDeployment %w", oscName, md.Name, err)
+	}
+
+	// Delete the existing secrets and let the controller re-create them.
+	if err := r.deleteGeneratedSecrets(ctx, md); err != nil {
+		return err
+	}
+	return nil
+}
+
 // filterMachineDeploymentPredicate will filter machine deployments based on the presence of OSP annotation
 func filterMachineDeploymentPredicate() predicate.Predicate {
 	return predicate.NewPredicateFuncs(func(o client.Object) bool {
 		return o.GetAnnotations()[resources.MachineDeploymentOSPAnnotation] != ""
 	})
+}
+
+func addMachineDeploymentRevision(revision string, annotations map[string]string) map[string]string {
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
+
+	annotations[MachineDeploymentRevision] = revision
+	return annotations
 }

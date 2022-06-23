@@ -1,6 +1,8 @@
 apiVersion: operatingsystemmanager.k8c.io/v1alpha1
 kind: OperatingSystemConfig
 metadata:
+  annotations:
+    k8c.io/machine-deployment-revision: "1"
   creationTimestamp: null
   name: ubuntu-aws-kube-system-osc-provisioning
   namespace: kube-system
