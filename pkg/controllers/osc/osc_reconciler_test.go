@@ -188,14 +188,14 @@ func TestReconciler_Reconcile(t *testing.T) {
 		},
 		{
 			name:            "RHEL OS in AWS with Containerd",
-			ospFile:         defaultOSPPathPrefix + "osp-rhel.yaml",
-			ospName:         "osp-rhel",
+			ospFile:         "osp-rhel-aws-cloud-init-modules.yaml",
+			ospName:         "osp-rhel-cloud-init-modules",
 			operatingSystem: providerconfigtypes.OperatingSystemRHEL,
-			oscFile:         "osc-rhel-8.x-containerd.yaml",
+			oscFile:         "osc-rhel-8.x-cloud-init-modules.yaml",
 			oscName:         "osp-rhel-aws-kube-system-osc-provisioning",
 			mdName:          "osp-rhel-aws",
 			kubeletVersion:  defaultKubeletVersion,
-			secretFile:      "secret-rhel-8.x-containerd.yaml",
+			secretFile:      "secret-rhel-8.x-cloud-init-modules.yaml",
 			config: testConfig{
 				namespace:        "kube-system",
 				containerRuntime: "containerd",
