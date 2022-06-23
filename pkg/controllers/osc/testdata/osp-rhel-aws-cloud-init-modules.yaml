@@ -1,70 +1,242 @@
+# Copyright 2021 The Operating System Manager contributors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 apiVersion: operatingsystemmanager.k8c.io/v1alpha1
-kind: OperatingSystemConfig
+kind: OperatingSystemProfile
 metadata:
-  annotations:
-    k8c.io/machine-deployment-revision: "1"
-  creationTimestamp: null
-  name: osp-rhel-aws-kube-system-config
+  name: osp-rhel-cloud-init-modules
   namespace: kube-system
-  resourceVersion: "1"
 spec:
-  bootstrapConfig:
-    files:
-    - content:
-        inline:
-          data: |
-            #!/bin/bash
-            set -xeuo pipefail
-
-            yum install -y curl jq
-
-            curl -s -k -v --header 'Authorization: Bearer top-secret' https://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/osp-rhel-aws-kube-system-provisioning-config | jq '.data["cloud-config"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/osp-rhel-aws-kube-system-provisioning-config.cfg
-            cloud-init clean
-            cloud-init --file /etc/cloud/cloud.cfg.d/osp-rhel-aws-kube-system-provisioning-config.cfg init
-            systemctl daemon-reload
-            systemctl restart setup.service
-          encoding: b64
-      path: /opt/bin/bootstrap
-      permissions: 493
-    - content:
-        inline:
-          data: |
-            #!/bin/bash
-            [Install]
-            WantedBy=multi-user.target
-
-            [Unit]
-            Requires=network-online.target
-            After=network-online.target
-            [Service]
-            Type=oneshot
-            RemainAfterExit=true
-            ExecStart=/opt/bin/bootstrap
-          encoding: b64
-      path: /etc/systemd/system/bootstrap.service
-      permissions: 420
-    modules:
-      rh_subscription:
-        auto-attach: "false"
-        password: ""
-        username: ""
-      runcmd:
-      - systemctl restart bootstrap.service
-      - systemctl daemon-reload
-    userSSHKeys:
-    - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c
-  cloudProvider:
-    name: aws
-    spec:
-      availabilityZone: eu-central-1b
-      subnetID: test-subnet
-      vpcId: e-123f
-  osName: rhel
+  osName: "rhel"
   osVersion: "8.5"
-  provisioningConfig:
-    files:
-    - content:
+  version: "v0.1.3"
+  supportedCloudProviders:
+    - name: "aws"
+    - name: "azure"
+    - name: "kubevirt"
+    - name: "openstack"
+    - name: "vsphere"
+  supportedContainerRuntimes:
+    - name: containerd
+      files:
+        - path: "/etc/crictl.yaml"
+          content:
+            inline:
+              data: |
+                runtime-endpoint: unix:///run/containerd/containerd.sock
+
+        - path: "/etc/systemd/system/containerd.service.d/environment.conf"
+          content:
+            inline:
+              data: |
+                [Service]
+                Restart=always
+                EnvironmentFile=-/etc/environment
+
+        - path: "/etc/containerd/config.toml"
+          permissions: 0600
+          content:
+            inline:
+              encoding: b64
+              data: |
+                {{ .ContainerRuntimeConfig }}
+      templates:
+        containerRuntimeInstallation: |-
+          yum install -y yum-utils
+          yum-config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
+          {{- /*
+              Due to DNF modules we have to do this on docker-ce repo
+              More info at: https://bugzilla.redhat.com/show_bug.cgi?id=1756473
+          */}}
+          yum-config-manager --save --setopt=docker-ce-stable.module_hotfixes=true
+
+          yum install -y containerd.io-1.5* yum-plugin-versionlock
+          yum versionlock add containerd.io
+
+          systemctl daemon-reload
+          systemctl enable --now containerd
+
+    - name: docker
+      files:
+        - path: "/etc/systemd/system/containerd.service.d/environment.conf"
+          content:
+            inline:
+              data: |
+                [Service]
+                Restart=always
+                EnvironmentFile=-/etc/environment
+
+        - path: "/etc/systemd/system/docker.service.d/environment.conf"
+          content:
+            inline:
+              data: |
+                [Service]
+                Restart=always
+                EnvironmentFile=-/etc/environment
+
+        - path: /etc/docker/daemon.json
+          permissions: 0644
+          content:
+            inline:
+              encoding: b64
+              data: |-
+                {{ .ContainerRuntimeConfig }}
+
+        - path: /root/.docker/config.json
+          permissions: 0600
+          content:
+            inline:
+              encoding: b64
+              data: |-
+                {{ .ContainerRuntimeAuthConfig }}
+
+      templates:
+        containerRuntimeInstallation: |-
+          yum install -y yum-utils
+          yum-config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
+          yum-config-manager --save --setopt=docker-ce-stable.module_hotfixes=true
+
+          yum install -y \
+              docker-ce-cli-19.03* \
+              containerd.io-1.5* \
+              docker-ce-19.03* \
+              yum-plugin-versionlock
+          yum versionlock add docker-ce* containerd.io
+
+          systemctl daemon-reload
+          systemctl enable --now docker
+
+  templates:
+    safeDownloadBinariesScript: |-
+      {{- /* setup some common directories */}}
+      opt_bin=/opt/bin
+      usr_local_bin=/usr/local/bin
+      cni_bin_dir=/opt/cni/bin
+
+      {{- /* create all the necessary dirs */}}
+      mkdir -p /etc/cni/net.d /etc/kubernetes/manifests "$opt_bin" "$cni_bin_dir"
+      {{- if semverCompare "<1.23" .KubeVersion }}
+      mkdir -p /etc/kubernetes/dynamic-config-dir
+      {{- end }}
+      {{- /* HOST_ARCH can be defined outside of machine-controller (in kubeone for example) */}}
+      arch=${HOST_ARCH-}
+      if [ -z "$arch" ]
+      then
+      case $(uname -m) in
+      x86_64)
+          arch="amd64"
+          ;;
+      aarch64)
+          arch="arm64"
+          ;;
+      *)
+          echo "unsupported CPU architecture, exiting"
+          exit 1
+          ;;
+      esac
+      fi
+
+      {{- /* # CNI variables */}}
+      CNI_VERSION="${CNI_VERSION:-v0.8.7}"
+      cni_base_url="https://github.com/containernetworking/plugins/releases/download/$CNI_VERSION"
+      cni_filename="cni-plugins-linux-$arch-$CNI_VERSION.tgz"
+
+      {{- /* download CNI */}}
+      curl -Lfo "$cni_bin_dir/$cni_filename" "$cni_base_url/$cni_filename"
+
+      {{- /* download CNI checksum */}}
+      cni_sum=$(curl -Lf "$cni_base_url/$cni_filename.sha256")
+      cd "$cni_bin_dir"
+
+      {{- /* verify CNI checksum */}}
+      sha256sum -c <<<"$cni_sum"
+
+      {{- /* unpack CNI */}}
+      tar xvf "$cni_filename"
+      rm -f "$cni_filename"
+      cd -
+
+      {{- /* # cri-tools variables */}}
+      CRI_TOOLS_RELEASE="${CRI_TOOLS_RELEASE:-v1.22.0}"
+      cri_tools_base_url="https://github.com/kubernetes-sigs/cri-tools/releases/download/${CRI_TOOLS_RELEASE}"
+      cri_tools_filename="crictl-${CRI_TOOLS_RELEASE}-linux-${arch}.tar.gz"
+
+      {{- /* download cri-tools */}}
+      curl -Lfo "$opt_bin/$cri_tools_filename" "$cri_tools_base_url/$cri_tools_filename"
+
+      {{- /* download cri-tools checksum */}}
+      {{- /* the cri-tools checksum file has a filename prefix that breaks sha256sum so we need to drop it with sed */}}
+      cri_tools_sum=$(curl -Lf "$cri_tools_base_url/$cri_tools_filename.sha256" | sed 's/\*\///')
+      cd "$opt_bin"
+
+      {{- /* verify cri-tools checksum */}}
+      sha256sum -c <<<"$cri_tools_sum"
+
+      {{- /* unpack cri-tools and symlink to path so it's available to all users */}}
+      tar xvf "$cri_tools_filename"
+      rm -f "$cri_tools_filename"
+      ln -sf "$opt_bin/crictl" "$usr_local_bin"/crictl || echo "symbolic link is skipped"
+      cd -
+
+      {{- /* kubelet */}}
+      KUBE_VERSION="${KUBE_VERSION:-{{ .KubeVersion }}}"
+      kube_dir="$opt_bin/kubernetes-$KUBE_VERSION"
+      kube_base_url="https://storage.googleapis.com/kubernetes-release/release/$KUBE_VERSION/bin/linux/$arch"
+      kube_sum_file="$kube_dir/sha256"
+
+      {{- /* create versioned kube dir */}}
+      mkdir -p "$kube_dir"
+      : >"$kube_sum_file"
+
+      for bin in kubelet kubeadm kubectl; do
+          {{- /* download kube binary */}}
+          curl -Lfo "$kube_dir/$bin" "$kube_base_url/$bin"
+          chmod +x "$kube_dir/$bin"
+
+          {{- /* download kube binary checksum */}}
+          sum=$(curl -Lf "$kube_base_url/$bin.sha256")
+
+          {{- /* save kube binary checksum */}}
+          echo "$sum  $kube_dir/$bin" >>"$kube_sum_file"
+      done
+
+      {{- /* check kube binaries checksum */}}
+      sha256sum -c "$kube_sum_file"
+
+      for bin in kubelet kubeadm kubectl; do
+          {{- /* link kube binaries from verioned dir to $opt_bin */}}
+          ln -sf "$kube_dir/$bin" "$opt_bin"/$bin
+      done
+
+    configureProxyScript: |-
+      {{- if .HTTPProxy }}
+      cat <<EOF | tee -a /etc/environment
+      HTTP_PROXY={{ .HTTPProxy }}
+      http_proxy={{ .HTTPProxy }}
+      HTTPS_PROXY={{ .HTTPProxy }}
+      https_proxy={{ .HTTPProxy }}
+      NO_PROXY={{ .NoProxy }}
+      no_proxy={{ .NoProxy }}
+      EOF
+      {{- end }}
+
+  files:
+    - path: "/opt/bin/health-monitor.sh"
+      permissions: 0755
+      content:
         inline:
+          encoding: b64
           data: |
             #!/usr/bin/env bash
 
@@ -182,18 +354,20 @@ spec:
             else
               echo "Health monitoring for component ${component} is not supported!"
             fi
-          encoding: b64
-      path: /opt/bin/health-monitor.sh
-      permissions: 493
-    - content:
+
+    - path: "/etc/systemd/journald.conf.d/max_disk_use.conf"
+      content:
         inline:
+          encoding: b64
           data: |
             [Journal]
             SystemMaxUse=5G
-          encoding: b64
-      path: /etc/systemd/journald.conf.d/max_disk_use.conf
-    - content:
+
+    - path: "/opt/load-kernel-modules.sh"
+      permissions: 0755
+      content:
         inline:
+          encoding: b64
           data: |
             #!/usr/bin/env bash
             set -euo pipefail
@@ -209,11 +383,11 @@ spec:
             else
               modprobe nf_conntrack
             fi
-          encoding: b64
-      path: /opt/load-kernel-modules.sh
-      permissions: 493
-    - content:
+
+    - path: "/etc/sysctl.d/k8s.conf"
+      content:
         inline:
+          encoding: b64
           data: |
             net.bridge.bridge-nf-call-ip6tables = 1
             net.bridge.bridge-nf-call-iptables = 1
@@ -223,10 +397,11 @@ spec:
             vm.overcommit_memory = 1
             fs.inotify.max_user_watches = 1048576
             fs.inotify.max_user_instances = 8192
-          encoding: b64
-      path: /etc/sysctl.d/k8s.conf
-    - content:
+
+    - path: "/etc/selinux/config"
+      content:
         inline:
+          encoding: b64
           data: |
             # This file controls the state of SELinux on the system.
             # SELINUX= can take one of these three values:
@@ -239,15 +414,19 @@ spec:
             #     minimum - Modification of targeted policy. Only selected processes are protected.
             #     mls - Multi Level Security protection.
             SELINUXTYPE=targeted
-          encoding: b64
-      path: /etc/selinux/config
-    - content:
+
+    - path: "/opt/bin/setup"
+      permissions: 0755
+      content:
         inline:
+          encoding: b64
           data: |
             #!/bin/bash
             set -xeuo pipefail
 
             setenforce 0 || true
+
+            {{- /* As we added some modules and don't want to reboot, restart the service */}}
             systemctl restart systemd-modules-load.service
             sysctl --system
 
@@ -262,79 +441,26 @@ spec:
               socat \
               wget \
               curl \
+              {{- if or (eq .CloudProviderName "vsphere") (eq .CloudProviderName "vmware-cloud-director") }}
+              open-vm-tools \
+              {{- end }}
+              {{- if eq .CloudProviderName "nutanix" }}
+              iscsi-initiator-utils \
+              {{- end }}
               ipvsadm
 
             systemctl disable --now firewalld || true
-            yum install -y yum-utils
-            yum-config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
-            yum-config-manager --save --setopt=docker-ce-stable.module_hotfixes=true
 
-            yum install -y containerd.io-1.5* yum-plugin-versionlock
-            yum versionlock add containerd.io
+            {{- /* iscsid service is required on Nutanix machines for CSI driver to attach volumes. */}}
+            {{- if eq .CloudProviderName "nutanix" }}
+            systemctl enable --now iscsid
+            {{ end }}
 
-            systemctl daemon-reload
-            systemctl enable --now containerd
+            {{- template "containerRuntimeInstallation" }}
 
-            opt_bin=/opt/bin
-            usr_local_bin=/usr/local/bin
-            cni_bin_dir=/opt/cni/bin
-            mkdir -p /etc/cni/net.d /etc/kubernetes/manifests "$opt_bin" "$cni_bin_dir"
-            mkdir -p /etc/kubernetes/dynamic-config-dir
-            arch=${HOST_ARCH-}
-            if [ -z "$arch" ]
-            then
-            case $(uname -m) in
-            x86_64)
-                arch="amd64"
-                ;;
-            aarch64)
-                arch="arm64"
-                ;;
-            *)
-                echo "unsupported CPU architecture, exiting"
-                exit 1
-                ;;
-            esac
-            fi
-            CNI_VERSION="${CNI_VERSION:-v0.8.7}"
-            cni_base_url="https://github.com/containernetworking/plugins/releases/download/$CNI_VERSION"
-            cni_filename="cni-plugins-linux-$arch-$CNI_VERSION.tgz"
-            curl -Lfo "$cni_bin_dir/$cni_filename" "$cni_base_url/$cni_filename"
-            cni_sum=$(curl -Lf "$cni_base_url/$cni_filename.sha256")
-            cd "$cni_bin_dir"
-            sha256sum -c <<<"$cni_sum"
-            tar xvf "$cni_filename"
-            rm -f "$cni_filename"
-            cd -
-            CRI_TOOLS_RELEASE="${CRI_TOOLS_RELEASE:-v1.22.0}"
-            cri_tools_base_url="https://github.com/kubernetes-sigs/cri-tools/releases/download/${CRI_TOOLS_RELEASE}"
-            cri_tools_filename="crictl-${CRI_TOOLS_RELEASE}-linux-${arch}.tar.gz"
-            curl -Lfo "$opt_bin/$cri_tools_filename" "$cri_tools_base_url/$cri_tools_filename"
-            cri_tools_sum=$(curl -Lf "$cri_tools_base_url/$cri_tools_filename.sha256" | sed 's/\*\///')
-            cd "$opt_bin"
-            sha256sum -c <<<"$cri_tools_sum"
-            tar xvf "$cri_tools_filename"
-            rm -f "$cri_tools_filename"
-            ln -sf "$opt_bin/crictl" "$usr_local_bin"/crictl || echo "symbolic link is skipped"
-            cd -
-            KUBE_VERSION="${KUBE_VERSION:-v1.22.2}"
-            kube_dir="$opt_bin/kubernetes-$KUBE_VERSION"
-            kube_base_url="https://storage.googleapis.com/kubernetes-release/release/$KUBE_VERSION/bin/linux/$arch"
-            kube_sum_file="$kube_dir/sha256"
-            mkdir -p "$kube_dir"
-            : >"$kube_sum_file"
+            {{- template "safeDownloadBinariesScript" }}
 
-            for bin in kubelet kubeadm kubectl; do
-                curl -Lfo "$kube_dir/$bin" "$kube_base_url/$bin"
-                chmod +x "$kube_dir/$bin"
-                sum=$(curl -Lf "$kube_base_url/$bin.sha256")
-                echo "$sum  $kube_dir/$bin" >>"$kube_sum_file"
-            done
-            sha256sum -c "$kube_sum_file"
-
-            for bin in kubelet kubeadm kubectl; do
-                ln -sf "$kube_dir/$bin" "$opt_bin"/$bin
-            done
+            {{- template "configureProxyScript" }}
 
             DEFAULT_IFC_NAME=$(ip -o route get 1  | grep -oP "dev \K\S+")
 
@@ -348,28 +474,32 @@ spec:
             # set kubelet nodeip environment variable
             /opt/bin/setup_net_env.sh
 
+            {{ if eq .CloudProviderName "vsphere" }}
+            systemctl enable --now vmtoolsd.service
+            {{ end -}}
             systemctl enable --now kubelet
             systemctl enable --now --no-block kubelet-healthcheck.service
-          encoding: b64
-      path: /opt/bin/setup
-      permissions: 493
-    - content:
+
+    - path: "/opt/bin/supervise.sh"
+      permissions: 0755
+      content:
         inline:
+          encoding: b64
           data: |
             #!/bin/bash
             set -xeuo pipefail
             while ! "$@"; do
               sleep 1
             done
-          encoding: b64
-      path: /opt/bin/supervise.sh
-      permissions: 493
-    - content:
+
+    - path: "/etc/systemd/system/kubelet.service"
+      content:
         inline:
+          encoding: b64
           data: |
             [Unit]
-            After=containerd.service
-            Requires=containerd.service
+            After={{ .ContainerRuntime }}.service
+            Requires={{ .ContainerRuntime }}.service
 
             Description=kubelet: The Kubernetes Node Agent
             Documentation=https://kubernetes.io/docs/home/
@@ -392,35 +522,59 @@ spec:
               --bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf \
               --kubeconfig=/var/lib/kubelet/kubeconfig \
               --config=/etc/kubernetes/kubelet.conf \
+              {{- if semverCompare "<1.24" .KubeVersion }}
               --network-plugin=cni \
+              {{- end }}
               --cert-dir=/etc/kubernetes/pki \
-              --cloud-provider=aws \
+              {{- if .ExternalCloudProvider }}
+              --cloud-provider=external \
+              {{- else if .InTreeCCMAvailable }}
+              --cloud-provider={{- .CloudProviderName }} \
               --cloud-config=/etc/kubernetes/cloud-config \
+              {{- end }}
+              {{- if ne .CloudProviderName "aws" }}
+              --hostname-override=${KUBELET_HOSTNAME} \
+              {{- else if and (eq .CloudProviderName "aws") (.ExternalCloudProvider) }}
+              --hostname-override=${KUBELET_HOSTNAME} \
+              {{- end }}
+              {{- if semverCompare "<1.23" .KubeVersion }}
               --dynamic-config-dir=/etc/kubernetes/dynamic-config-dir \
               --feature-gates=DynamicKubeletConfig=true \
+              {{- end }}
               --exit-on-lock-contention \
               --lock-file=/tmp/kubelet.lock \
+              {{- if .PauseImage }}
+              --pod-infra-container-image={{ .PauseImage }} \
+              {{- end }}
+              {{- if .InitialTaints }}
+              --register-with-taints={{- .InitialTaints }} \
+              {{- end }}
+              {{- if eq .ContainerRuntime "containerd" }}
               --container-runtime=remote \
               --container-runtime-endpoint=unix:///run/containerd/containerd.sock \
+              {{- end }}
+              {{- if eq .ContainerRuntime "docker" }}
+              --container-runtime=docker \
+              --container-runtime-endpoint=unix:///var/run/dockershim.sock \
+              {{- end }}
               --node-ip ${KUBELET_NODE_IP}
 
             [Install]
             WantedBy=multi-user.target
-          encoding: b64
-      path: /etc/systemd/system/kubelet.service
-    - content:
-        inline:
-          data: |+
-            [global]
-            Zone="eu-central-1b"
-            VPC="e-123f"
-            SubnetID="test-subnet"
 
-          encoding: b64
-      path: /etc/kubernetes/cloud-config
-      permissions: 384
-    - content:
+    - path: "/etc/kubernetes/cloud-config"
+      permissions: 0600
+      content:
         inline:
+          encoding: b64
+          data: |
+            {{ .CloudConfig }}
+
+    - path: "/opt/bin/setup_net_env.sh"
+      permissions: 0755
+      content:
+        inline:
+          encoding: b64
           data: |
             #!/usr/bin/env bash
             echodate() {
@@ -442,6 +596,9 @@ spec:
             if [ -s /etc/hostname ]; then
               FULL_HOSTNAME=$(cat /etc/hostname)
             fi
+            {{- if eq .CloudProviderName "openstack" }}
+            FULL_HOSTNAME=$(echo $FULL_HOSTNAME | sed -e "s/.novalocal//")
+            {{- end }}
 
             # write the nodeip_env file
             # we need the line below because flatcar has the same string "coreos" in that file
@@ -455,66 +612,19 @@ spec:
             else
               echo -e "[Service]\nEnvironment=\"KUBELET_NODE_IP=${DEFAULT_IFC_IP}\"\nEnvironment=\"KUBELET_HOSTNAME=${FULL_HOSTNAME}\"" > /etc/systemd/system/kubelet.service.d/nodeip.conf
             fi
-          encoding: b64
-      path: /opt/bin/setup_net_env.sh
-      permissions: 493
-    - content:
-        inline:
-          data: |
-            -----BEGIN CERTIFICATE-----
-            MIIEWjCCA0KgAwIBAgIJALfRlWsI8YQHMA0GCSqGSIb3DQEBBQUAMHsxCzAJBgNV
-            BAYTAlVTMQswCQYDVQQIEwJDQTEWMBQGA1UEBxMNU2FuIEZyYW5jaXNjbzEUMBIG
-            A1UEChMLQnJhZGZpdHppbmMxEjAQBgNVBAMTCWxvY2FsaG9zdDEdMBsGCSqGSIb3
-            DQEJARYOYnJhZEBkYW5nYS5jb20wHhcNMTQwNzE1MjA0NjA1WhcNMTcwNTA0MjA0
-            NjA1WjB7MQswCQYDVQQGEwJVUzELMAkGA1UECBMCQ0ExFjAUBgNVBAcTDVNhbiBG
-            cmFuY2lzY28xFDASBgNVBAoTC0JyYWRmaXR6aW5jMRIwEAYDVQQDEwlsb2NhbGhv
-            c3QxHTAbBgkqhkiG9w0BCQEWDmJyYWRAZGFuZ2EuY29tMIIBIjANBgkqhkiG9w0B
-            AQEFAAOCAQ8AMIIBCgKCAQEAt5fAjp4fTcekWUTfzsp0kyih1OYbsGL0KX1eRbSS
-            R8Od0+9Q62Hyny+GFwMTb4A/KU8mssoHvcceSAAbwfbxFK/+s51TobqUnORZrOoT
-            ZjkUygbyXDSK99YBbcR1Pip8vwMTm4XKuLtCigeBBdjjAQdgUO28LENGlsMnmeYk
-            JfODVGnVmr5Ltb9ANA8IKyTfsnHJ4iOCS/PlPbUj2q7YnoVLposUBMlgUb/CykX3
-            mOoLb4yJJQyA/iST6ZxiIEj36D4yWZ5lg7YJl+UiiBQHGCnPdGyipqV06ex0heYW
-            caiW8LWZSUQ93jQ+WVCH8hT7DQO1dmsvUmXlq/JeAlwQ/QIDAQABo4HgMIHdMB0G
-            A1UdDgQWBBRcAROthS4P4U7vTfjByC569R7E6DCBrQYDVR0jBIGlMIGigBRcAROt
-            hS4P4U7vTfjByC569R7E6KF/pH0wezELMAkGA1UEBhMCVVMxCzAJBgNVBAgTAkNB
-            MRYwFAYDVQQHEw1TYW4gRnJhbmNpc2NvMRQwEgYDVQQKEwtCcmFkZml0emluYzES
-            MBAGA1UEAxMJbG9jYWxob3N0MR0wGwYJKoZIhvcNAQkBFg5icmFkQGRhbmdhLmNv
-            bYIJALfRlWsI8YQHMAwGA1UdEwQFMAMBAf8wDQYJKoZIhvcNAQEFBQADggEBAG6h
-            U9f9sNH0/6oBbGGy2EVU0UgITUQIrFWo9rFkrW5k/XkDjQm+3lzjT0iGR4IxE/Ao
-            eU6sQhua7wrWeFEn47GL98lnCsJdD7oZNhFmQ95Tb/LnDUjs5Yj9brP0NWzXfYU4
-            UK2ZnINJRcJpB8iRCaCxE8DdcUF0XqIEq6pA272snoLmiXLMvNl3kYEdm+je6voD
-            58SNVEUsztzQyXmJEhCpwVI0A6QCjzXj+qvpmw3ZZHi8JwXei8ZZBLTSFBki8Z7n
-            sH9BBH38/SzUmAN4QHSPy1gjqm00OAE8NaYDkh/bzE4d7mLGGMWp/WE3KPSu82HF
-            kPe6XoSbiLm/kxk32T0=
-            -----END CERTIFICATE-----
-          encoding: b64
-      path: /etc/kubernetes/pki/ca.crt
-    - content:
-        inline:
-          data: |+
-            apiVersion: v1
-            clusters:
-            - cluster:
-                certificate-authority-data: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURHRENDQWdDZ0F3SUJBZ0lCQURBTkJna3Foa2lHOXcwQkFRc0ZBREE5TVRzd09RWURWUVFERXpKeWIyOTAKTFdOaExuUTNjV3R4ZURWeGRDNWxkWEp2Y0dVdGQyVnpkRE10WXk1a1pYWXVhM1ZpWlhKdFlYUnBZeTVwYnpBZQpGdzB4T0RBeU1ERXhNelUyTURoYUZ3MHlPREF4TXpBeE16VTJNRGhhTUQweE96QTVCZ05WQkFNVE1uSnZiM1F0ClkyRXVkRGR4YTNGNE5YRjBMbVYxY205d1pTMTNaWE4wTXkxakxtUmxkaTVyZFdKbGNtMWhkR2xqTG1sdk1JSUIKSWpBTkJna3Foa2lHOXcwQkFRRUZBQU9DQVE4QU1JSUJDZ0tDQVFFQXA2SDZWNTZiWUh2Q2V6TGtyZkl6TTgxYgppbzcvWmF3L0xLRXcwZUYrTE12NEUrL1EvZkZoc0hDK21oZUxnMUhXVVBGUFJrNFBRODVtQS80dGppbWpTUEZECms2U0ltektGTFlRZ3dDZ2dpVzhOMmhPKzl6ckJVQUxKRkdCNjRvT2NiQmo2RXIvK05sUEdJM1JSV1dkaUVUV0YKV1lDNGpmSmpiRjVQYnl5WEhuc0dmdFNOWVpCTDcxVzdoOWpMV3B5VVdLTDZaWUFOd0RPTjJSYnA3dHB1dzBYNgprayswQVZ3VnprMzArTU56bWY1MHF3K284MThiZkxVRGthTk1mTFM2STB3UW03UkdnK01nVlJEeTNDdVlxZklXClkyeng2YzdQcXpGc1ZWZklyYTBiMHFhdE5sMVhIajh0K0dOcWRiaTIvRlFqQ3hpbFROdW50VDN2eTJlT0hRSUQKQVFBQm95TXdJVEFPQmdOVkhROEJBZjhFQkFNQ0FxUXdEd1lEVlIwVEFRSC9CQVV3QXdFQi96QU5CZ2txaGtpRwo5dzBCQVFzRkFBT0NBUUVBSW1FbklYVjNEeW1DcTlxUDdwK3VKNTV1Zlhka1IyZ2hEVVlyVFRjUHdqUjJqVEhhCmlaQStnOG42UXJVb0NENnN6RytsaGFsN2hQNnhkV3VSalhGSE83Yk52NjNJcUVHelJEZ3c1Z3djcVVUWkV2d2cKZ216NzU5dy9hRmYxVjEyaDFhZlBtQTlFRzVOZEh4c3g5QWxIK0Y2dHlzcHBXaFU4WEVRVUFLQ1BqbndVbUs0cAo3Z3ZUWnIyeno0bndoWm8zTDg5MDNxcHRjcTFsWjRPWXNEb1hvbDF1emFRSDgyeHl3ZVNLQ0tYcE9iaXplNVowCndwbmpkRHVIODd4NHI0TGpNWnB1M3ZYNkxqQkRNUFdrSEhQTjVBaW0xSkx0Ny9STFBnVHRqc0pNclRBUzdoZ1oKZktMTDlRTVFsNnMxckhKNEtrL2U3S0c4SEE0aEVORWhrOVlEZlE9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
-                server: https://foo.bar:6443
-              name: c
-            contexts:
-            - context:
-                cluster: c
-                user: c
-              name: c
-            current-context: c
-            kind: Config
-            preferences: {}
-            users:
-            - name: c
-              user:
-                token: test.test
 
-          encoding: b64
-      path: /etc/kubernetes/bootstrap-kubelet.conf
-    - content:
+    - path: "/etc/kubernetes/pki/ca.crt"
+      content:
         inline:
+          encoding: b64
+          data: |
+            {{ .KubernetesCACert }}
+
+    - path: "/etc/systemd/system/setup.service"
+      permissions: 0644
+      content:
+        inline:
+          encoding: b64
           data: |
             [Install]
             WantedBy=multi-user.target
@@ -528,18 +638,19 @@ spec:
             RemainAfterExit=true
             EnvironmentFile=-/etc/environment
             ExecStart=/opt/bin/supervise.sh /opt/bin/setup
-          encoding: b64
-      path: /etc/systemd/system/setup.service
-      permissions: 420
-    - content:
+
+    - path: "/etc/profile.d/opt-bin-path.sh"
+      permissions: 0644
+      content:
         inline:
+          encoding: b64
           data: |
             export PATH="/opt/bin:$PATH"
-          encoding: b64
-      path: /etc/profile.d/opt-bin-path.sh
-      permissions: 420
-    - content:
+
+    - path: "/etc/kubernetes/kubelet.conf"
+      content:
         inline:
+          encoding: b64
           data: |
             apiVersion: kubelet.config.k8s.io/v1beta1
             kind: KubeletConfiguration
@@ -554,31 +665,68 @@ spec:
               mode: Webhook
             cgroupDriver: systemd
             clusterDNS:
-            - "10.0.0.0"
+            {{- range .ClusterDNSIPs }}
+            - "{{ . }}"
+            {{- end }}
             clusterDomain: cluster.local
+            {{- /* containerLogMaxSize and containerLogMaxFiles have no effect for docker  */}}
+            {{- if ne .ContainerRuntime "docker" }}
+            {{- if .ContainerLogMaxSize }}
+            containerLogMaxSize: {{ .ContainerLogMaxSize }}
+            {{- else }}
             containerLogMaxSize: 100Mi
+            {{- end }}
+            {{- if .ContainerLogMaxFiles }}
+            containerLogMaxFiles: {{ .ContainerLogMaxFiles }}
+            {{- else }}
             containerLogMaxFiles: 5
+            {{- end }}
+            {{- end }}
             featureGates:
-              GracefulNodeShutdown: true
-              IdentifyPodOS: false
+            {{- if .KubeletFeatureGates -}}
+              {{ range $key, $val := .KubeletFeatureGates }}
+              {{ $key }}: {{ $val }}
+              {{- end -}}
+            {{- end }}
             protectKernelDefaults: true
             readOnlyPort: 0
             rotateCertificates: true
             serverTLSBootstrap: true
             staticPodPath: /etc/kubernetes/manifests
             kubeReserved:
+            {{- if .KubeReserved -}}
+              {{ range $key, $val := .KubeReserved }}
+              {{ $key }}: {{ $val }}
+              {{- end -}}
+            {{- else }}
               cpu: 200m
               ephemeral-storage: 1Gi
               memory: 200Mi
+            {{- end }}
             systemReserved:
+            {{- if .SystemReserved -}}
+              {{ range $key, $val := .SystemReserved }}
+              {{ $key }}: {{ $val }}
+              {{- end -}}
+            {{- else }}
               cpu: 200m
               ephemeral-storage: 1Gi
               memory: 200Mi
+            {{- end }}
             evictionHard:
+            {{- if .EvictionHard -}}
+              {{ range $key, $val := .EvictionHard }}
+              {{ $key }}: {{ $val }}
+              {{- end -}}
+            {{- else }}
               imagefs.available: 15%
               memory.available: 100Mi
               nodefs.available: 10%
               nodefs.inodesFree: 5%
+            {{- end }}
+            {{- if .MaxPods }}
+            maxPods: {{ .MaxPods }}
+            {{- end }}
             tlsCipherSuites:
             - TLS_AES_128_GCM_SHA256
             - TLS_AES_256_GCM_SHA384
@@ -590,10 +738,12 @@ spec:
             - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
             - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
             volumePluginDir: /var/lib/kubelet/volumeplugins
-          encoding: b64
-      path: /etc/kubernetes/kubelet.conf
-    - content:
+
+    - path: /etc/systemd/system/kubelet-healthcheck.service
+      permissions: 0644
+      content:
         inline:
+          encoding: b64
           data: |
             [Unit]
             Requires=kubelet.service
@@ -604,11 +754,12 @@ spec:
 
             [Install]
             WantedBy=multi-user.target
-          encoding: b64
-      path: /etc/systemd/system/kubelet-healthcheck.service
-      permissions: 420
-    - content:
+
+    - path: "/opt/disable-swap.sh"
+      permissions: 0755
+      content:
         inline:
+          encoding: b64
           data: |
             #!/usr/bin/env bash
             set -euo pipefail
@@ -617,57 +768,15 @@ spec:
             # providers swap gets enabled on reboot or after the setup script has finished executing.
             sed -i.orig '/.*swap.*/d' /etc/fstab
             swapoff -a
-          encoding: b64
-      path: /opt/disable-swap.sh
-      permissions: 493
-    - content:
-        inline:
-          data: |
-            runtime-endpoint: unix:///run/containerd/containerd.sock
-      path: /etc/crictl.yaml
-    - content:
-        inline:
-          data: |
-            [Service]
-            Restart=always
-            EnvironmentFile=-/etc/environment
-      path: /etc/systemd/system/containerd.service.d/environment.conf
-    - content:
-        inline:
-          data: |+
-            version = 2
 
-            [metrics]
-            address = "127.0.0.1:1338"
-
-            [plugins]
-            [plugins."io.containerd.grpc.v1.cri"]
-            sandbox_image = "192.168.100.100:5000/kubernetes/pause:v3.1"
-            [plugins."io.containerd.grpc.v1.cri".containerd]
-            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
-            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-            runtime_type = "io.containerd.runc.v2"
-            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
-            SystemdCgroup = true
-            [plugins."io.containerd.grpc.v1.cri".registry]
-            [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
-            [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
-            endpoint = ["https://registry.docker-cn.com"]
-            [plugins."io.containerd.grpc.v1.cri".registry.configs]
-            [plugins."io.containerd.grpc.v1.cri".registry.configs."10.0.0.1:5000"]
-            [plugins."io.containerd.grpc.v1.cri".registry.configs."10.0.0.1:5000".tls]
-            insecure_skip_verify = true
-            [plugins."io.containerd.grpc.v1.cri".registry.configs."192.168.100.100:5000"]
-            [plugins."io.containerd.grpc.v1.cri".registry.configs."192.168.100.100:5000".tls]
-            insecure_skip_verify = true
-
-          encoding: b64
-      path: /etc/containerd/config.toml
-      permissions: 384
-    modules:
-      rh_subscription:
-        auto-attach: "false"
-        password: ""
-        username: ""
-    userSSHKeys:
-    - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c
+  modules:
+    yum_repos:
+      cloud-init-daily:
+        name: test cloud-init yum repos
+        baseurl: https://k8c.io/osm
+        type: rpm-md
+        skip_if_unavailable: true
+        gpgcheck: true
+        gpgkey: https://k8c.io/osm/pubkey.gpg
+        enabled_metadata: 1
+    yum_repo_dir: /store/custom/yum.repos.d

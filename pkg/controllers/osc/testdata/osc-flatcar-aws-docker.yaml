@@ -1,6 +1,8 @@
 apiVersion: operatingsystemmanager.k8c.io/v1alpha1
 kind: OperatingSystemConfig
 metadata:
+  annotations:
+    k8c.io/machine-deployment-revision: "1"
   creationTimestamp: null
   name: flatcar-aws-docker-kube-system-config
   namespace: kube-system

@@ -29,6 +29,7 @@ import (
 
 	"github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	"github.com/kubermatic/machine-controller/pkg/containerruntime"
+	machinecontrollerutil "github.com/kubermatic/machine-controller/pkg/controller/util"
 	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
 	"k8c.io/operating-system-manager/pkg/bootstrap"
 	"k8c.io/operating-system-manager/pkg/clusterinfo"
@@ -131,16 +132,88 @@ func TestReconciler_Reconcile(t *testing.T) {
 		cloudProviderSpec      runtime.RawExtension
 		additionalAnnotations  map[string]string
 	}{
+		// {
+		// 	name:                   "Ubuntu OS in AWS with Containerd",
+		// 	ospFile:                defaultOSPPathPrefix + "osp-ubuntu.yaml",
+		// 	ospName:                "osp-ubuntu",
+		// 	operatingSystem:        providerconfigtypes.OperatingSystemUbuntu,
+		// 	oscFile:                "osc-ubuntu-aws-containerd.yaml",
+		// 	mdName:                 "ubuntu-aws",
+		// 	kubeletVersion:         "1.24.2",
+		// 	provisioningSecretFile: "secret-ubuntu-aws-containerd-provisioning.yaml",
+		// 	bootstrapSecretFile:    "secret-ubuntu-aws-containerd-bootstrap.yaml",
+		// 	config: testConfig{
+		// 		namespace:        "kube-system",
+		// 		containerRuntime: "containerd",
+		// 		clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
+		// 	},
+		// 	cloudProvider:     "aws",
+		// 	cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
+		// },
+		// {
+		// 	name:                   "Ubuntu OS in AWS with Docker",
+		// 	ospFile:                defaultOSPPathPrefix + "osp-ubuntu.yaml",
+		// 	ospName:                "osp-ubuntu",
+		// 	operatingSystem:        providerconfigtypes.OperatingSystemUbuntu,
+		// 	oscFile:                "osc-ubuntu-aws-docker.yaml",
+		// 	mdName:                 "ubuntu-aws",
+		// 	kubeletVersion:         defaultKubeletVersion,
+		// 	provisioningSecretFile: "secret-ubuntu-aws-docker-provisioning.yaml",
+		// 	bootstrapSecretFile:    "secret-ubuntu-aws-docker-bootstrap.yaml",
+		// 	config: testConfig{
+		// 		namespace:        "kube-system",
+		// 		containerRuntime: "docker",
+		// 		clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
+		// 	},
+		// 	cloudProvider:     "aws",
+		// 	cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
+		// },
+		// {
+		// 	name:                   "Flatcar OS in AWS with Containerd",
+		// 	ospFile:                defaultOSPPathPrefix + "osp-flatcar.yaml",
+		// 	ospName:                "osp-flatcar",
+		// 	operatingSystem:        providerconfigtypes.OperatingSystemFlatcar,
+		// 	oscFile:                "osc-flatcar-aws-containerd.yaml",
+		// 	mdName:                 "flatcar-aws-containerd",
+		// 	kubeletVersion:         defaultKubeletVersion,
+		// 	provisioningSecretFile: "secret-flatcar-aws-containerd-provisioning.yaml",
+		// 	bootstrapSecretFile:    "secret-flatcar-aws-containerd-bootstrap.yaml",
+		// 	config: testConfig{
+		// 		namespace:        "kube-system",
+		// 		containerRuntime: "containerd",
+		// 		clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
+		// 	},
+		// 	cloudProvider:     "aws",
+		// 	cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
+		// },
+		// {
+		// 	name:                   "Flatcar OS in AWS with docker",
+		// 	ospFile:                defaultOSPPathPrefix + "osp-flatcar.yaml",
+		// 	ospName:                "osp-flatcar",
+		// 	operatingSystem:        providerconfigtypes.OperatingSystemFlatcar,
+		// 	oscFile:                "osc-flatcar-aws-docker.yaml",
+		// 	mdName:                 "flatcar-aws-docker",
+		// 	kubeletVersion:         defaultKubeletVersion,
+		// 	provisioningSecretFile: "secret-flatcar-aws-docker-provisioning.yaml",
+		// 	bootstrapSecretFile:    "secret-flatcar-aws-docker-bootstrap.yaml",
+		// 	config: testConfig{
+		// 		namespace:        "kube-system",
+		// 		containerRuntime: "docker",
+		// 		clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
+		// 	},
+		// 	cloudProvider:     "aws",
+		// 	cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
+		// },
 		{
-			name:                   "Ubuntu OS in AWS with Containerd",
-			ospFile:                defaultOSPPathPrefix + "osp-ubuntu.yaml",
-			ospName:                "osp-ubuntu",
-			operatingSystem:        providerconfigtypes.OperatingSystemUbuntu,
-			oscFile:                "osc-ubuntu-aws-containerd.yaml",
-			mdName:                 "ubuntu-aws",
-			kubeletVersion:         "1.24.2",
-			provisioningSecretFile: "secret-ubuntu-aws-containerd-provisioning.yaml",
-			bootstrapSecretFile:    "secret-ubuntu-aws-containerd-bootstrap.yaml",
+			name:            "RHEL OS in AWS with Containerd",
+			ospFile:         "osp-rhel-aws-cloud-init-modules.yaml",
+			ospName:         "osp-rhel-cloud-init-modules",
+			operatingSystem: providerconfigtypes.OperatingSystemRHEL,
+			oscFile:         "osc-rhel-8.x-cloud-init-modules.yaml",
+			provisioningSecretFile: "secret-osc-rhel-8.x-cloud-init-modules-provisioning.yaml",
+			bootstrapSecretFile:    "secret-osc-rhel-8.x-cloud-init-modules-bootstrap.yaml",
+			mdName:          "osp-rhel-aws",
+			kubeletVersion:  defaultKubeletVersion,
 			config: testConfig{
 				namespace:        "kube-system",
 				containerRuntime: "containerd",
@@ -149,148 +222,76 @@ func TestReconciler_Reconcile(t *testing.T) {
 			cloudProvider:     "aws",
 			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
 		},
-		{
-			name:                   "Ubuntu OS in AWS with Docker",
-			ospFile:                defaultOSPPathPrefix + "osp-ubuntu.yaml",
-			ospName:                "osp-ubuntu",
-			operatingSystem:        providerconfigtypes.OperatingSystemUbuntu,
-			oscFile:                "osc-ubuntu-aws-docker.yaml",
-			mdName:                 "ubuntu-aws",
-			kubeletVersion:         defaultKubeletVersion,
-			provisioningSecretFile: "secret-ubuntu-aws-docker-provisioning.yaml",
-			bootstrapSecretFile:    "secret-ubuntu-aws-docker-bootstrap.yaml",
-			config: testConfig{
-				namespace:        "kube-system",
-				containerRuntime: "docker",
-				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
-			},
-			cloudProvider:     "aws",
-			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
-		},
-		{
-			name:                   "Flatcar OS in AWS with Containerd",
-			ospFile:                defaultOSPPathPrefix + "osp-flatcar.yaml",
-			ospName:                "osp-flatcar",
-			operatingSystem:        providerconfigtypes.OperatingSystemFlatcar,
-			oscFile:                "osc-flatcar-aws-containerd.yaml",
-			mdName:                 "flatcar-aws-containerd",
-			kubeletVersion:         defaultKubeletVersion,
-			provisioningSecretFile: "secret-flatcar-aws-containerd-provisioning.yaml",
-			bootstrapSecretFile:    "secret-flatcar-aws-containerd-bootstrap.yaml",
-			config: testConfig{
-				namespace:        "kube-system",
-				containerRuntime: "containerd",
-				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
-			},
-			cloudProvider:     "aws",
-			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
-		},
-		{
-			name:                   "Flatcar OS in AWS with docker",
-			ospFile:                defaultOSPPathPrefix + "osp-flatcar.yaml",
-			ospName:                "osp-flatcar",
-			operatingSystem:        providerconfigtypes.OperatingSystemFlatcar,
-			oscFile:                "osc-flatcar-aws-docker.yaml",
-			mdName:                 "flatcar-aws-docker",
-			kubeletVersion:         defaultKubeletVersion,
-			provisioningSecretFile: "secret-flatcar-aws-docker-provisioning.yaml",
-			bootstrapSecretFile:    "secret-flatcar-aws-docker-bootstrap.yaml",
-			config: testConfig{
-				namespace:        "kube-system",
-				containerRuntime: "docker",
-				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
-			},
-			cloudProvider:     "aws",
-			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
-		},
-		{
-			name:                   "RHEL OS in AWS with Containerd",
-			ospFile:                defaultOSPPathPrefix + "osp-rhel.yaml",
-			ospName:                "osp-rhel",
-			operatingSystem:        providerconfigtypes.OperatingSystemRHEL,
-			oscFile:                "osc-rhel-8.x-containerd.yaml",
-			mdName:                 "osp-rhel-aws",
-			kubeletVersion:         defaultKubeletVersion,
-			provisioningSecretFile: "secret-rhel-8.x-containerd-provisioning.yaml",
-			bootstrapSecretFile:    "secret-rhel-8.x-containerd-bootstrap.yaml",
-			config: testConfig{
-				namespace:        "kube-system",
-				containerRuntime: "containerd",
-				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
-			},
-			cloudProvider:     "aws",
-			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
-		},
-		{
-			name:                   "RHEL OS on Azure with Containerd",
-			ospFile:                defaultOSPPathPrefix + "osp-rhel.yaml",
-			ospName:                "osp-rhel",
-			operatingSystem:        providerconfigtypes.OperatingSystemRHEL,
-			oscFile:                "osc-rhel-8.x-azure-containerd.yaml",
-			mdName:                 "osp-rhel-azure",
-			kubeletVersion:         defaultKubeletVersion,
-			provisioningSecretFile: "secret-rhel-8.x-azure-containerd-provisioning.yaml",
-			bootstrapSecretFile:    "secret-rhel-8.x-azure-containerd-bootstrap.yaml",
-			config: testConfig{
-				namespace:        "kube-system",
-				containerRuntime: "containerd",
-				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
-			},
-			cloudProvider:     "azure",
-			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"securityGroupName": "fake-sg"}`)},
-		},
-		{
-			name:                   "Kubelet configuration with docker",
-			ospFile:                defaultOSPPathPrefix + "osp-ubuntu.yaml",
-			ospName:                "osp-ubuntu",
-			operatingSystem:        providerconfigtypes.OperatingSystemUbuntu,
-			oscFile:                "osc-kubelet-configuration-docker.yaml",
-			mdName:                 "kubelet-configuration",
-			kubeletVersion:         defaultKubeletVersion,
-			provisioningSecretFile: "secret-kubelet-configuration-docker-provisioning.yaml",
-			bootstrapSecretFile:    "secret-kubelet-configuration-docker-bootstrap.yaml",
-			config: testConfig{
-				namespace:        "kube-system",
-				containerRuntime: "docker",
-				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
-			},
-			cloudProvider:     "aws",
-			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
-			additionalAnnotations: map[string]string{
-				"v1.kubelet-config.machine-controller.kubermatic.io/ContainerLogMaxSize":  "300Mi",
-				"v1.kubelet-config.machine-controller.kubermatic.io/ContainerLogMaxFiles": "30",
-				"v1.kubelet-config.machine-controller.kubermatic.io/MaxPods":              "110",
-				"v1.kubelet-config.machine-controller.kubermatic.io/SystemReserved":       "ephemeral-storage=30Gi,cpu=30m",
-				"v1.kubelet-config.machine-controller.kubermatic.io/KubeReserved":         "ephemeral-storage=30Gi,cpu=30m",
-				"v1.kubelet-config.machine-controller.kubermatic.io/EvictionHard":         "memory.available<30Mi",
-			},
-		},
-		{
-			name:                   "Kubelet configuration with containerd",
-			ospFile:                defaultOSPPathPrefix + "osp-ubuntu.yaml",
-			ospName:                "osp-ubuntu",
-			operatingSystem:        providerconfigtypes.OperatingSystemUbuntu,
-			oscFile:                "osc-kubelet-configuration-containerd.yaml",
-			mdName:                 "kubelet-configuration",
-			kubeletVersion:         defaultKubeletVersion,
-			provisioningSecretFile: "secret-kubelet-configuration-containerd-provisioning.yaml",
-			bootstrapSecretFile:    "secret-kubelet-configuration-containerd-bootstrap.yaml",
-			config: testConfig{
-				namespace:        "kube-system",
-				containerRuntime: "containerd",
-				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
-			},
-			cloudProvider:     "aws",
-			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
-			additionalAnnotations: map[string]string{
-				"v1.kubelet-config.machine-controller.kubermatic.io/ContainerLogMaxSize":  "300Mi",
-				"v1.kubelet-config.machine-controller.kubermatic.io/ContainerLogMaxFiles": "30",
-				"v1.kubelet-config.machine-controller.kubermatic.io/MaxPods":              "110",
-				"v1.kubelet-config.machine-controller.kubermatic.io/SystemReserved":       "ephemeral-storage=30Gi,cpu=30m",
-				"v1.kubelet-config.machine-controller.kubermatic.io/KubeReserved":         "ephemeral-storage=30Gi,cpu=30m",
-				"v1.kubelet-config.machine-controller.kubermatic.io/EvictionHard":         "memory.available<30Mi",
-			},
-		},
+		// {
+		// 	name:                   "RHEL OS on Azure with Containerd",
+		// 	ospFile:                defaultOSPPathPrefix + "osp-rhel.yaml",
+		// 	ospName:                "osp-rhel",
+		// 	operatingSystem:        providerconfigtypes.OperatingSystemRHEL,
+		// 	oscFile:                "osc-rhel-8.x-azure-containerd.yaml",
+		// 	mdName:                 "osp-rhel-azure",
+		// 	kubeletVersion:         defaultKubeletVersion,
+		// 	provisioningSecretFile: "secret-rhel-8.x-azure-containerd-provisioning.yaml",
+		// 	bootstrapSecretFile:    "secret-rhel-8.x-azure-containerd-bootstrap.yaml",
+		// 	config: testConfig{
+		// 		namespace:        "kube-system",
+		// 		containerRuntime: "containerd",
+		// 		clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
+		// 	},
+		// 	cloudProvider:     "azure",
+		// 	cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"securityGroupName": "fake-sg"}`)},
+		// },
+		// {
+		// 	name:                   "Kubelet configuration with docker",
+		// 	ospFile:                defaultOSPPathPrefix + "osp-ubuntu.yaml",
+		// 	ospName:                "osp-ubuntu",
+		// 	operatingSystem:        providerconfigtypes.OperatingSystemUbuntu,
+		// 	oscFile:                "osc-kubelet-configuration-docker.yaml",
+		// 	mdName:                 "kubelet-configuration",
+		// 	kubeletVersion:         defaultKubeletVersion,
+		// 	provisioningSecretFile: "secret-kubelet-configuration-docker-provisioning.yaml",
+		// 	bootstrapSecretFile:    "secret-kubelet-configuration-docker-bootstrap.yaml",
+		// 	config: testConfig{
+		// 		namespace:        "kube-system",
+		// 		containerRuntime: "docker",
+		// 		clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
+		// 	},
+		// 	cloudProvider:     "aws",
+		// 	cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
+		// 	additionalAnnotations: map[string]string{
+		// 		"v1.kubelet-config.machine-controller.kubermatic.io/ContainerLogMaxSize":  "300Mi",
+		// 		"v1.kubelet-config.machine-controller.kubermatic.io/ContainerLogMaxFiles": "30",
+		// 		"v1.kubelet-config.machine-controller.kubermatic.io/MaxPods":              "110",
+		// 		"v1.kubelet-config.machine-controller.kubermatic.io/SystemReserved":       "ephemeral-storage=30Gi,cpu=30m",
+		// 		"v1.kubelet-config.machine-controller.kubermatic.io/KubeReserved":         "ephemeral-storage=30Gi,cpu=30m",
+		// 		"v1.kubelet-config.machine-controller.kubermatic.io/EvictionHard":         "memory.available<30Mi",
+		// 	},
+		// },
+		// {
+		// 	name:                   "Kubelet configuration with containerd",
+		// 	ospFile:                defaultOSPPathPrefix + "osp-ubuntu.yaml",
+		// 	ospName:                "osp-ubuntu",
+		// 	operatingSystem:        providerconfigtypes.OperatingSystemUbuntu,
+		// 	oscFile:                "osc-kubelet-configuration-containerd.yaml",
+		// 	mdName:                 "kubelet-configuration",
+		// 	kubeletVersion:         defaultKubeletVersion,
+		// 	provisioningSecretFile: "secret-kubelet-configuration-containerd-provisioning.yaml",
+		// 	bootstrapSecretFile:    "secret-kubelet-configuration-containerd-bootstrap.yaml",
+		// 	config: testConfig{
+		// 		namespace:        "kube-system",
+		// 		containerRuntime: "containerd",
+		// 		clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
+		// 	},
+		// 	cloudProvider:     "aws",
+		// 	cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
+		// 	additionalAnnotations: map[string]string{
+		// 		"v1.kubelet-config.machine-controller.kubermatic.io/ContainerLogMaxSize":  "300Mi",
+		// 		"v1.kubelet-config.machine-controller.kubermatic.io/ContainerLogMaxFiles": "30",
+		// 		"v1.kubelet-config.machine-controller.kubermatic.io/MaxPods":              "110",
+		// 		"v1.kubelet-config.machine-controller.kubermatic.io/SystemReserved":       "ephemeral-storage=30Gi,cpu=30m",
+		// 		"v1.kubelet-config.machine-controller.kubermatic.io/KubeReserved":         "ephemeral-storage=30Gi,cpu=30m",
+		// 		"v1.kubelet-config.machine-controller.kubermatic.io/EvictionHard":         "memory.available<30Mi",
+		// 	},
+		// },
 	}
 
 	for _, testCase := range testCases {
@@ -422,6 +423,203 @@ func TestReconciler_Reconcile(t *testing.T) {
 				t.Fatalf(err.Error())
 			}
 			testUtil.CompareOutput(t, testCase.provisioningSecretFile, string(buff), *update)
+		})
+	}
+}
+
+func TestOSCAndSecretRotation(t *testing.T) {
+	var testCases = []struct {
+		name              string
+		kubeletVersion    string
+		ospFile           string
+		ospName           string
+		operatingSystem   providerconfigtypes.OperatingSystem
+		oscFile           string
+		mdName            string
+		secretFile        string
+		config            testConfig
+		cloudProvider     string
+		cloudProviderSpec runtime.RawExtension
+	}{
+		{
+
+			name:            "test updates of machineDeployment",
+			ospFile:         defaultOSPPathPrefix + "osp-ubuntu.yaml",
+			ospName:         "osp-ubuntu",
+			operatingSystem: providerconfigtypes.OperatingSystemUbuntu,
+			oscFile:         "osc-ubuntu-aws-containerd.yaml",
+			mdName:          "ubuntu-aws",
+			kubeletVersion:  defaultKubeletVersion,
+			secretFile:      "secret-ubuntu-aws-containerd.yaml",
+			config: testConfig{
+				namespace:        "kube-system",
+				containerRuntime: "containerd",
+			},
+			cloudProvider:     "aws",
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+
+		osp := &osmv1alpha1.OperatingSystemProfile{}
+		if err := loadFile(osp, testCase.ospFile); err != nil {
+			t.Fatalf("failed loading osp %s from testdata: %v", testCase.name, err)
+		}
+
+		objects := []controllerruntimeclient.Object{
+			&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cluster-info",
+					Namespace: "kube-public",
+				},
+				Data: map[string]string{"kubeconfig": clusterInfoKubeconfig},
+			},
+			&corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-init-getter-token-xyz",
+					Namespace: "cloud-init-settings",
+				},
+				Data: map[string][]byte{
+					"token": []byte("top-secret"),
+				},
+			},
+			&corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "bootstrap-token",
+					Namespace: "kube-system",
+					Labels:    map[string]string{"machinedeployment.k8s.io/name": fmt.Sprintf("%s-%s", testCase.config.namespace, testCase.mdName)},
+				},
+				Data: map[string][]byte{
+					"token-id":     []byte("test"),
+					"token-secret": []byte("test"),
+					"expiration":   []byte(metav1.Now().Add(10 * time.Hour).Format(time.RFC3339)),
+				},
+			},
+		}
+
+		md := generateMachineDeployment(t, testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.kubeletVersion, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec, nil)
+
+		objects = append(objects, osp)
+		objects = append(objects, md)
+
+		fakeClient := fakectrlruntimeclient.
+			NewClientBuilder().
+			WithScheme(scheme.Scheme).
+			WithObjects(objects...).
+			Build()
+
+		reconciler := buildReconciler(fakeClient, testCase.config)
+
+		t.Run(testCase.name, func(t *testing.T) {
+			ctx := context.Background()
+
+			if err := reconciler.reconcile(ctx, md); err != nil {
+				t.Fatalf("failed to reconcile: %v", err)
+			}
+
+			oscName := fmt.Sprintf(resources.OperatingSystemConfigNamePattern, md.Name, md.Namespace)
+			// Ensure that OperatingSystemConfig was created
+			osc := &osmv1alpha1.OperatingSystemConfig{}
+			if err := fakeClient.Get(ctx, types.NamespacedName{
+				Namespace: testCase.config.namespace,
+				Name:      oscName},
+				osc); err != nil {
+				t.Fatalf("failed to get osc: %v", err)
+			}
+
+			// Ensure that corresponding secrets were created
+			bootstrapSecretName := fmt.Sprintf(resources.CloudConfigSecretNamePattern, md.Name, md.Namespace, resources.BootstrapCloudConfig)
+			bootstrapSecret := &corev1.Secret{}
+			if err := fakeClient.Get(ctx, types.NamespacedName{
+				Namespace: CloudInitSettingsNamespace,
+				Name:      bootstrapSecretName},
+				bootstrapSecret); err != nil {
+				t.Fatalf("failed to get secret: %v", err)
+			}
+
+			provisioningSecretName := fmt.Sprintf(resources.CloudConfigSecretNamePattern, md.Name, md.Namespace, resources.ProvisioningCloudConfig)
+			provisioningSecret := &corev1.Secret{}
+			if err := fakeClient.Get(ctx, types.NamespacedName{
+				Namespace: CloudInitSettingsNamespace,
+				Name:      provisioningSecretName},
+				provisioningSecret); err != nil {
+				t.Fatalf("failed to get secret: %v", err)
+			}
+
+			oscRevision := osc.Annotations[MachineDeploymentRevision]
+			bootstrapSecretRevision := bootstrapSecret.Annotations[MachineDeploymentRevision]
+			provisioningSecretRevision := provisioningSecret.Annotations[MachineDeploymentRevision]
+			revision := md.Annotations[machinecontrollerutil.RevisionAnnotation]
+
+			if revision != oscRevision {
+				t.Fatal("revision for machine deployment and OSC didn't match")
+			}
+
+			if revision != bootstrapSecretRevision {
+				t.Fatal("revision for machine deployment and bootstrap secret didn't match")
+			}
+
+			if revision != provisioningSecretRevision {
+				t.Fatal("revision for machine deployment and provisioning secret didn't match")
+			}
+
+			// Change the revision manually to trigger OSC and secret rotation
+			md.Annotations[machinecontrollerutil.RevisionAnnotation] = "2"
+
+			// Reconcile to trigger delete workflow
+			if err := reconciler.reconcile(ctx, md); err != nil {
+				t.Fatalf("failed to reconcile: %v", err)
+			}
+
+			// Ensure that OperatingSystemConfig exists
+			if err := fakeClient.Get(ctx, types.NamespacedName{
+				Namespace: testCase.config.namespace,
+				Name:      oscName},
+				osc); err != nil {
+				t.Fatalf("failed to get osc: %v", err)
+			}
+
+			// Ensure that corresponding secret exists
+			bootstrapSecretName = fmt.Sprintf(resources.CloudConfigSecretNamePattern, md.Name, md.Namespace, resources.BootstrapCloudConfig)
+			bootstrapSecret = &corev1.Secret{}
+			if err := fakeClient.Get(ctx, types.NamespacedName{
+				Namespace: CloudInitSettingsNamespace,
+				Name:      bootstrapSecretName},
+				bootstrapSecret); err != nil {
+				t.Fatalf("failed to get secret: %v", err)
+			}
+
+			provisioningSecretName = fmt.Sprintf(resources.CloudConfigSecretNamePattern, md.Name, md.Namespace, resources.ProvisioningCloudConfig)
+			provisioningSecret = &corev1.Secret{}
+			if err := fakeClient.Get(ctx, types.NamespacedName{
+				Namespace: CloudInitSettingsNamespace,
+				Name:      provisioningSecretName},
+				provisioningSecret); err != nil {
+				t.Fatalf("failed to get secret: %v", err)
+			}
+
+			oscRevision = osc.Annotations[MachineDeploymentRevision]
+			bootstrapSecretRevision = bootstrapSecret.Annotations[MachineDeploymentRevision]
+			provisioningSecretRevision = provisioningSecret.Annotations[MachineDeploymentRevision]
+			updatedRevision := md.Annotations[machinecontrollerutil.RevisionAnnotation]
+
+			if updatedRevision == revision {
+				t.Fatal("revision for machine deployment was not updated")
+			}
+
+			if updatedRevision != oscRevision {
+				t.Fatal("revision for machine deployment and OSC didn't match")
+			}
+
+			if updatedRevision != bootstrapSecretRevision {
+				t.Fatal("revision for machine deployment and bootstrap secret didn't match")
+			}
+
+			if updatedRevision != provisioningSecretRevision {
+				t.Fatal("revision for machine deployment and provisioning secret didn't match")
+			}
 		})
 	}
 }
@@ -594,6 +792,7 @@ func generateMachineDeployment(t *testing.T, name, namespace, osp, kubeletVersio
 	}
 
 	annotations := make(map[string]string)
+	annotations[machinecontrollerutil.RevisionAnnotation] = "1"
 	annotations[resources.MachineDeploymentOSPAnnotation] = osp
 	for k, v := range additionalAnnotations {
 		annotations[k] = v

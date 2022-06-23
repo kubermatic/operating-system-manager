@@ -143,4 +143,8 @@ type CloudInitModule struct {
 	RHSubscription map[string]string `json:"rh_subscription,omitempty"`
 	// RunCMD Run arbitrary commands at a rc.local like level with output to the console.
 	RunCMD []string `json:"runcmd,omitempty"`
+	// YumRepos adds yum repository configuration to the system.
+	YumRepos map[string]map[string]string `json:"yum_repos,omitempty"`
+	// YumRepoDir the repo parts directory where individual yum repo config files will be written. Default: /etc/yum.repos.d
+	YumRepoDir string `json:"yum_repo_dir,omitempty"`
 }

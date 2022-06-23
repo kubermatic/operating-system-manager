@@ -1,0 +1,34 @@
+apiVersion: operatingsystemmanager.k8c.io/v1alpha1
+kind: OperatingSystemConfig
+metadata:
+  annotations:
+    k8c.io/machine-deployment-revision: "1"
+  creationTimestamp: null
+  name: osp-rhel-aws-kube-system-config
+  namespace: kube-system
+  resourceVersion: "1"
+spec:
+  bootstrapConfig:
+    modules:
+      rh_subscription:
+        auto-attach: "false"
+        password: ""
+        username: ""
+    userSSHKeys:
+    - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c
+  cloudProvider:
+    name: aws
+    spec:
+      availabilityZone: eu-central-1b
+      subnetID: test-subnet
+      vpcId: e-123f
+  osName: rhel
+  osVersion: "8.5"
+  provisioningConfig:
+    modules:
+      rh_subscription:
+        auto-attach: "false"
+        password: ""
+        username: ""
+    userSSHKeys:
+    - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c

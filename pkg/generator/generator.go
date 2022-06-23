@@ -224,7 +224,21 @@ runcmd:
 rh_subscription:
 {{- range $key, $val := .CloudInitModules.RHSubscription }}
     {{ $key }}: {{ $val -}}
+{{ end }}
+{{ end }}
+
+{{- if .CloudInitModules.YumRepos }}
+yum_repos:
+{{- range $key, $val := .CloudInitModules.YumRepos }}
+    {{ $key }}: 
+{{- range $prop, $propVal := $val }}
+       {{ $prop }}: {{ $propVal }}
 {{- end }}
+{{- end }}
+{{ end }}
+
+{{- if .CloudInitModules.YumRepoDir }}
+yum_repo_dir: {{ .CloudInitModules.YumRepoDir }}
 {{- end }}
 {{- end }}`
 

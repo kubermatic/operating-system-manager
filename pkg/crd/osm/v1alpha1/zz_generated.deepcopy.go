@@ -45,6 +45,23 @@ func (in *CloudInitModule) DeepCopyInto(out *CloudInitModule) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.YumRepos != nil {
+		in, out := &in.YumRepos, &out.YumRepos
+		*out = make(map[string]map[string]string, len(*in))
+		for key, val := range *in {
+			var outVal map[string]string
+			if val == nil {
+				(*out)[key] = nil
+			} else {
+				in, out := &val, &outVal
+				*out = make(map[string]string, len(*in))
+				for key, val := range *in {
+					(*out)[key] = val
+				}
+			}
+			(*out)[key] = outVal
+		}
+	}
 	return
 }
 
