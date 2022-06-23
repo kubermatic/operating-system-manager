@@ -20,7 +20,7 @@ metadata:
 spec:
   osName: "rockylinux"
   osVersion: "8.6"
-  version: "v0.1.0"
+  version: "v0.1.1"
   supportedCloudProviders:
     - name: "aws"
     - name: "azure"
@@ -31,21 +31,6 @@ spec:
     - name: "vsphere"
 
   bootstrapConfig:
-    units:
-      - name: bootstrap.service
-        enable: true
-        content: |
-          [Install]
-          WantedBy=multi-user.target
-
-          [Unit]
-          Requires=network-online.target
-          After=network-online.target
-          [Service]
-          Type=oneshot
-          RemainAfterExit=true
-          ExecStart=/opt/bin/bootstrap
-
     files:
       - path: "/opt/bin/bootstrap"
         permissions: 0755
@@ -64,6 +49,24 @@ spec:
 
               systemctl daemon-reload
               systemctl restart setup.service
+
+      - path: "/etc/systemd/system/bootstrap.service"
+        permissions: 0644
+        content:
+          inline:
+            encoding: b64
+            data: |
+              #!/bin/bash
+              [Install]
+              WantedBy=multi-user.target
+
+              [Unit]
+              Requires=network-online.target
+              After=network-online.target
+              [Service]
+              Type=oneshot
+              RemainAfterExit=true
+              ExecStart=/opt/bin/bootstrap
 
     modules:
       runcmd:

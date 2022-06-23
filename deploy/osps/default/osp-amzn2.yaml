@@ -20,26 +20,11 @@ metadata:
 spec:
   osName: "amzn2"
   osVersion: "2.0"
-  version: "v0.1.3"
+  version: "v0.1.4"
   supportedCloudProviders:
     - name: "aws"
 
   bootstrapConfig:
-    units:
-      - name: bootstrap.service
-        enable: true
-        content: |
-          [Install]
-          WantedBy=multi-user.target
-
-          [Unit]
-          Requires=network-online.target
-          After=network-online.target
-          [Service]
-          Type=oneshot
-          RemainAfterExit=true
-          ExecStart=/opt/bin/bootstrap
-
     files:
       - path: "/opt/bin/bootstrap"
         permissions: 0755
@@ -57,6 +42,24 @@ spec:
               cloud-init --file /etc/cloud/cloud.cfg.d/{{ .SecretName }}.cfg init
               systemctl daemon-reload
               systemctl restart setup.service
+
+      - path: "/etc/systemd/system/bootstrap.service"
+        permissions: 0644
+        content:
+          inline:
+            encoding: b64
+            data: |
+              #!/bin/bash
+              [Install]
+              WantedBy=multi-user.target
+
+              [Unit]
+              Requires=network-online.target
+              After=network-online.target
+              [Service]
+              Type=oneshot
+              RemainAfterExit=true
+              ExecStart=/opt/bin/bootstrap
 
     modules:
       runcmd:

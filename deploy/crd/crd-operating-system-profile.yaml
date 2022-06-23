@@ -59,8 +59,6 @@ spec:
                 bootstrapConfig:
                   description: Bootstrap config is used for initial configuration of machine and to fetch the kubernetes secret that contains the provisioning config.
                   type: object
-                  required:
-                    - supportedContainerRuntimes
                   properties:
                     files:
                       description: Files is a list of files that should exist in the instance
@@ -227,8 +225,6 @@ spec:
                 provisioningConfig:
                   description: Provisioning Config is used for provisioning the worker node.
                   type: object
-                  required:
-                    - supportedContainerRuntimes
                   properties:
                     files:
                       description: Files is a list of files that should exist in the instance

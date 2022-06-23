@@ -20,7 +20,7 @@ metadata:
 spec:
   osName: "ubuntu"
   osVersion: "20.04"
-  version: "v0.1.3"
+  version: "v0.1.4"
   supportedCloudProviders:
     - name: "aws"
     - name: "azure"
@@ -35,21 +35,6 @@ spec:
     - name: "vsphere"
 
   bootstrapConfig:
-    units:
-      - name: bootstrap.service
-        enable: true
-        content: |
-          [Install]
-          WantedBy=multi-user.target
-
-          [Unit]
-          Requires=network-online.target
-          After=network-online.target
-          [Service]
-          Type=oneshot
-          RemainAfterExit=true
-          ExecStart=/opt/bin/bootstrap
-
     files:
       - path: "/opt/bin/bootstrap"
         permissions: 0755
@@ -76,6 +61,24 @@ spec:
               {{- end }}
 
               systemctl restart setup.service
+
+      - path: "/etc/systemd/system/bootstrap.service"
+        permissions: 0644
+        content:
+          inline:
+            encoding: b64
+            data: |
+              #!/bin/bash
+              [Install]
+              WantedBy=multi-user.target
+
+              [Unit]
+              Requires=network-online.target
+              After=network-online.target
+              [Service]
+              Type=oneshot
+              RemainAfterExit=true
+              ExecStart=/opt/bin/bootstrap
 
     modules:
       runcmd:

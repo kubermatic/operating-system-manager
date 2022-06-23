@@ -18,24 +18,27 @@ spec:
           encoding: b64
       path: /opt/bin/bootstrap
       permissions: 493
+    - content:
+        inline:
+          data: |
+            #!/bin/bash
+            [Install]
+            WantedBy=multi-user.target
+
+            [Unit]
+            Requires=network-online.target
+            After=network-online.target
+            [Service]
+            Type=oneshot
+            RemainAfterExit=true
+            ExecStart=/opt/bin/bootstrap
+          encoding: b64
+      path: /etc/systemd/system/bootstrap.service
+      permissions: 420
     modules:
       runcmd:
       - systemctl restart bootstrap.service
       - systemctl daemon-reload
-    units:
-    - content: |
-        [Install]
-        WantedBy=multi-user.target
-
-        [Unit]
-        Requires=network-online.target
-        After=network-online.target
-        [Service]
-        Type=oneshot
-        RemainAfterExit=true
-        ExecStart=/opt/bin/bootstrap
-      enable: true
-      name: bootstrap.service
     userSSHKeys:
     - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c
   cloudProvider:
