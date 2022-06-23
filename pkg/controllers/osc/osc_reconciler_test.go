@@ -29,6 +29,7 @@ import (
 
 	"github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	"github.com/kubermatic/machine-controller/pkg/containerruntime"
+	machinecontrollerutil "github.com/kubermatic/machine-controller/pkg/controller/util"
 	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
 	"k8c.io/operating-system-manager/pkg/controllers/osc/resources"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
@@ -354,6 +355,138 @@ func TestReconciler_Reconcile(t *testing.T) {
 	}
 }
 
+func TestOSCAndSecretRotation(t *testing.T) {
+	var testCases = []struct {
+		name              string
+		kubeletVersion    string
+		ospFile           string
+		ospName           string
+		operatingSystem   providerconfigtypes.OperatingSystem
+		oscFile           string
+		oscName           string
+		mdName            string
+		secretFile        string
+		config            testConfig
+		cloudProvider     string
+		cloudProviderSpec runtime.RawExtension
+	}{
+		{
+
+			name:            "test updates of machineDeployment",
+			ospFile:         defaultOSPPathPrefix + "osp-ubuntu.yaml",
+			ospName:         "osp-ubuntu",
+			operatingSystem: providerconfigtypes.OperatingSystemUbuntu,
+			oscFile:         "osc-ubuntu-aws-containerd.yaml",
+			oscName:         "ubuntu-aws-kube-system-osc-provisioning",
+			mdName:          "ubuntu-aws",
+			kubeletVersion:  defaultKubeletVersion,
+			secretFile:      "secret-ubuntu-aws-containerd.yaml",
+			config: testConfig{
+				namespace:        "kube-system",
+				containerRuntime: "containerd",
+			},
+			cloudProvider:     "aws",
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+
+		osp := &osmv1alpha1.OperatingSystemProfile{}
+		if err := loadFile(osp, testCase.ospFile); err != nil {
+			t.Fatalf("failed loading osp %s from testdata: %v", testCase.name, err)
+		}
+
+		md := generateMachineDeployment(t, testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.kubeletVersion, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec, nil)
+		fakeClient := fakectrlruntimeclient.
+			NewClientBuilder().
+			WithScheme(scheme.Scheme).
+			WithObjects(osp, md).
+			Build()
+
+		reconciler := buildReconciler(fakeClient, testCase.config)
+
+		t.Run(testCase.name, func(t *testing.T) {
+			ctx := context.Background()
+
+			if err := reconciler.reconcile(ctx, md); err != nil {
+				t.Fatalf("failed to reconcile: %v", err)
+			}
+
+			// Ensure that OperatingSystemConfig was created
+			osc := &osmv1alpha1.OperatingSystemConfig{}
+			if err := fakeClient.Get(ctx, types.NamespacedName{
+				Namespace: testCase.config.namespace,
+				Name:      testCase.oscName},
+				osc); err != nil {
+				t.Fatalf("failed to get osc: %v", err)
+			}
+
+			// Ensure that corresponding secret was created
+			secret := &corev1.Secret{}
+			if err := fakeClient.Get(ctx, types.NamespacedName{
+				Namespace: CloudInitSettingsNamespace,
+				Name:      testCase.oscName},
+				secret); err != nil {
+				t.Fatalf("failed to get secret: %v", err)
+			}
+
+			oscRevision := osc.Annotations[MachineDeploymentRevision]
+			secretRevision := secret.Annotations[MachineDeploymentRevision]
+			revision := md.Annotations[machinecontrollerutil.RevisionAnnotation]
+
+			if revision != oscRevision {
+				t.Fatal("revision for machine deployment and OSC didn't match")
+			}
+
+			if revision != secretRevision {
+				t.Fatal("revision for machine deployment and secret didn't match")
+			}
+
+			// Change the revision manually to trigger OSC and secret rotation
+			md.Annotations[machinecontrollerutil.RevisionAnnotation] = "2"
+
+			// Reconcile to trigger delete workflow
+			if err := reconciler.reconcile(ctx, md); err != nil {
+				t.Fatalf("failed to reconcile: %v", err)
+			}
+
+			// Ensure that OperatingSystemConfig exists
+			if err := fakeClient.Get(ctx, types.NamespacedName{
+				Namespace: testCase.config.namespace,
+				Name:      testCase.oscName},
+				osc); err != nil {
+				t.Fatalf("failed to get osc: %v", err)
+			}
+
+			// Ensure that corresponding secret exists
+			if err := fakeClient.Get(ctx, types.NamespacedName{
+				Namespace: CloudInitSettingsNamespace,
+				Name:      testCase.oscName},
+				secret); err != nil {
+				t.Fatalf("failed to get secret: %v", err)
+			}
+
+			oscRevision = osc.Annotations[MachineDeploymentRevision]
+			secretRevision = secret.Annotations[MachineDeploymentRevision]
+			updatedRevision := md.Annotations[machinecontrollerutil.RevisionAnnotation]
+
+			if revision == updatedRevision {
+				t.Fatal("machine deployment wasn't updated")
+			}
+
+			if updatedRevision != oscRevision {
+				t.Fatal("revision for machine deployment and OSC didn't match")
+			}
+
+			if updatedRevision != secretRevision {
+				t.Fatal("revision for machine deployment and secret didn't match")
+			}
+		})
+	}
+}
+
 func TestMachineDeploymentDeletion(t *testing.T) {
 	var testCases = []struct {
 		name              string
@@ -472,6 +605,7 @@ func generateMachineDeployment(t *testing.T, name, namespace, osp, kubeletVersio
 	}
 
 	annotations := make(map[string]string)
+	annotations[machinecontrollerutil.RevisionAnnotation] = "1"
 	annotations[resources.MachineDeploymentOSPAnnotation] = osp
 	for k, v := range additionalAnnotations {
 		annotations[k] = v

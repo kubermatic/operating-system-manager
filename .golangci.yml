@@ -26,6 +26,7 @@ linters:
     - bidichk
     - bodyclose
     - deadcode
+    - depguard
     - durationcheck
     - errcheck
     - errname
@@ -35,11 +36,14 @@ linters:
     - gocritic
     - gocyclo
     - gofmt
+    - gosimple
     - govet
+    - importas
     - ineffassign
     - misspell
     - noctx
     - nolintlint
+    - nosprintfhostport
     - predeclared
     - promlinter
     - revive
