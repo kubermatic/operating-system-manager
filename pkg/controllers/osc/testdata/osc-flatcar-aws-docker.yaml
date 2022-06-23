@@ -2,7 +2,7 @@ apiVersion: operatingsystemmanager.k8c.io/v1alpha1
 kind: OperatingSystemConfig
 metadata:
   creationTimestamp: null
-  name: flatcar-aws-docker-kube-system-osc
+  name: flatcar-aws-docker-kube-system-config
   namespace: kube-system
   resourceVersion: "1"
 spec:
@@ -11,7 +11,7 @@ spec:
     - content:
         inline:
           data: "#!/bin/bash\nset -xeuo pipefail\napt update && apt install -y curl
-            jq\ncurl -s -k -v --header 'Authorization: Bearer top-secret'\thttps://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/flatcar-aws-docker-kube-system-provisioning-secret
+            jq\ncurl -s -k -v --header 'Authorization: Bearer top-secret'\thttps://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/flatcar-aws-docker-kube-system-provisioning-config
             | jq '.data[\"cloud-config\"]' -r| base64 -d > /usr/share/oem/config.ign\ntouch
             /boot/flatcar/first_boot\nsystemctl disable bootstrap.service\nrm /etc/systemd/system/bootstrap.service\nrm
             /etc/machine-id\nreboot\n"

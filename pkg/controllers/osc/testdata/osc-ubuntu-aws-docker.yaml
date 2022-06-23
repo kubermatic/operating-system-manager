@@ -2,7 +2,7 @@ apiVersion: operatingsystemmanager.k8c.io/v1alpha1
 kind: OperatingSystemConfig
 metadata:
   creationTimestamp: null
-  name: ubuntu-aws-kube-system-osc
+  name: ubuntu-aws-kube-system-config
   namespace: kube-system
   resourceVersion: "1"
 spec:
@@ -12,9 +12,9 @@ spec:
         inline:
           data: "#!/bin/bash\nset -xeuo pipefail\n\nexport DEBIAN_FRONTEND=noninteractive\napt
             update && apt install -y curl jq\ncurl -s -k -v --header 'Authorization:
-            Bearer top-secret'\thttps://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/ubuntu-aws-kube-system-provisioning-secret
-            | jq '.data[\"cloud-config\"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/ubuntu-aws-kube-system-provisioning-secret.cfg\ncloud-init
-            clean\ncloud-init --file /etc/cloud/cloud.cfg.d/ubuntu-aws-kube-system-provisioning-secret.cfg
+            Bearer top-secret'\thttps://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/ubuntu-aws-kube-system-provisioning-config
+            | jq '.data[\"cloud-config\"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/ubuntu-aws-kube-system-provisioning-config.cfg\ncloud-init
+            clean\ncloud-init --file /etc/cloud/cloud.cfg.d/ubuntu-aws-kube-system-provisioning-config.cfg
             init\nsystemctl daemon-reload\n\nsystemctl restart setup.service\n"
           encoding: b64
       path: /opt/bin/bootstrap
