@@ -20,8 +20,6 @@ import (
 	"testing"
 
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
-
-	"k8s.io/utils/pointer"
 )
 
 func TestDefaultCloudConfigGenerator_Generate(t *testing.T) {
@@ -39,7 +37,7 @@ func TestDefaultCloudConfigGenerator_Generate(t *testing.T) {
 					Files: []osmv1alpha1.File{
 						{
 							Path:        "/opt/bin/test.service",
-							Permissions: pointer.Int32Ptr(0700),
+							Permissions: 700,
 							Content: osmv1alpha1.FileContent{
 								Inline: &osmv1alpha1.FileContentInline{
 									Data: "    #!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    cloud-init init\n    systemctl start provision.service",
@@ -48,7 +46,7 @@ func TestDefaultCloudConfigGenerator_Generate(t *testing.T) {
 						},
 						{
 							Path:        "/opt/bin/setup.service",
-							Permissions: pointer.Int32Ptr(0700),
+							Permissions: 700,
 							Content: osmv1alpha1.FileContent{
 								Inline: &osmv1alpha1.FileContentInline{
 									Data: "    #!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    cloud-init init\n    systemctl start provision.service",
@@ -115,7 +113,7 @@ rh_subscription:
 					Files: []osmv1alpha1.File{
 						{
 							Path:        "/opt/bin/test",
-							Permissions: pointer.Int32Ptr(0700),
+							Permissions: 700,
 							Content: osmv1alpha1.FileContent{
 								Inline: &osmv1alpha1.FileContentInline{
 									Data: "    #!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    cloud-init init\n    systemctl start provision.service",
@@ -161,7 +159,7 @@ runcmd:
 					Files: []osmv1alpha1.File{
 						{
 							Path:        "/opt/bin/test",
-							Permissions: pointer.Int32Ptr(0700),
+							Permissions: 700,
 							Content: osmv1alpha1.FileContent{
 								Inline: &osmv1alpha1.FileContentInline{
 									Data: "    #!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    cloud-init init\n    systemctl start provision.service",
@@ -201,7 +199,7 @@ runcmd:
 					Files: []osmv1alpha1.File{
 						{
 							Path:        "/opt/bin/test.service",
-							Permissions: pointer.Int32Ptr(0700),
+							Permissions: 700,
 							Content: osmv1alpha1.FileContent{
 								Inline: &osmv1alpha1.FileContentInline{
 									Data: "    #!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    cloud-init init\n    systemctl start provision.service",
@@ -210,7 +208,7 @@ runcmd:
 						},
 						{
 							Path:        "/opt/bin/setup.service",
-							Permissions: pointer.Int32Ptr(0700),
+							Permissions: 700,
 							Content: osmv1alpha1.FileContent{
 								Inline: &osmv1alpha1.FileContentInline{
 									Data: "    #!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    cloud-init init\n    systemctl start provision.service",
@@ -224,7 +222,7 @@ runcmd:
 					},
 				},
 			},
-			expectedCloudConfig: []byte(`{"ignition":{"config":{},"security":{"tls":{}},"timeouts":{},"version":"2.3.0"},"networkd":{},"passwd":{"users":[{"name":"core","sshAuthorizedKeys":["ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3","ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4"]}]},"storage":{"files":[{"filesystem":"root","path":"/opt/bin/test.service","contents":{"source":"data:,%23!%2Fbin%2Fbash%0Aset%20-xeuo%20pipefail%0Acloud-init%20clean%0Acloud-init%20init%0Asystemctl%20start%20provision.service%0A","verification":{}},"mode":448},{"filesystem":"root","path":"/opt/bin/setup.service","contents":{"source":"data:,%23!%2Fbin%2Fbash%0Aset%20-xeuo%20pipefail%0Acloud-init%20clean%0Acloud-init%20init%0Asystemctl%20start%20provision.service%0A","verification":{}},"mode":448}]},"systemd":{}}`),
+			expectedCloudConfig: []byte(`{"ignition":{"config":{},"security":{"tls":{}},"timeouts":{},"version":"2.3.0"},"networkd":{},"passwd":{"users":[{"name":"core","sshAuthorizedKeys":["ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3","ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4"]}]},"storage":{"files":[{"filesystem":"root","path":"/opt/bin/test.service","contents":{"source":"data:,%23!%2Fbin%2Fbash%0Aset%20-xeuo%20pipefail%0Acloud-init%20clean%0Acloud-init%20init%0Asystemctl%20start%20provision.service%0A","verification":{}},"mode":700},{"filesystem":"root","path":"/opt/bin/setup.service","contents":{"source":"data:,%23!%2Fbin%2Fbash%0Aset%20-xeuo%20pipefail%0Acloud-init%20clean%0Acloud-init%20init%0Asystemctl%20start%20provision.service%0A","verification":{}},"mode":700}]},"systemd":{}}`),
 		},
 		{
 			name: "generated cloud-init modules for rhel",
@@ -235,7 +233,7 @@ runcmd:
 					Files: []osmv1alpha1.File{
 						{
 							Path:        "/opt/bin/test.service",
-							Permissions: pointer.Int32Ptr(0700),
+							Permissions: 700,
 							Content: osmv1alpha1.FileContent{
 								Inline: &osmv1alpha1.FileContentInline{
 									Data: "    #!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    cloud-init init\n    systemctl start provision.service",
@@ -244,7 +242,7 @@ runcmd:
 						},
 						{
 							Path:        "/opt/bin/setup.service",
-							Permissions: pointer.Int32Ptr(0700),
+							Permissions: 700,
 							Content: osmv1alpha1.FileContent{
 								Inline: &osmv1alpha1.FileContentInline{
 									Data: "    #!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    cloud-init init\n    systemctl start provision.service",

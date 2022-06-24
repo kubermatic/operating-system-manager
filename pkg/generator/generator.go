@@ -52,6 +52,8 @@ func NewDefaultCloudConfigGenerator(unitsPath string) CloudConfigGenerator {
 }
 
 func (d *DefaultCloudConfigGenerator) Generate(osc *osmv1alpha1.OperatingSystemConfig) ([]byte, error) {
+	provisioningUtility := GetProvisioningUtility(osc.Spec.OSName)
+
 	var files []*fileSpec
 	for _, file := range osc.Spec.Files {
 		content := file.Content.Inline.Data
@@ -64,10 +66,12 @@ func (d *DefaultCloudConfigGenerator) Generate(osc *osmv1alpha1.OperatingSystemC
 			Content:  content,
 			Encoding: file.Content.Inline.Encoding,
 		}
-		if file.Permissions != nil {
-			permissions := fmt.Sprintf("%04o", *file.Permissions)
-			fSpec.Permissions = &permissions
+		permissions := fmt.Sprintf("%v", file.Permissions)
+		// cloud-init expects an octal value for file permissions.
+		if provisioningUtility == CloudInit && len(permissions) == 3 {
+			permissions = "0" + permissions
 		}
+		fSpec.Permissions = &permissions
 
 		files = append(files, fSpec)
 	}
@@ -126,7 +130,7 @@ func (d *DefaultCloudConfigGenerator) Generate(osc *osmv1alpha1.OperatingSystemC
 		return nil, err
 	}
 
-	if GetProvisioningUtility(osc.Spec.OSName) == CloudInit {
+	if provisioningUtility == CloudInit {
 		return buf.Bytes(), nil
 	}
 
@@ -178,9 +182,7 @@ ssh_authorized_keys:
 write_files:
 {{- range $_, $file := .Files }}
 - path: '{{ $file.Path }}'
-{{- if $file.Permissions }}
-  permissions: '{{ $file.Permissions }}'
-{{- end }}
+  permissions: '{{or $file.Permissions 0644}}'
 {{- if $file.Encoding }}
   encoding: '{{ $file.Encoding }}'
 {{- end }}
@@ -213,7 +215,7 @@ rh_subscription:
 {{- if .CloudInitModules.YumRepos }}
 yum_repos:
 {{- range $key, $val := .CloudInitModules.YumRepos }}
-    {{ $key }}: 
+    {{ $key }}:
 {{- range $prop, $propVal := $val }}
        {{ $prop }}: {{ $propVal }}
 {{- end }}
@@ -237,7 +239,7 @@ storage:
   files:
 {{- range $_, $file := .Files }}
   - path: '{{ $file.Path }}'
-    mode: {{or $file.Permissions 0644}}
+    mode: {{or $file.Permissions 644}}
     filesystem: root
     contents:
         inline: |

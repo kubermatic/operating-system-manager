@@ -29,7 +29,7 @@ func CompareOutput(t *testing.T, name, output string, update bool) {
 		t.Fatalf("failed to get absolute path to testdata file: %v", err)
 	}
 	if update {
-		if err := ioutil.WriteFile(golden, []byte(output), 0600); err != nil {
+		if err := ioutil.WriteFile(golden, []byte(output), 600); err != nil {
 			t.Fatalf("failed to write updated fixture: %v", err)
 		}
 	}

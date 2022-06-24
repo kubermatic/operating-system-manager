@@ -135,7 +135,7 @@ spec:
             echo "Health monitoring for component ${component} is not supported!"
           fi
     path: /opt/bin/health-monitor.sh
-    permissions: 493
+    permissions: 755
   - content:
       inline:
         data: |2+
@@ -164,7 +164,7 @@ spec:
             modprobe nf_conntrack
           fi
     path: /opt/load-kernel-modules.sh
-    permissions: 493
+    permissions: 755
   - content:
       inline:
         data: |
@@ -214,7 +214,7 @@ spec:
             echo -e "[Service]\nEnvironment=\"KUBELET_NODE_IP=${DEFAULT_IFC_IP}\"\nEnvironment=\"KUBELET_HOSTNAME=${FULL_HOSTNAME}\"" > /etc/systemd/system/kubelet.service.d/nodeip.conf
           fi
     path: /opt/bin/setup_net_env.sh
-    permissions: 493
+    permissions: 755
   - content:
       inline:
         data: |
@@ -284,7 +284,7 @@ spec:
 
           systemctl disable download-script.service
     path: /opt/bin/download.sh
-    permissions: 493
+    permissions: 755
   - content:
       inline:
         data: |
@@ -309,7 +309,7 @@ spec:
           systemctl enable --now --no-block kubelet-healthcheck.service
           systemctl disable setup.service
     path: /opt/bin/setup
-    permissions: 493
+    permissions: 755
   - content:
       inline:
         data: |
@@ -392,7 +392,7 @@ spec:
           SubnetID="test-subnet"
 
     path: /etc/kubernetes/cloud-config
-    permissions: 256
+    permissions: 400
   - content:
       inline:
         data: |
@@ -459,25 +459,25 @@ spec:
           [Install]
           WantedBy=multi-user.target
     path: /etc/systemd/system/kubelet-healthcheck.service
-    permissions: 420
+    permissions: 644
   - content:
       inline:
         data: |
           1
     path: /proc/sys/kernel/panic_on_oops
-    permissions: 420
+    permissions: 644
   - content:
       inline:
         data: |
           10
     path: /proc/sys/kernel/panic
-    permissions: 420
+    permissions: 644
   - content:
       inline:
         data: |
           1
     path: /proc/sys/vm/overcommit_memory
-    permissions: 420
+    permissions: 644
   - content:
       inline:
         data: |
@@ -491,7 +491,7 @@ spec:
           PasswordAuthentication no
           ChallengeResponseAuthentication no
     path: /etc/ssh/sshd_config
-    permissions: 384
+    permissions: 600
   - content:
       inline:
         data: |+
@@ -522,7 +522,7 @@ spec:
           insecure_skip_verify = true
 
     path: /etc/containerd/config.toml
-    permissions: 384
+    permissions: 600
   - content:
       inline:
         data: |

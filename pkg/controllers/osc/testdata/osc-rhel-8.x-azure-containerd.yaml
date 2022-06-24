@@ -134,7 +134,7 @@ spec:
           fi
         encoding: b64
     path: /opt/bin/health-monitor.sh
-    permissions: 493
+    permissions: 755
   - content:
       inline:
         data: |
@@ -161,7 +161,7 @@ spec:
           fi
         encoding: b64
     path: /opt/load-kernel-modules.sh
-    permissions: 493
+    permissions: 755
   - content:
       inline:
         data: |
@@ -302,7 +302,7 @@ spec:
           systemctl enable --now --no-block kubelet-healthcheck.service
         encoding: b64
     path: /opt/bin/setup
-    permissions: 493
+    permissions: 755
   - content:
       inline:
         data: |
@@ -313,7 +313,7 @@ spec:
           done
         encoding: b64
     path: /opt/bin/supervise.sh
-    permissions: 493
+    permissions: 755
   - content:
       inline:
         data: |
@@ -365,7 +365,7 @@ spec:
           {"cloud":"AZUREPUBLICCLOUD","tenantId":"","subscriptionId":"","aadClientId":"","aadClientSecret":"","resourceGroup":"","location":"","vnetName":"","subnetName":"","routeTableName":"","securityGroupName":"fake-sg","primaryAvailabilitySetName":"","vnetResourceGroup":"","useInstanceMetadata":true,"loadBalancerSku":""}
         encoding: b64
     path: /etc/kubernetes/cloud-config
-    permissions: 384
+    permissions: 600
   - content:
       inline:
         data: |
@@ -404,7 +404,7 @@ spec:
           fi
         encoding: b64
     path: /opt/bin/setup_net_env.sh
-    permissions: 493
+    permissions: 755
   - content:
       inline:
         data: |
@@ -453,14 +453,14 @@ spec:
           ExecStart=/opt/bin/supervise.sh /opt/bin/setup
         encoding: b64
     path: /etc/systemd/system/setup.service
-    permissions: 420
+    permissions: 644
   - content:
       inline:
         data: |
           export PATH="/opt/bin:$PATH"
         encoding: b64
     path: /etc/profile.d/opt-bin-path.sh
-    permissions: 420
+    permissions: 644
   - content:
       inline:
         data: |
@@ -529,7 +529,7 @@ spec:
           WantedBy=multi-user.target
         encoding: b64
     path: /etc/systemd/system/kubelet-healthcheck.service
-    permissions: 420
+    permissions: 644
   - content:
       inline:
         data: |
@@ -542,7 +542,7 @@ spec:
           swapoff -a
         encoding: b64
     path: /opt/disable-swap.sh
-    permissions: 493
+    permissions: 755
   - content:
       inline:
         data: |
@@ -586,7 +586,7 @@ spec:
 
         encoding: b64
     path: /etc/containerd/config.toml
-    permissions: 384
+    permissions: 600
   modules:
     rh_subscription:
       auto-attach: "false"
