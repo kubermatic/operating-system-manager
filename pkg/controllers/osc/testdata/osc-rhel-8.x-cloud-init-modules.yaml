@@ -144,6 +144,7 @@ spec:
           SystemMaxUse=5G
         encoding: b64
     path: /etc/systemd/journald.conf.d/max_disk_use.conf
+    permissions: 644
   - content:
       inline:
         data: |
@@ -177,6 +178,7 @@ spec:
           fs.inotify.max_user_instances = 8192
         encoding: b64
     path: /etc/sysctl.d/k8s.conf
+    permissions: 644
   - content:
       inline:
         data: |
@@ -193,6 +195,7 @@ spec:
           SELINUXTYPE=targeted
         encoding: b64
     path: /etc/selinux/config
+    permissions: 644
   - content:
       inline:
         data: |
@@ -360,6 +363,7 @@ spec:
           WantedBy=multi-user.target
         encoding: b64
     path: /etc/systemd/system/kubelet.service
+    permissions: 644
   - content:
       inline:
         data: |+
@@ -441,6 +445,7 @@ spec:
           -----END CERTIFICATE-----
         encoding: b64
     path: /etc/kubernetes/pki/ca.crt
+    permissions: 644
   - content:
       inline:
         data: |
@@ -520,6 +525,7 @@ spec:
           volumePluginDir: /var/lib/kubelet/volumeplugins
         encoding: b64
     path: /etc/kubernetes/kubelet.conf
+    permissions: 644
   - content:
       inline:
         data: |
@@ -553,6 +559,7 @@ spec:
         data: |
           runtime-endpoint: unix:///run/containerd/containerd.sock
     path: /etc/crictl.yaml
+    permissions: 644
   - content:
       inline:
         data: |
@@ -560,6 +567,7 @@ spec:
           Restart=always
           EnvironmentFile=-/etc/environment
     path: /etc/systemd/system/containerd.service.d/environment.conf
+    permissions: 644
   - content:
       inline:
         data: |+

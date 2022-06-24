@@ -141,12 +141,14 @@ spec:
         data: |2+
 
     path: /etc/systemd/system/systemd-networkd.service.d/10-static-network.conf
+    permissions: 644
   - content:
       inline:
         data: |
           [Journal]
           SystemMaxUse=5G
     path: /etc/systemd/journald.conf.d/max_disk_use.conf
+    permissions: 644
   - content:
       inline:
         data: |
@@ -177,6 +179,7 @@ spec:
           fs.inotify.max_user_watches = 1048576
           fs.inotify.max_user_instances = 8192
     path: /etc/sysctl.d/k8s.conf
+    permissions: 644
   - content:
       inline:
         data: |
@@ -340,6 +343,7 @@ spec:
           kPe6XoSbiLm/kxk32T0=
           -----END CERTIFICATE-----
     path: /etc/kubernetes/pki/ca.crt
+    permissions: 644
   - content:
       inline:
         data: |
@@ -383,6 +387,7 @@ spec:
           [Install]
           WantedBy=multi-user.target
     path: /etc/systemd/system/kubelet.service
+    permissions: 644
   - content:
       inline:
         data: |+
@@ -446,6 +451,7 @@ spec:
           - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
           volumePluginDir: /var/lib/kubelet/volumeplugins
     path: /etc/kubernetes/kubelet.conf
+    permissions: 644
   - content:
       inline:
         data: |
@@ -530,6 +536,7 @@ spec:
           Restart=always
           EnvironmentFile=-/etc/environment
     path: /etc/systemd/system/containerd.service.d/environment.conf
+    permissions: 644
   - content:
       inline:
         data: |
@@ -539,11 +546,13 @@ spec:
           ExecStart=
           ExecStart=/usr/bin/env PATH=${TORCX_BINDIR}:${PATH} ${TORCX_BINDIR}/containerd --config ${CONTAINERD_CONFIG}
     path: /etc/systemd/system/containerd.service.d/10-custom.conf
+    permissions: 644
   - content:
       inline:
         data: |
           runtime-endpoint: unix:///run/containerd/containerd.sock
     path: /etc/crictl.yaml
+    permissions: 644
   osName: flatcar
   osVersion: 2983.2.0
   units:
