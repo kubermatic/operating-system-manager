@@ -135,18 +135,20 @@ spec:
             echo "Health monitoring for component ${component} is not supported!"
           fi
     path: /opt/bin/health-monitor.sh
-    permissions: 493
+    permissions: 755
   - content:
       inline:
         data: |2+
 
     path: /etc/systemd/system/systemd-networkd.service.d/10-static-network.conf
+    permissions: 644
   - content:
       inline:
         data: |
           [Journal]
           SystemMaxUse=5G
     path: /etc/systemd/journald.conf.d/max_disk_use.conf
+    permissions: 644
   - content:
       inline:
         data: |
@@ -164,7 +166,7 @@ spec:
             modprobe nf_conntrack
           fi
     path: /opt/load-kernel-modules.sh
-    permissions: 493
+    permissions: 755
   - content:
       inline:
         data: |
@@ -177,6 +179,7 @@ spec:
           fs.inotify.max_user_watches = 1048576
           fs.inotify.max_user_instances = 8192
     path: /etc/sysctl.d/k8s.conf
+    permissions: 644
   - content:
       inline:
         data: |
@@ -214,7 +217,7 @@ spec:
             echo -e "[Service]\nEnvironment=\"KUBELET_NODE_IP=${DEFAULT_IFC_IP}\"\nEnvironment=\"KUBELET_HOSTNAME=${FULL_HOSTNAME}\"" > /etc/systemd/system/kubelet.service.d/nodeip.conf
           fi
     path: /opt/bin/setup_net_env.sh
-    permissions: 493
+    permissions: 755
   - content:
       inline:
         data: |
@@ -284,7 +287,7 @@ spec:
 
           systemctl disable download-script.service
     path: /opt/bin/download.sh
-    permissions: 493
+    permissions: 755
   - content:
       inline:
         data: |
@@ -309,7 +312,7 @@ spec:
           systemctl enable --now --no-block kubelet-healthcheck.service
           systemctl disable setup.service
     path: /opt/bin/setup
-    permissions: 493
+    permissions: 755
   - content:
       inline:
         data: |
@@ -340,6 +343,7 @@ spec:
           kPe6XoSbiLm/kxk32T0=
           -----END CERTIFICATE-----
     path: /etc/kubernetes/pki/ca.crt
+    permissions: 644
   - content:
       inline:
         data: |
@@ -383,6 +387,7 @@ spec:
           [Install]
           WantedBy=multi-user.target
     path: /etc/systemd/system/kubelet.service
+    permissions: 644
   - content:
       inline:
         data: |+
@@ -392,7 +397,7 @@ spec:
           SubnetID="test-subnet"
 
     path: /etc/kubernetes/cloud-config
-    permissions: 256
+    permissions: 400
   - content:
       inline:
         data: |
@@ -444,6 +449,7 @@ spec:
           - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
           volumePluginDir: /var/lib/kubelet/volumeplugins
     path: /etc/kubernetes/kubelet.conf
+    permissions: 644
   - content:
       inline:
         data: |
@@ -457,25 +463,25 @@ spec:
           [Install]
           WantedBy=multi-user.target
     path: /etc/systemd/system/kubelet-healthcheck.service
-    permissions: 420
+    permissions: 644
   - content:
       inline:
         data: |
           1
     path: /proc/sys/kernel/panic_on_oops
-    permissions: 420
+    permissions: 644
   - content:
       inline:
         data: |
           10
     path: /proc/sys/kernel/panic
-    permissions: 420
+    permissions: 644
   - content:
       inline:
         data: |
           1
     path: /proc/sys/vm/overcommit_memory
-    permissions: 420
+    permissions: 644
   - content:
       inline:
         data: |
@@ -489,7 +495,7 @@ spec:
           PasswordAuthentication no
           ChallengeResponseAuthentication no
     path: /etc/ssh/sshd_config
-    permissions: 384
+    permissions: 600
   - content:
       inline:
         data: |
@@ -497,6 +503,7 @@ spec:
           Restart=always
           EnvironmentFile=-/etc/environment
     path: /etc/systemd/system/containerd.service.d/environment.conf
+    permissions: 644
   - content:
       inline:
         data: |
@@ -504,17 +511,18 @@ spec:
           Restart=always
           EnvironmentFile=-/etc/environment
     path: /etc/systemd/system/docker.service.d/environment.conf
+    permissions: 644
   - content:
       inline:
         data: '{"exec-opts":["native.cgroupdriver=systemd"],"storage-driver":"overlay2","log-driver":"json-file","log-opts":{"max-file":"5","max-size":"100m"},"insecure-registries":["192.168.100.100:5000","10.0.0.1:5000"],"registry-mirrors":["https://registry.docker-cn.com"]}'
     path: /etc/docker/daemon.json
-    permissions: 420
+    permissions: 644
   - content:
       inline:
         data: ""
         encoding: b64
     path: /root/.docker/config.json
-    permissions: 384
+    permissions: 600
   osName: flatcar
   osVersion: 2983.2.0
   units:

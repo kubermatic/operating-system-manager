@@ -115,9 +115,10 @@ spec:
                         description: Path is the path of the file system where the file should get written to.
                         type: string
                       permissions:
-                        description: Permissions describes with which permissions the file should get written to the file system. Should be defaulted to octal 0644.
+                        description: Permissions describes with which permissions the file should get written to the file system. Should be in decimal base and without any leading zeroes.
                         type: integer
                         format: int32
+                        default: 644
                 modules:
                   description: CloudInitModules contains the supported cloud-init modules
                   type: object

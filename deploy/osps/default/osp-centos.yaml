@@ -49,7 +49,7 @@ spec:
                 runtime-endpoint: unix:///run/containerd/containerd.sock
 
         - path: "/etc/containerd/config.toml"
-          permissions: 0600
+          permissions: 600
           content:
             inline:
               encoding: b64
@@ -90,7 +90,7 @@ spec:
                 EnvironmentFile=-/etc/environment
 
         - path: /etc/docker/daemon.json
-          permissions: 0644
+          permissions: 644
           content:
             inline:
               encoding: b64
@@ -98,7 +98,7 @@ spec:
                 {{ .ContainerRuntimeConfig }}
 
         - path: /root/.docker/config.json
-          permissions: 0600
+          permissions: 600
           content:
             inline:
               encoding: b64
@@ -237,7 +237,7 @@ spec:
 
   files:
     - path: "/opt/bin/health-monitor.sh"
-      permissions: 0755
+      permissions: 755
       content:
         inline:
           encoding: b64
@@ -368,7 +368,7 @@ spec:
             SystemMaxUse=5G
 
     - path: "/opt/load-kernel-modules.sh"
-      permissions: 0755
+      permissions: 755
       content:
         inline:
           encoding: b64
@@ -419,7 +419,7 @@ spec:
             SELINUXTYPE=targeted
 
     - path: "/opt/bin/setup"
-      permissions: 0755
+      permissions: 755
       content:
         inline:
           encoding: b64
@@ -477,7 +477,7 @@ spec:
             systemctl enable --now --no-block kubelet-healthcheck.service
 
     - path: "/opt/bin/supervise.sh"
-      permissions: 0755
+      permissions: 755
       content:
         inline:
           encoding: b64
@@ -559,7 +559,7 @@ spec:
             WantedBy=multi-user.target
 
     - path: "/etc/kubernetes/cloud-config"
-      permissions: 0600
+      permissions: 600
       content:
         inline:
           encoding: b64
@@ -567,7 +567,7 @@ spec:
             {{ .CloudConfig }}
 
     - path: "/opt/bin/setup_net_env.sh"
-      permissions: 0755
+      permissions: 755
       content:
         inline:
           encoding: b64
@@ -614,7 +614,7 @@ spec:
             {{ .KubernetesCACert }}
 
     - path: "/etc/systemd/system/setup.service"
-      permissions: 0644
+      permissions: 644
       content:
         inline:
           encoding: b64
@@ -633,7 +633,7 @@ spec:
             ExecStart=/opt/bin/supervise.sh /opt/bin/setup
 
     - path: "/etc/profile.d/opt-bin-path.sh"
-      permissions: 0644
+      permissions: 644
       content:
         inline:
           encoding: b64
@@ -733,7 +733,7 @@ spec:
             volumePluginDir: /var/lib/kubelet/volumeplugins
 
     - path: /etc/systemd/system/kubelet-healthcheck.service
-      permissions: 0644
+      permissions: 644
       content:
         inline:
           encoding: b64
@@ -749,7 +749,7 @@ spec:
             WantedBy=multi-user.target
 
     - path: "/opt/disable-swap.sh"
-      permissions: 0755
+      permissions: 755
       content:
         inline:
           encoding: b64
