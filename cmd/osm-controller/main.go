@@ -35,8 +35,8 @@ import (
 	providerconfig "k8c.io/operating-system-manager/pkg/providerconfig/config"
 	"k8c.io/operating-system-manager/pkg/util/certificate"
 
+	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/kubernetes/scheme"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
@@ -76,10 +76,15 @@ type options struct {
 	nodeNoProxy   string
 }
 
+var (
+	scheme = runtime.NewScheme()
+)
+
 func init() {
-	utilruntime.Must(clientgoscheme.AddToScheme(scheme.Scheme))
-	utilruntime.Must(osmv1alpha1.AddToScheme(scheme.Scheme))
-	utilruntime.Must(clusterv1alpha1.AddToScheme(scheme.Scheme))
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+
+	utilruntime.Must(osmv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(clusterv1alpha1.AddToScheme(scheme))
 }
 
 func main() {
@@ -182,7 +187,7 @@ func main() {
 
 		// Build dedicated client for worker cluster, some read actions fail on the split client created by manager due to informers not syncing in-time
 		workerClient, err = ctrlruntimeclient.New(workerClusterConfig, ctrlruntimeclient.Options{
-			Scheme: scheme.Scheme,
+			Scheme: scheme,
 		})
 		if err != nil {
 			klog.Fatalf("failed to build worker client: %v", err)

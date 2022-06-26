@@ -99,4 +99,3 @@ else
 fi
 
 echodate "Kind cluster $KIND_CLUSTER_NAME is up and running."
-

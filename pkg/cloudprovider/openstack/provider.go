@@ -22,7 +22,6 @@ import (
 	"fmt"
 
 	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
-
 	"k8c.io/operating-system-manager/pkg/cloudprovider/openstack/types"
 	"k8c.io/operating-system-manager/pkg/providerconfig/config"
 

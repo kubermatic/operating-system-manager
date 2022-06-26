@@ -38,4 +38,3 @@ beforeOSMSetup=$(nowms)
 
 source hack/ci/setup-osm-in-kind.sh
 pushElapsed kind_osm_setup_duration_milliseconds $beforeOSMSetup
-
