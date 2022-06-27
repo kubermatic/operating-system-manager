@@ -77,7 +77,7 @@ func New(client client.Client, kubeconfigProvider KubeconfigProvider, bootstrapT
 func (b *Bootstrap) CreateBootstrapKubeconfig(ctx context.Context, name string) (*clientcmdapi.Config, error) {
 	var (
 		token string
-		err error
+		err   error
 	)
 
 	if b.bootstrapTokenServiceAccountName != nil {

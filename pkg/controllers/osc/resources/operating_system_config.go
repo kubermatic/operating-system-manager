@@ -58,7 +58,7 @@ const (
 
 	OperatingSystemConfigNamePattern = "%s-%s-config"
 	CloudConfigSecretNamePattern     = "%s-%s-%s-config"
-	MachineDeploymentOSPAnnotation          = "k8c.io/operating-system-profile"
+	MachineDeploymentOSPAnnotation   = "k8c.io/operating-system-profile"
 
 	defaultFilePermissions = 644
 )

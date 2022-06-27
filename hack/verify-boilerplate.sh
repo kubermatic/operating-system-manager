@@ -21,4 +21,5 @@ cd $(dirname $0)/..
 boilerplate \
   -boilerplates hack/boilerplate/ \
   -exclude pkg/controllers/osc/testdata \
+  -exclude deploy/crd \
   -exclude hack/ci/testdata

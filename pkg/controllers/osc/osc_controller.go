@@ -103,7 +103,7 @@ func Add(
 		log:                           log,
 		workerClient:                  workerClient,
 		Client:                        client,
-		bootstrappingManager:                     bootstrappingManager,
+		bootstrappingManager:          bootstrappingManager,
 		caCert:                        caCert,
 		namespace:                     namespace,
 		generator:                     generator,

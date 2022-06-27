@@ -37,8 +37,8 @@ import (
 	providerconfig "k8c.io/operating-system-manager/pkg/providerconfig/config"
 	"k8c.io/operating-system-manager/pkg/util/certificate"
 
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/clientcmd"
