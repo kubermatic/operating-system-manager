@@ -841,7 +841,7 @@ func loadFile(obj runtime.Object, name string) error {
 
 func buildReconciler(fakeClient client.Client, config testConfig) Reconciler {
 	kubeconfigProvider := clusterinfo.New(fakeClient, "foobar")
-	bootstrap := bootstrap.New(fakeClient, kubeconfigProvider, nil, "")
+	bootstrappingManager := bootstrap.New(fakeClient, kubeconfigProvider, nil, "")
 
 	return Reconciler{
 		Client:       fakeClient,
@@ -854,6 +854,6 @@ func buildReconciler(fakeClient client.Client, config testConfig) Reconciler {
 		containerRuntime:    config.containerRuntime,
 		clusterDNSIPs:       config.clusterDNSIPs,
 		kubeletFeatureGates: map[string]bool{"GracefulNodeShutdown": true, "IdentifyPodOS": false},
-		bootstrap:           bootstrap,
+		bootstrappingManager:           bootstrappingManager,
 	}
 }

@@ -3,3 +3,10 @@
 
 # Dependency directories
 /vendor
+
+# Prow
+/.prow
+
+# Code
+/docs
+/hack

@@ -105,8 +105,9 @@ type File struct {
 	// Path is the path of the file system where the file should get written to.
 	Path string `json:"path"`
 	// Permissions describes with which permissions the file should get written to the file system.
-	// Should be defaulted to octal 0644.
-	Permissions *int32 `json:"permissions,omitempty"`
+	// Should be in decimal base and without any leading zeroes.
+	// +kubebuilder:default=644
+	Permissions int32 `json:"permissions,omitempty"`
 	// Content describe the file's content.
 	Content FileContent `json:"content"`
 }

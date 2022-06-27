@@ -1,7 +1,10 @@
 # See the OWNERS docs: https://git.k8s.io/community/contributors/guide/owners.md
 
 approvers:
-  - operating-system-manager-maintainers
+  - sig-osm
 
 reviewers:
-  - operating-system-manager-maintainers
+  - sig-osm
+
+labels:
+  - sig/osm

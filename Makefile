@@ -122,3 +122,7 @@ docker-image-publish: docker-image
 		docker build -t $(IMAGE_NAME) . ;\
 		docker push $(IMAGE_NAME) ;\
 	fi
+
+.PHONY: shfmt
+shfmt:
+	shfmt -w -sr -i 2 hack

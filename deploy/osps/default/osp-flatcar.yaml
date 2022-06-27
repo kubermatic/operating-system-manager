@@ -32,7 +32,7 @@ spec:
   bootstrapConfig:
     files:
       - path: "/opt/bin/bootstrap"
-        permissions: 0755
+        permissions: 755
         content:
           inline:
             encoding: b64
@@ -48,7 +48,7 @@ spec:
               reboot
 
       - path: "/etc/systemd/system/bootstrap.service"
-        permissions: 0644
+        permissions: 644
         content:
           inline:
             encoding: b64
@@ -75,7 +75,7 @@ spec:
       - name: containerd
         files:
           - path: /etc/containerd/config.toml
-            permissions: 0600
+            permissions: 600
             content:
               inline:
                 data: |
@@ -124,14 +124,14 @@ spec:
                   EnvironmentFile=-/etc/environment
 
           - path: /etc/docker/daemon.json
-            permissions: 0644
+            permissions: 644
             content:
               inline:
                 data: |-
                   {{ .ContainerRuntimeConfig }}
 
           - path: /root/.docker/config.json
-            permissions: 0600
+            permissions: 600
             content:
               inline:
                 encoding: b64
@@ -304,7 +304,7 @@ spec:
 
     files:
       - path: "/opt/bin/health-monitor.sh"
-        permissions: 0755
+        permissions: 755
         content:
           inline:
             data: |
@@ -452,7 +452,7 @@ spec:
               SystemMaxUse=5G
 
       - path: /opt/load-kernel-modules.sh
-        permissions: 0755
+        permissions: 755
         content:
           inline:
             data: |
@@ -484,7 +484,7 @@ spec:
               fs.inotify.max_user_instances = 8192
 
       - path: /opt/bin/setup_net_env.sh
-        permissions: 0755
+        permissions: 755
         content:
           inline:
             data: |
@@ -523,7 +523,7 @@ spec:
               fi
 
       - path: /opt/bin/download.sh
-        permissions: 0755
+        permissions: 755
         content:
           inline:
             data: |
@@ -537,7 +537,7 @@ spec:
               systemctl disable download-script.service
 
       - path: /opt/bin/setup
-        permissions: 0755
+        permissions: 755
         content:
           inline:
             data: |
@@ -673,7 +673,7 @@ spec:
               WantedBy=multi-user.target
 
       - path: /etc/kubernetes/cloud-config
-        permissions: 0400
+        permissions: 400
         content:
           inline:
             data: |
@@ -771,7 +771,7 @@ spec:
               volumePluginDir: /var/lib/kubelet/volumeplugins
 
       - path: /etc/systemd/system/kubelet-healthcheck.service
-        permissions: 0644
+        permissions: 644
         content:
           inline:
             data: |
@@ -787,28 +787,28 @@ spec:
 
       ## Flatcar specific configuration
       - path: /proc/sys/kernel/panic_on_oops
-        permissions: 0644
+        permissions: 644
         content:
           inline:
             data: |
               1
 
       - path: /proc/sys/kernel/panic
-        permissions: 0644
+        permissions: 644
         content:
           inline:
             data: |
               10
 
       - path: /proc/sys/vm/overcommit_memory
-        permissions: 0644
+        permissions: 644
         content:
           inline:
             data: |
               1
 
       - path: /etc/ssh/sshd_config
-        permissions: 0600
+        permissions: 600
         content:
           inline:
             data: |

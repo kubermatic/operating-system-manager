@@ -58,7 +58,9 @@ const (
 
 	OperatingSystemConfigNamePattern = "%s-%s-config"
 	CloudConfigSecretNamePattern     = "%s-%s-%s-config"
-	MachineDeploymentOSPAnnotation   = "k8c.io/operating-system-profile"
+	MachineDeploymentOSPAnnotation          = "k8c.io/operating-system-profile"
+
+	defaultFilePermissions = 644
 )
 
 // GenerateOperatingSystemConfig return an OperatingSystemConfig generated against the input data
@@ -348,6 +350,10 @@ func populateFilesList(files []osmv1alpha1.File, additionalTemplates []string, d
 		}
 		pfile := file.DeepCopy()
 		pfile.Content.Inline.Data = buff.String()
+
+		if pfile.Permissions == 0 {
+			pfile.Permissions = defaultFilePermissions
+		}
 		pfiles = append(pfiles, *pfile)
 	}
 

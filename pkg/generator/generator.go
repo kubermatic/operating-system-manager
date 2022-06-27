@@ -53,6 +53,8 @@ func NewDefaultCloudConfigGenerator(unitsPath string) CloudConfigGenerator {
 }
 
 func (d *DefaultCloudConfigGenerator) Generate(config *osmv1alpha1.OSCConfig, operatingSystem v1alpha1.OperatingSystem, cloudProvider v1alpha1.CloudProvider) ([]byte, error) {
+	provisioningUtility := GetProvisioningUtility(operatingSystem)
+
 	var files []*fileSpec
 	for _, file := range config.Files {
 		content := file.Content.Inline.Data
@@ -65,10 +67,12 @@ func (d *DefaultCloudConfigGenerator) Generate(config *osmv1alpha1.OSCConfig, op
 			Content:  content,
 			Encoding: file.Content.Inline.Encoding,
 		}
-		if file.Permissions != nil {
-			permissions := fmt.Sprintf("%04o", *file.Permissions)
-			fSpec.Permissions = &permissions
+		permissions := fmt.Sprintf("%v", file.Permissions)
+		// cloud-init expects an octal value for file permissions.
+		if provisioningUtility == CloudInit && len(permissions) == 3 {
+			permissions = "0" + permissions
 		}
+		fSpec.Permissions = &permissions
 
 		files = append(files, fSpec)
 	}
@@ -187,9 +191,7 @@ ssh_authorized_keys:
 write_files:
 {{- range $_, $file := .Files }}
 - path: '{{ $file.Path }}'
-{{- if $file.Permissions }}
-  permissions: '{{ $file.Permissions }}'
-{{- end }}
+  permissions: '{{or $file.Permissions 0644}}'
 {{- if $file.Encoding }}
   encoding: '{{ $file.Encoding }}'
 {{- end }}
@@ -230,7 +232,7 @@ rh_subscription:
 {{- if .CloudInitModules.YumRepos }}
 yum_repos:
 {{- range $key, $val := .CloudInitModules.YumRepos }}
-    {{ $key }}: 
+    {{ $key }}:
 {{- range $prop, $propVal := $val }}
        {{ $prop }}: {{ $propVal }}
 {{- end }}
@@ -256,14 +258,14 @@ storage:
 {{- /* Never set the hostname on AWS nodes. Kubernetes(kube-proxy) requires the hostname to be the private dns name */}}
 {{- /* machine-controller will replace "<MACHINE_NAME>" placeholder with the name of the machine */}}
   - path: /etc/hostname
-    mode: 0600
+    mode: 600
     filesystem: root
     contents:
         inline: '<MACHINE_NAME>'
 {{ end }}
 {{- range $_, $file := .Files }}
   - path: '{{ $file.Path }}'
-    mode: {{or $file.Permissions 0644}}
+    mode: {{or $file.Permissions 644}}
     filesystem: root
     contents:
         inline: |

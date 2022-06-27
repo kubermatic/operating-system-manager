@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
 	"k8c.io/operating-system-manager/pkg/controllers/osc/resources"
@@ -138,7 +137,7 @@ func getOperatingSystemProfile() *osmv1alpha1.OperatingSystemProfile {
 	}
 }
 
-func generateMachineDeployment(t *testing.T, osp string, os providerconfigtypes.OperatingSystem, cloudprovider string) v1alpha1.MachineDeployment {
+func generateMachineDeployment(t *testing.T, osp string, os providerconfigtypes.OperatingSystem, cloudprovider string) clusterv1alpha1.MachineDeployment {
 	pconfig := providerconfigtypes.Config{
 		SSHPublicKeys:     []string{"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c"},
 		OperatingSystem:   os,
