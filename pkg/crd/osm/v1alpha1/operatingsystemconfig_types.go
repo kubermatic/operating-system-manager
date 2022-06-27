@@ -48,9 +48,9 @@ type OperatingSystemConfigSpec struct {
 	OSVersion string `json:"osVersion"`
 	// CloudProvider represent the cloud provider that support the given operating system version
 	CloudProvider CloudProviderSpec `json:"cloudProvider"`
-	// Bootstrap config is used for initial configuration of machine and to fetch the kubernetes secret that contains the provisioning config.
+	// BootstrapConfig is used for initial configuration of machine and to fetch the kubernetes secret that contains the provisioning config.
 	BootstrapConfig OSCConfig `json:"bootstrapConfig"`
-	// Provisioning Config is used for provisioning the worker node.
+	// ProvisioningConfig is used for provisioning the worker node.
 	ProvisioningConfig OSCConfig `json:"provisioningConfig"`
 }
 

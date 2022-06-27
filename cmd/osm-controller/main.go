@@ -154,7 +154,7 @@ func main() {
 	if opt.bootstrapTokenServiceAccountName != "" {
 		flagParts := strings.Split(opt.bootstrapTokenServiceAccountName, "/")
 		if flagPartsLen := len(flagParts); flagPartsLen != 2 {
-			klog.Fatalf("Splitting the bootstrap-token-service-account-name flag value in '/' returned %d parts, expected exactly two", flagPartsLen)
+			klog.Fatalf("splitting the bootstrap-token-service-account-name flag value in '/' returned %d parts, expected exactly two", flagPartsLen)
 		}
 		bootstrapTokenServiceAccountName = &types.NamespacedName{Namespace: flagParts[0], Name: flagParts[1]}
 	}
@@ -236,7 +236,7 @@ func main() {
 	}
 
 	kubeconfigProvider := clusterinfo.New(workerClient, caCert)
-	bootstrap := bootstrap.New(workerClient, kubeconfigProvider, bootstrapTokenServiceAccountName, opt.overrideBootstrapKubeletAPIServer)
+	bootstrappingManager := bootstrap.New(workerClient, kubeconfigProvider, bootstrapTokenServiceAccountName, opt.overrideBootstrapKubeletAPIServer)
 
 	// Instantiate ConfigVarResolver
 	providerconfig.SetConfigVarResolver(context.Background(), workerMgr.GetClient(), opt.namespace)
@@ -252,7 +252,7 @@ func main() {
 		log,
 		workerClient,
 		mgr.GetClient(),
-		bootstrap,
+		bootstrappingManager,
 		caCert,
 		opt.namespace,
 		opt.workerCount,
