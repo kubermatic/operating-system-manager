@@ -153,13 +153,15 @@ func getOperatingSystemConfig() osmv1alpha1.OperatingSystemConfig {
 		Spec: osmv1alpha1.OperatingSystemConfigSpec{
 			OSName:    "ubuntu",
 			OSVersion: "20.04",
-			Files: []osmv1alpha1.File{
-				{
-					Path:        "/opt/bin/test.service",
-					Permissions: 644,
-					Content: osmv1alpha1.FileContent{
-						Inline: &osmv1alpha1.FileContentInline{
-							Data: "    #!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    cloud-init init\n    systemctl start provision.service",
+			ProvisioningConfig: osmv1alpha1.OSCConfig{
+				Files: []osmv1alpha1.File{
+					{
+						Path:        "/opt/bin/test.service",
+						Permissions: 700,
+						Content: osmv1alpha1.FileContent{
+							Inline: &osmv1alpha1.FileContentInline{
+								Data: "    #!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    cloud-init init\n    systemctl start provision.service",
+							},
 						},
 					},
 				},

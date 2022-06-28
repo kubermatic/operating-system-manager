@@ -28,6 +28,8 @@ import (
 
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	"github.com/kubermatic/machine-controller/pkg/containerruntime"
+	"k8c.io/operating-system-manager/pkg/bootstrap"
+	"k8c.io/operating-system-manager/pkg/clusterinfo"
 	"k8c.io/operating-system-manager/pkg/controllers/osc"
 	"k8c.io/operating-system-manager/pkg/controllers/osp"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
@@ -36,6 +38,7 @@ import (
 	"k8c.io/operating-system-manager/pkg/util/certificate"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/clientcmd"
@@ -74,6 +77,9 @@ type options struct {
 	// Flags for proxy
 	nodeHTTPProxy string
 	nodeNoProxy   string
+
+	overrideBootstrapKubeletAPIServer string
+	bootstrapTokenServiceAccountName  string
 }
 
 var (
@@ -123,6 +129,8 @@ func main() {
 	flag.StringVar(&opt.workerHealthProbeAddress, "worker-health-probe-address", "127.0.0.1:8086", "For worker manager, the address on which the liveness check on /healthz and readiness check on /readyz will be available")
 	flag.StringVar(&opt.workerMetricsAddress, "worker-metrics-address", "127.0.0.1:8081", "For worker manager, the address on which Prometheus metrics will be available under /metrics")
 	flag.BoolVar(&opt.enableLeaderElection, "leader-elect", true, "Enable leader election for controller manager.")
+	flag.StringVar(&opt.overrideBootstrapKubeletAPIServer, "override-bootstrap-kubelet-apiserver", "", "Override for the API server address used in worker nodes bootstrap-kubelet.conf")
+	flag.StringVar(&opt.bootstrapTokenServiceAccountName, "bootstrap-token-service-account-name", "", "When set use the service account token from this SA as bootstrap token instead of creating a temporary one. Passed in namespace/name format")
 
 	flag.Parse()
 
@@ -147,6 +155,16 @@ func main() {
 		klog.Fatalf("invalid kubelet feature gates specified: %v", err)
 	}
 
+	var bootstrapTokenServiceAccountName *types.NamespacedName
+	if opt.bootstrapTokenServiceAccountName != "" {
+		flagParts := strings.Split(opt.bootstrapTokenServiceAccountName, "/")
+		if flagPartsLen := len(flagParts); flagPartsLen != 2 {
+			klog.Fatalf("splitting the bootstrap-token-service-account-name flag value in '/' returned %d parts, expected exactly two", flagPartsLen)
+		}
+		bootstrapTokenServiceAccountName = &types.NamespacedName{Namespace: flagParts[0], Name: flagParts[1]}
+	}
+
+	// Build container-runtime configuration
 	containerRuntimeOpts := containerruntime.Opts{
 		ContainerRuntime:          opt.containerRuntime,
 		ContainerdRegistryMirrors: opt.nodeContainerdRegistryMirrors,
@@ -160,6 +178,7 @@ func main() {
 		klog.Fatalf("failed to generate container runtime config: %v", err)
 	}
 
+	// Configure logger
 	logger, err := zap.NewProduction()
 	if err != nil {
 		klog.Fatal(err)
@@ -221,6 +240,9 @@ func main() {
 		klog.Fatal("failed to load CA certificate", zap.Error(err))
 	}
 
+	kubeconfigProvider := clusterinfo.New(workerClient, caCert)
+	bootstrappingManager := bootstrap.New(workerClient, kubeconfigProvider, bootstrapTokenServiceAccountName, opt.overrideBootstrapKubeletAPIServer)
+
 	// Instantiate ConfigVarResolver
 	providerconfig.SetConfigVarResolver(context.Background(), workerMgr.GetClient(), opt.namespace)
 
@@ -235,6 +257,7 @@ func main() {
 		log,
 		workerClient,
 		mgr.GetClient(),
+		bootstrappingManager,
 		caCert,
 		opt.namespace,
 		opt.workerCount,

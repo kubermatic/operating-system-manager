@@ -25,8 +25,12 @@ SCRIPT_ROOT=$(dirname "${BASH_SOURCE}")
 echodate "Creating vendor directory"
 go mod vendor
 
+echodate "Running go generate"
+go generate ./pkg/...
+
 echodate "Generating OpenAPI 3 schema for CRDs"
 go run sigs.k8s.io/controller-tools/cmd/controller-gen \
-  schemapatch:manifests=./deploy/crd \
-  output:dir=./deploy/crd \
-  paths=./pkg/crd/...
+  crd \
+  object:headerFile="hack/header.txt" \
+  paths=./pkg/crd/... \
+  output:crd:artifacts:config=./deploy/crd

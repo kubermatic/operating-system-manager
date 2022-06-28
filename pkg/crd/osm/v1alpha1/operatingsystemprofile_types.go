@@ -51,8 +51,15 @@ type OperatingSystemProfileSpec struct {
 	Version string `json:"version"`
 	// SupportedCloudProviders represent the cloud providers that support the given operating system version
 	SupportedCloudProviders []CloudProviderSpec `json:"supportedCloudProviders"`
+	// BootstrapConfig is used for initial configuration of machine and to fetch the kubernetes secret that contains the provisioning config.
+	BootstrapConfig OSPConfig `json:"bootstrapConfig"`
+	// ProvisioningConfig is used for provisioning the worker node.
+	ProvisioningConfig OSPConfig `json:"provisioningConfig"`
+}
+
+type OSPConfig struct {
 	// SupportedContainerRuntimes represents the container runtimes supported by the given OS
-	SupportedContainerRuntimes []ContainerRuntimeSpec `json:"supportedContainerRuntimes"`
+	SupportedContainerRuntimes []ContainerRuntimeSpec `json:"supportedContainerRuntimes,omitempty"`
 	// Templates to be included in units and files
 	Templates map[string]string `json:"templates,omitempty"`
 	// Units a list of the systemd unit files which will run on the instance

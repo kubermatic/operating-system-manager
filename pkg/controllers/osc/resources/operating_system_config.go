@@ -42,9 +42,11 @@ import (
 	"k8c.io/operating-system-manager/pkg/providerconfig/sles"
 	"k8c.io/operating-system-manager/pkg/providerconfig/ubuntu"
 	jsonutil "k8c.io/operating-system-manager/pkg/util/json"
+	kubeconfigutil "k8c.io/operating-system-manager/pkg/util/kubeconfig"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/utils/pointer"
 )
 
@@ -52,9 +54,11 @@ type CloudConfigSecret string
 
 const (
 	ProvisioningCloudConfig CloudConfigSecret = "provisioning"
+	BootstrapCloudConfig    CloudConfigSecret = "bootstrap"
 
-	MachineDeploymentSubresourceNamePattern = "%s-%s-osc-%s"
-	MachineDeploymentOSPAnnotation          = "k8c.io/operating-system-profile"
+	OperatingSystemConfigNamePattern = "%s-%s-config"
+	CloudConfigSecretNamePattern     = "%s-%s-%s-config"
+	MachineDeploymentOSPAnnotation   = "k8c.io/operating-system-profile"
 
 	defaultFilePermissions = 644
 )
@@ -63,6 +67,8 @@ const (
 func GenerateOperatingSystemConfig(
 	md *v1alpha1.MachineDeployment,
 	osp *osmv1alpha1.OperatingSystemProfile,
+	bootstrapKubeconfig *clientcmdapi.Config,
+	apiServerToken string,
 	oscName string,
 	namespace string,
 	caCert string,
@@ -150,6 +156,25 @@ func GenerateOperatingSystemConfig(
 		externalCloudProvider = true
 	}
 
+	bootstrapKubeconfigString, err := kubeconfigutil.StringifyKubeconfig(bootstrapKubeconfig)
+	if err != nil {
+		return nil, err
+	}
+	provisioningSecretName := fmt.Sprintf(CloudConfigSecretNamePattern, md.Name, md.Namespace, ProvisioningCloudConfig)
+
+	var clusterName string
+	for key := range bootstrapKubeconfig.Clusters {
+		clusterName = key
+		break
+	}
+	serverURL := bootstrapKubeconfig.Clusters[clusterName].Server
+
+	bc := bootstrapConfig{
+		Token:      apiServerToken,
+		SecretName: provisioningSecretName,
+		ServerURL:  serverURL,
+	}
+
 	data := filesData{
 		KubeVersion:                kubeletVersionStr,
 		ClusterDNSIPs:              clusterDNSIPs,
@@ -165,6 +190,8 @@ func GenerateOperatingSystemConfig(
 		ContainerRuntimeAuthConfig: crAuthConfig,
 		KubeletFeatureGates:        kubeletFeatureGates,
 		kubeletConfig:              kubeletConfigs,
+		BootstrapKubeconfig:        bootstrapKubeconfigString,
+		bootstrapConfig:            bc,
 	}
 
 	if len(nodeHTTPProxy) > 0 {
@@ -187,34 +214,49 @@ func GenerateOperatingSystemConfig(
 	}
 
 	if providerConfig.OperatingSystem == providerconfigtypes.OperatingSystemRHEL {
-		if osp.Spec.CloudInitModules == nil {
-			osp.Spec.CloudInitModules = &osmv1alpha1.CloudInitModule{}
+		rhSubscription := rhel.RHSubscription(data.RhelConfig)
+
+		if osp.Spec.BootstrapConfig.CloudInitModules == nil {
+			osp.Spec.BootstrapConfig.CloudInitModules = &osmv1alpha1.CloudInitModule{}
 		}
-		osp.Spec.CloudInitModules.RHSubscription = rhel.RHSubscription(data.RhelConfig)
+		osp.Spec.BootstrapConfig.CloudInitModules.RHSubscription = rhSubscription
+
+		if osp.Spec.ProvisioningConfig.CloudInitModules == nil {
+			osp.Spec.ProvisioningConfig.CloudInitModules = &osmv1alpha1.CloudInitModule{}
+		}
+		osp.Spec.ProvisioningConfig.CloudInitModules.RHSubscription = rhSubscription
 	}
 
-	// Handle files
-	osp.Spec.Files = append(osp.Spec.Files, selectAdditionalFiles(osp, containerRuntime)...)
-	additionalTemplates, err := selectAdditionalTemplates(osp, containerRuntime, data)
+	// Render files for bootstrapping config
+	renderedBootstrappingFiles, err := renderedFiles(osp.Spec.BootstrapConfig, containerRuntime, data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to add OSP templates: %w", err)
+		return nil, fmt.Errorf("failed to render bootstrapping file templates: %w", err)
 	}
-	populatedFiles, err := populateFilesList(osp.Spec.Files, additionalTemplates, data)
+	// Render files for provisioning config
+	renderedProvisioningFiles, err := renderedFiles(osp.Spec.ProvisioningConfig, containerRuntime, data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to populate OSP file template: %w", err)
+		return nil, fmt.Errorf("failed to render bootstrapping file templates: %w", err)
 	}
 
 	osc.Spec = osmv1alpha1.OperatingSystemConfigSpec{
 		OSName:    ospOriginal.Spec.OSName,
 		OSVersion: ospOriginal.Spec.OSVersion,
-		Units:     ospOriginal.Spec.Units,
-		Files:     populatedFiles,
 		CloudProvider: osmv1alpha1.CloudProviderSpec{
 			Name: osmv1alpha1.CloudProvider(providerConfig.CloudProvider),
 			Spec: providerConfig.CloudProviderSpec,
 		},
-		UserSSHKeys:      providerConfig.SSHPublicKeys,
-		CloudInitModules: osp.Spec.CloudInitModules,
+		BootstrapConfig: osmv1alpha1.OSCConfig{
+			Units:            ospOriginal.Spec.BootstrapConfig.Units,
+			Files:            renderedBootstrappingFiles,
+			UserSSHKeys:      providerConfig.SSHPublicKeys,
+			CloudInitModules: osp.Spec.BootstrapConfig.CloudInitModules,
+		},
+		ProvisioningConfig: osmv1alpha1.OSCConfig{
+			Units:            ospOriginal.Spec.ProvisioningConfig.Units,
+			Files:            renderedProvisioningFiles,
+			UserSSHKeys:      providerConfig.SSHPublicKeys,
+			CloudInitModules: osp.Spec.ProvisioningConfig.CloudInitModules,
+		},
 	}
 	return osc, nil
 }
@@ -223,6 +265,7 @@ type filesData struct {
 	KubeVersion                string
 	KubeletConfiguration       string
 	KubeletSystemdUnit         string
+	BootstrapKubeconfig        string
 	InTreeCCMAvailable         bool
 	CNIVersion                 string
 	ClusterDNSIPs              []net.IP
@@ -243,10 +286,11 @@ type filesData struct {
 	RHSubscription             map[string]string
 
 	kubeletConfig
-	OperatingSystemConfig
+	operatingSystemConfig
+	bootstrapConfig
 }
 
-type OperatingSystemConfig struct {
+type operatingSystemConfig struct {
 	AmazonLinuxConfig amzn2.Config
 	CentOSConfig      centos.Config
 	FlatcarConfig     flatcar.Config
@@ -263,6 +307,25 @@ type kubeletConfig struct {
 	MaxPods              *int32
 	ContainerLogMaxSize  *string
 	ContainerLogMaxFiles *string
+}
+
+type bootstrapConfig struct {
+	Token      string
+	ServerURL  string
+	SecretName string
+}
+
+func renderedFiles(config osmv1alpha1.OSPConfig, containerRuntime string, data filesData) ([]osmv1alpha1.File, error) {
+	config.Files = append(config.Files, selectAdditionalFiles(config, containerRuntime)...)
+	additionalTemplates, err := selectAdditionalTemplates(config, containerRuntime, data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to add OSP templates: %w", err)
+	}
+	populatedFiles, err := populateFilesList(config.Files, additionalTemplates, data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to populate OSP file template: %w", err)
+	}
+	return populatedFiles, nil
 }
 
 func populateFilesList(files []osmv1alpha1.File, additionalTemplates []string, d filesData) ([]osmv1alpha1.File, error) {
@@ -297,10 +360,10 @@ func populateFilesList(files []osmv1alpha1.File, additionalTemplates []string, d
 	return pfiles, nil
 }
 
-func selectAdditionalFiles(osp *osmv1alpha1.OperatingSystemProfile, containerRuntime string) []osmv1alpha1.File {
+func selectAdditionalFiles(config osmv1alpha1.OSPConfig, containerRuntime string) []osmv1alpha1.File {
 	filesToAdd := make([]osmv1alpha1.File, 0)
 	// select container runtime files
-	for _, cr := range osp.Spec.SupportedContainerRuntimes {
+	for _, cr := range config.SupportedContainerRuntimes {
 		if cr.Name == osmv1alpha1.ContainerRuntime(containerRuntime) {
 			filesToAdd = append(filesToAdd, cr.Files...)
 			break
@@ -310,11 +373,11 @@ func selectAdditionalFiles(osp *osmv1alpha1.OperatingSystemProfile, containerRun
 	return filesToAdd
 }
 
-func selectAdditionalTemplates(osp *osmv1alpha1.OperatingSystemProfile, containerRuntime string, d filesData) ([]string, error) {
+func selectAdditionalTemplates(config osmv1alpha1.OSPConfig, containerRuntime string, d filesData) ([]string, error) {
 	templatesToRender := make(map[string]string)
 
 	// select container runtime scripts
-	for _, cr := range osp.Spec.SupportedContainerRuntimes {
+	for _, cr := range config.SupportedContainerRuntimes {
 		if cr.Name == osmv1alpha1.ContainerRuntime(containerRuntime) {
 			for name, temp := range cr.Templates {
 				templatesToRender[name] = temp
@@ -324,7 +387,7 @@ func selectAdditionalTemplates(osp *osmv1alpha1.OperatingSystemProfile, containe
 	}
 
 	// select templates from templates field
-	for name, temp := range osp.Spec.Templates {
+	for name, temp := range config.Templates {
 		templatesToRender[name] = temp
 	}
 

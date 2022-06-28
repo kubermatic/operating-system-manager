@@ -48,6 +48,13 @@ type OperatingSystemConfigSpec struct {
 	OSVersion string `json:"osVersion"`
 	// CloudProvider represent the cloud provider that support the given operating system version
 	CloudProvider CloudProviderSpec `json:"cloudProvider"`
+	// BootstrapConfig is used for initial configuration of machine and to fetch the kubernetes secret that contains the provisioning config.
+	BootstrapConfig OSCConfig `json:"bootstrapConfig"`
+	// ProvisioningConfig is used for provisioning the worker node.
+	ProvisioningConfig OSCConfig `json:"provisioningConfig"`
+}
+
+type OSCConfig struct {
 	// Units a list of the systemd unit files which will run on the instance
 	Units []Unit `json:"units,omitempty"`
 	// Files is a list of files that should exist in the instance
