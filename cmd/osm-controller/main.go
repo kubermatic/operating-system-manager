@@ -213,6 +213,7 @@ func main() {
 		}
 
 		workerMgr, err = manager.New(workerClusterConfig, manager.Options{
+			Scheme:           scheme,
 			LeaderElection:   opt.enableLeaderElection,
 			LeaderElectionID: "operating-system-manager-worker-manager",
 			// We use hard-coded namespace kube-system here since manager uses worker cluster config
@@ -285,6 +286,7 @@ func main() {
 func createManager(opt *options) (manager.Manager, error) {
 	// Manager options
 	options := manager.Options{
+		Scheme:                  scheme,
 		LeaderElection:          opt.enableLeaderElection,
 		LeaderElectionID:        "operating-system-manager",
 		LeaderElectionNamespace: opt.namespace,

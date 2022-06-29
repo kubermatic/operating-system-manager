@@ -12,6 +12,8 @@ spec:
     kind: OperatingSystemConfig
     listKind: OperatingSystemConfigList
     plural: operatingsystemconfigs
+    shortNames:
+    - osc
     singular: operatingsystemconfig
   scope: Namespaced
   versions:

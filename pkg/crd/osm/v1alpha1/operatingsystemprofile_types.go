@@ -30,6 +30,7 @@ const (
 
 //+genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:shortName=osp
 
 // OperatingSystemProfile is the object that represents the OperatingSystemProfile
 type OperatingSystemProfile struct {
