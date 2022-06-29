@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	CloudInitNamespace = "cloud-init-settings"
+	CloudInitNamespace    = "cloud-init-settings"
 	cloudInitGetterSecret = "cloud-init-getter-token"
 )
 
