@@ -12,6 +12,8 @@ spec:
     kind: OperatingSystemProfile
     listKind: OperatingSystemProfileList
     plural: operatingsystemprofiles
+    shortNames:
+    - osp
     singular: operatingsystemprofile
   scope: Namespaced
   versions:
