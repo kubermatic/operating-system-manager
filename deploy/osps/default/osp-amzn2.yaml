@@ -94,7 +94,7 @@ spec:
         templates:
           containerRuntimeInstallation: |-
             yum install -y \
-              containerd-1.4* \
+              containerd-1.5* \
               yum-plugin-versionlock
             yum versionlock add containerd
 
@@ -138,8 +138,8 @@ spec:
         templates:
           containerRuntimeInstallation: |-
             yum install -y \
-                containerd-1.4* \
-                docker-19.03* \
+                containerd-1.5* \
+                docker-20.10* \
                 yum-plugin-versionlock
             yum versionlock add docker containerd
 
