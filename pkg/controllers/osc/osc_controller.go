@@ -354,16 +354,16 @@ func (r *Reconciler) deleteGeneratedSecrets(ctx context.Context, md *clusterv1al
 		},
 	}
 
-	if err := r.Delete(ctx, secret); err != nil && !kerrors.IsNotFound(err) {
-		return fmt.Errorf("failed to delete provisioning secret %s against MachineDeployment %s: %w", secret, md.Name, err)
+	if err := r.workerClient.Delete(ctx, secret); err != nil && !kerrors.IsNotFound(err) {
+		return fmt.Errorf("failed to delete provisioning secret %s against MachineDeployment %s: %w", provisioningSecretName, md.Name, err)
 	}
 
 	// Delete bootstrap secret
 	bootstrapSecretName := fmt.Sprintf(resources.CloudConfigSecretNamePattern, md.Name, md.Namespace, resources.BootstrapCloudConfig)
 	secret.Name = bootstrapSecretName
 
-	if err := r.Delete(ctx, secret); err != nil && !kerrors.IsNotFound(err) {
-		return fmt.Errorf("failed to delete bootstrap secret %s against MachineDeployment %s: %w", secret, md.Name, err)
+	if err := r.workerClient.Delete(ctx, secret); err != nil && !kerrors.IsNotFound(err) {
+		return fmt.Errorf("failed to delete bootstrap secret %s against MachineDeployment %s: %w", bootstrapSecretName, md.Name, err)
 	}
 	return nil
 }

@@ -178,6 +178,17 @@ spec:
         inline:
           data: |2+
 
+            [Match]
+            # Because of difficulty predicting specific NIC names on different cloud providers,
+            # we only support static addressing on VSphere. There should be a single NIC attached
+            # that we will match by name prefix 'en' which denotes ethernet devices.
+            Name=en*
+
+            [Network]
+            DHCP=no
+            Address=
+            Gateway=
+
       path: /etc/systemd/system/systemd-networkd.service.d/10-static-network.conf
       permissions: 644
     - content:

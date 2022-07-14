@@ -606,7 +606,10 @@ spec:
                 --container-runtime=docker \
                 --container-runtime-endpoint=unix:///var/run/dockershim.sock \
                 {{- end }}
+                {{- /* If external or in-tree CCM is in use we don't need to set --node-ip as the cloud provider will know what IPs to return.  */}}
+                {{- if not (and (eq .NetworkIPFamily "IPv4+IPv6") (or (.CloudProviderName) (.IsExternal))) }}
                 --node-ip ${KUBELET_NODE_IP}
+                {{- end }}
 
               [Install]
               WantedBy=multi-user.target
@@ -631,7 +634,15 @@ spec:
               }
 
               # get the default interface IP address
+              {{- if eq .NetworkIPFamily "IPv6" }}
+              DEFAULT_IFC_IP=$(ip -o -6 route get  1:: | grep -oP "src \K\S+")
+              {{- else if eq .NetworkIPFamily "IPv4+IPv6" }}
+              DEFAULT_IFC_IPv4=$(ip -o route get  1 | grep -oP "src \K\S+")
+              DEFAULT_IFC_IPv6=$(ip -o -6 route get  1:: | grep -oP "src \K\S+")
+              DEFAULT_IFC_IP=$DEFAULT_IFC_IPv4,$DEFAULT_IFC_IPv6
+              {{- else }}
               DEFAULT_IFC_IP=$(ip -o  route get 1 | grep -oP "src \K\S+")
+              {{- end }}
 
               if [ -z "${DEFAULT_IFC_IP}" ]
               then

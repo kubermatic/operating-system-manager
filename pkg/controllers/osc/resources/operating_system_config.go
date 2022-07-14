@@ -102,6 +102,8 @@ func GenerateOperatingSystemConfig(
 		return nil, fmt.Errorf("failed to decode provider configs: %w", err)
 	}
 
+	networkIPFamily := providerConfig.Network.GetIPFamily()
+
 	var cloudConfig string
 	if providerConfig.OverwriteCloudConfig != nil {
 		cloudConfig = *providerConfig.OverwriteCloudConfig
@@ -192,6 +194,7 @@ func GenerateOperatingSystemConfig(
 		kubeletConfig:              kubeletConfigs,
 		BootstrapKubeconfig:        bootstrapKubeconfigString,
 		bootstrapConfig:            bc,
+		NetworkIPFamily:            string(networkIPFamily),
 	}
 
 	if len(nodeHTTPProxy) > 0 {
@@ -284,6 +287,7 @@ type filesData struct {
 	ContainerRuntimeAuthConfig string
 	KubeletFeatureGates        map[string]bool
 	RHSubscription             map[string]string
+	NetworkIPFamily            string
 
 	kubeletConfig
 	operatingSystemConfig

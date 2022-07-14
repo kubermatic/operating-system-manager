@@ -431,7 +431,6 @@ spec:
               exit 1
             fi
 
-
             # get the full hostname
             FULL_HOSTNAME=$(hostname -f)
             # if /etc/hostname is not empty then use the hostname from there
