@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
+	cloudproviderutil "github.com/kubermatic/machine-controller/pkg/cloudprovider/util"
 	"github.com/kubermatic/machine-controller/pkg/containerruntime"
 	machinecontrollerutil "github.com/kubermatic/machine-controller/pkg/controller/util"
 	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
@@ -125,6 +126,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 		oscFile                string
 		operatingSystem        providerconfigtypes.OperatingSystem
 		mdName                 string
+		ipFamily               cloudproviderutil.IPFamily
 		bootstrapSecretFile    string
 		provisioningSecretFile string
 		config                 testConfig
@@ -142,6 +144,25 @@ func TestReconciler_Reconcile(t *testing.T) {
 			kubeletVersion:         "1.24.2",
 			provisioningSecretFile: "secret-ubuntu-aws-containerd-provisioning.yaml",
 			bootstrapSecretFile:    "secret-ubuntu-aws-containerd-bootstrap.yaml",
+			config: testConfig{
+				namespace:        "kube-system",
+				containerRuntime: "containerd",
+				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
+			},
+			cloudProvider:     "aws",
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
+		},
+		{
+			name:                   "Ubuntu OS in AWS with Dualstack Networking",
+			ospFile:                defaultOSPPathPrefix + "osp-ubuntu.yaml",
+			ospName:                "osp-ubuntu",
+			operatingSystem:        providerconfigtypes.OperatingSystemUbuntu,
+			oscFile:                "osc-ubuntu-aws-dualstack.yaml",
+			mdName:                 "ubuntu-aws",
+			ipFamily:               cloudproviderutil.DualStack,
+			kubeletVersion:         "1.24.2",
+			provisioningSecretFile: "secret-ubuntu-aws-dualstack-provisioning.yaml",
+			bootstrapSecretFile:    "secret-ubuntu-aws-dualstack-bootstrap.yaml",
 			config: testConfig{
 				namespace:        "kube-system",
 				containerRuntime: "containerd",
@@ -344,7 +365,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 
 		t.Run(testCase.name, func(t *testing.T) {
 			ctx := context.Background()
-			md := generateMachineDeployment(t, testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.kubeletVersion, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec, testCase.additionalAnnotations)
+			md := generateMachineDeployment(t, testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.kubeletVersion, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec, testCase.additionalAnnotations, testCase.ipFamily)
 
 			// Configure containerRuntimeConfig
 			containerRuntimeOpts := containerruntime.Opts{
@@ -442,7 +463,6 @@ func TestOSCAndSecretRotation(t *testing.T) {
 		cloudProviderSpec runtime.RawExtension
 	}{
 		{
-
 			name:            "test updates of machineDeployment",
 			ospFile:         defaultOSPPathPrefix + "osp-ubuntu.yaml",
 			ospName:         "osp-ubuntu",
@@ -499,7 +519,7 @@ func TestOSCAndSecretRotation(t *testing.T) {
 			},
 		}
 
-		md := generateMachineDeployment(t, testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.kubeletVersion, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec, nil)
+		md := generateMachineDeployment(t, testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.kubeletVersion, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec, nil, cloudproviderutil.IPv4)
 
 		objects = append(objects, osp)
 		objects = append(objects, md)
@@ -639,7 +659,6 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 		cloudProviderSpec runtime.RawExtension
 	}{
 		{
-
 			name:            "test the deletion of machineDeployment",
 			ospFile:         defaultOSPPathPrefix + "osp-ubuntu.yaml",
 			ospName:         "osp-ubuntu",
@@ -696,7 +715,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 			},
 		}
 
-		md := generateMachineDeployment(t, testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.kubeletVersion, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec, nil)
+		md := generateMachineDeployment(t, testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.kubeletVersion, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec, nil, cloudproviderutil.IPv4)
 
 		objects = append(objects, osp)
 		objects = append(objects, md)
@@ -779,13 +798,17 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 	}
 }
 
-func generateMachineDeployment(t *testing.T, name, namespace, osp, kubeletVersion string, os providerconfigtypes.OperatingSystem, cloudprovider string, cloudProviderSpec runtime.RawExtension, additionalAnnotations map[string]string) *v1alpha1.MachineDeployment {
+func generateMachineDeployment(t *testing.T, name, namespace, osp, kubeletVersion string, os providerconfigtypes.OperatingSystem, cloudprovider string, cloudProviderSpec runtime.RawExtension, additionalAnnotations map[string]string, ipFamily cloudproviderutil.IPFamily) *v1alpha1.MachineDeployment {
 	pconfig := providerconfigtypes.Config{
 		SSHPublicKeys:     []string{"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c"},
 		OperatingSystem:   os,
 		CloudProviderSpec: cloudProviderSpec,
 		CloudProvider:     providerconfigtypes.CloudProvider(cloudprovider),
+		Network: &providerconfigtypes.NetworkConfig{
+			IPFamily: ipFamily,
+		},
 	}
+
 	mdConfig, err := json.Marshal(pconfig)
 	if err != nil {
 		t.Fatalf("failed to generate machine deployment: %v", err)
