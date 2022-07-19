@@ -155,9 +155,9 @@ spec:
             yum-config-manager --save --setopt=docker-ce-stable.module_hotfixes=true
 
             yum install -y \
-                docker-ce-cli-19.03* \
+                docker-ce-cli-20.10* \
                 containerd.io-1.5* \
-                docker-ce-19.03* \
+                docker-ce-20.10* \
                 yum-plugin-versionlock
             yum versionlock add docker-ce* containerd.io
 
