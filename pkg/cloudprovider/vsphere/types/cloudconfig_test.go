@@ -77,6 +77,61 @@ port = 9090
 datacenters = "datacenter"
 
 `},
+		{
+			name: "conversion-test with specific IPFamily",
+			config: &CloudConfig{
+				Global: GlobalOpts{
+					User:         "username",
+					Password:     "password",
+					InsecureFlag: true,
+					VCenterPort:  "9090",
+					ClusterID:    "test",
+					IPFamily:     "IPv4",
+				},
+				Disk: DiskOpts{
+					SCSIControllerType: "pvscsi",
+				},
+				Workspace: WorkspaceOpts{
+					Datacenter:       "datacenter",
+					VCenterIP:        "hostname",
+					DefaultDatastore: "datastore",
+					Folder:           "workingDir",
+				},
+				VirtualCenter: map[string]*VirtualCenterConfig{
+					"hostname": {
+						VCenterPort: "9090",
+						Datacenters: "datacenter",
+						User:        "username",
+						Password:    "password",
+						IPFamily:    "IPv4",
+					},
+				},
+			},
+			expected: `[Global]
+user              = "username"
+password          = "password"
+port              = "9090"
+insecure-flag     = true
+ip-family         = "IPv4"
+
+[Disk]
+scsicontrollertype = "pvscsi"
+
+[Workspace]
+server            = "hostname"
+datacenter        = "datacenter"
+folder            = "workingDir"
+default-datastore = "datastore"
+
+
+[VirtualCenter "hostname"]
+user = "username"
+password = "password"
+port = 9090
+datacenters = "datacenter"
+ip-family = "IPv4"
+
+`},
 	}
 
 	for _, test := range tests {

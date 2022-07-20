@@ -32,6 +32,9 @@ user              = {{ .Global.User | iniEscape }}
 password          = {{ .Global.Password | iniEscape }}
 port              = {{ .Global.VCenterPort | iniEscape }}
 insecure-flag     = {{ .Global.InsecureFlag }}
+{{- if .Global.IPFamily }}
+ip-family         = {{ .Global.IPFamily | iniEscape }}
+{{- end }}
 
 [Disk]
 scsicontrollertype = {{ .Disk.SCSIControllerType | iniEscape }}
@@ -48,6 +51,9 @@ user = {{ $vc.User | iniEscape }}
 password = {{ $vc.Password | iniEscape }}
 port = {{ $vc.VCenterPort }}
 datacenters = {{ $vc.Datacenters | iniEscape }}
+{{- if $vc.IPFamily }}
+ip-family = {{ $vc.IPFamily | iniEscape }}
+{{- end }}
 {{ end }}
 `
 )
@@ -69,6 +75,7 @@ type GlobalOpts struct {
 	InsecureFlag bool   `gcfg:"insecure-flag"`
 	VCenterPort  string `gcfg:"port"`
 	ClusterID    string `gcfg:"cluster-id"`
+	IPFamily     string `gcfg:"ip-family"` // NOTE: supported only in case of out-of-tree CCM
 }
 
 type VirtualCenterConfig struct {
@@ -76,6 +83,7 @@ type VirtualCenterConfig struct {
 	Password    string `gcfg:"password"`
 	VCenterPort string `gcfg:"port"`
 	Datacenters string `gcfg:"datacenters"`
+	IPFamily    string `gcfg:"ip-family"` // NOTE: supported only in case of out-of-tree CCM
 }
 
 // CloudConfig is used to read and store information from the cloud configuration file
