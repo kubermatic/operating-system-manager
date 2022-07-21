@@ -62,17 +62,17 @@ func TestMachineDeploymentValidation(t *testing.T) {
 		{
 			name:              "MachineDeployment with non-existing OSP specified",
 			machineDeployment: generateMachineDeployment(t, "invalid", "ubuntu", "aws"),
-			expectedError:     `[spec.template.spec.providerSpec.OperatingSystem: Invalid value: "ubuntu": OperatingSystemProfile does not support the OperatingSystem specified in MachineDeployment spec.template.spec.providerSpec.CloudProvider: Invalid value: "aws": OperatingSystemProfile does not support the CloudProvider specified in MachineDeployment]`,
+			expectedError:     `[metadata.annotations.k8c.io/operating-system-profile: Invalid value: "invalid": OperatingSystemProfile "invalid" not found]`,
 		},
 		{
 			name:              "MachineDeployment with in-compatible OS",
 			machineDeployment: generateMachineDeployment(t, "ubuntu", "sles", "aws"),
-			expectedError:     `[spec.template.spec.providerSpec.OperatingSystem: Invalid value: "sles": OperatingSystemProfile does not support the OperatingSystem specified in MachineDeployment]`,
+			expectedError:     `[spec.template.spec.providerSpec.OperatingSystem: Invalid value: "sles": OperatingSystemProfile "ubuntu" does not support the OperatingSystem "sles" specified in MachineDeployment]`,
 		},
 		{
 			name:              "MachineDeployment with in-compatible cloud provider",
 			machineDeployment: generateMachineDeployment(t, "ubuntu", "ubuntu", "azure"),
-			expectedError:     `[spec.template.spec.providerSpec.CloudProvider: Invalid value: "azure": OperatingSystemProfile does not support the CloudProvider specified in MachineDeployment]`,
+			expectedError:     `[spec.template.spec.providerSpec.CloudProvider: Invalid value: "azure": OperatingSystemProfile "ubuntu" does not support the CloudProvider "azure" specified in MachineDeployment]`,
 		},
 		{
 			name:              "MachineDeployment with compatible OS and cloud provider",
