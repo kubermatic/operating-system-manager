@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"text/template"
 
+	"k8c.io/operating-system-manager/pkg/controllers/osc/resources"
 	"k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 )
@@ -33,7 +34,7 @@ const (
 
 // CloudConfigGenerator generates the machine bootstrapping and provisioning configurations for the corresponding operating system config
 type CloudConfigGenerator interface {
-	Generate(config *osmv1alpha1.OSCConfig, operatingSystem v1alpha1.OperatingSystem, cloudProvider v1alpha1.CloudProvider) ([]byte, error)
+	Generate(config *osmv1alpha1.OSCConfig, operatingSystem v1alpha1.OperatingSystem, cloudProvider v1alpha1.CloudProvider, secretType resources.CloudConfigSecret) ([]byte, error)
 }
 
 // DefaultCloudConfigGenerator represents the default generator of the machine provisioning configurations
@@ -52,7 +53,7 @@ func NewDefaultCloudConfigGenerator(unitsPath string) CloudConfigGenerator {
 	}
 }
 
-func (d *DefaultCloudConfigGenerator) Generate(config *osmv1alpha1.OSCConfig, operatingSystem v1alpha1.OperatingSystem, cloudProvider v1alpha1.CloudProvider) ([]byte, error) {
+func (d *DefaultCloudConfigGenerator) Generate(config *osmv1alpha1.OSCConfig, operatingSystem v1alpha1.OperatingSystem, cloudProvider v1alpha1.CloudProvider, secretType resources.CloudConfigSecret) ([]byte, error) {
 	provisioningUtility := GetProvisioningUtility(operatingSystem)
 
 	var files []*fileSpec
@@ -124,6 +125,7 @@ func (d *DefaultCloudConfigGenerator) Generate(config *osmv1alpha1.OSCConfig, op
 		CloudInitModules  *osmv1alpha1.CloudInitModule
 		CloudProviderName string
 		OperatingSystem   string
+		ConfigurationType string
 	}{
 		Files:             files,
 		Units:             units,
@@ -131,6 +133,7 @@ func (d *DefaultCloudConfigGenerator) Generate(config *osmv1alpha1.OSCConfig, op
 		CloudInitModules:  config.CloudInitModules,
 		CloudProviderName: string(cloudProvider),
 		OperatingSystem:   string(operatingSystem),
+		ConfigurationType: string(secretType),
 	}); err != nil {
 		return nil, err
 	}
@@ -177,10 +180,13 @@ type dropInSpec struct {
 }
 
 var cloudInitTemplate = `#cloud-config
+{{- /* Hostname is configured only for the bootstrap configuration */}}
+{{- if eq .ConfigurationType "bootstrap" -}}
 {{- if ne .CloudProviderName "aws" -}}
 {{- /* Never set the hostname on AWS nodes. Kubernetes(kube-proxy) requires the hostname to be the private dns name */}}
 {{- /* machine-controller will replace "<MACHINE_NAME>" placeholder with the name of the machine */}}
 hostname: <MACHINE_NAME>
+{{ end }}
 {{ end }}
 ssh_pwauth: no
 ssh_authorized_keys:
@@ -198,6 +204,8 @@ write_files:
   content: |-
 {{ $file.Content | indent 4 }}
 {{ end }}
+{{- /* Hostname is configured only for the bootstrap configuration */}}
+{{- if eq .ConfigurationType "bootstrap" -}}
 {{- if and (eq .CloudProviderName "openstack") (or (eq .OperatingSystem "centos") (eq .OperatingSystem "rhel")) -}}
 {{- /*  The normal way of setting it via cloud-init is broken, see */}}
 {{- /*  https://bugs.launchpad.net/cloud-init/+bug/1662542 */}}
@@ -206,6 +214,7 @@ write_files:
   permissions: '0600'
   content: |
 	<MACHINE_NAME>
+{{ end }}
 {{ end }}
 {{- if .CloudInitModules -}}
 {{ if .CloudInitModules.BootCMD }}
@@ -254,6 +263,8 @@ var ignitionTemplate = `passwd:
 {{- end }}
 storage:
   files:
+{{- /* Hostname is configured only for the bootstrap configuration */}}
+{{- if eq .ConfigurationType "bootstrap" -}}
 {{- if ne .CloudProviderName "aws" -}}
 {{- /* Never set the hostname on AWS nodes. Kubernetes(kube-proxy) requires the hostname to be the private dns name */}}
 {{- /* machine-controller will replace "<MACHINE_NAME>" placeholder with the name of the machine */}}
@@ -262,6 +273,7 @@ storage:
     filesystem: root
     contents:
         inline: '<MACHINE_NAME>'
+{{ end }}
 {{ end }}
 {{- range $_, $file := .Files }}
   - path: '{{ $file.Path }}'
