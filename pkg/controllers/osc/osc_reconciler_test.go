@@ -869,6 +869,7 @@ func buildReconciler(fakeClient client.Client, config testConfig) Reconciler {
 	return Reconciler{
 		Client:       fakeClient,
 		workerClient: fakeClient,
+		apiReader: fakeClient,
 
 		log:                  testUtil.DefaultLogger,
 		generator:            generator.NewDefaultCloudConfigGenerator(""),

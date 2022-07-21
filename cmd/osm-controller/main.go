@@ -258,6 +258,7 @@ func main() {
 		log,
 		workerClient,
 		mgr.GetClient(),
+		mgr.GetAPIReader(),
 		bootstrappingManager,
 		caCert,
 		opt.namespace,

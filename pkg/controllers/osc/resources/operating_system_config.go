@@ -56,9 +56,10 @@ const (
 	ProvisioningCloudConfig CloudConfigSecret = "provisioning"
 	BootstrapCloudConfig    CloudConfigSecret = "bootstrap"
 
-	OperatingSystemConfigNamePattern = "%s-%s-config"
-	CloudConfigSecretNamePattern     = "%s-%s-%s-config"
-	MachineDeploymentOSPAnnotation   = "k8c.io/operating-system-profile"
+	OperatingSystemConfigNamePattern        = "%s-%s-config"
+	CloudConfigSecretNamePattern            = "%s-%s-%s-config"
+	MachineDeploymentOSPAnnotation          = "k8c.io/operating-system-profile"
+	MachineDeploymentOSPNamespaceAnnotation = "k8c.io/operating-system-profile-namespace"
 
 	defaultFilePermissions = 644
 )
