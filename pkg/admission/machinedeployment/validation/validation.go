@@ -118,9 +118,9 @@ func ValidateMachineDeployment(ctx context.Context, md clusterv1alpha1.MachineDe
 
 	osp := &osmv1alpha1.OperatingSystemProfile{}
 	err := client.Get(ctx, types.NamespacedName{Name: ospName, Namespace: namespace}, osp)
-	if err != nil && !kerrors.IsNotFound(err) {
+	if err != nil {
 		if kerrors.IsNotFound(err) {
-			allErrs = append(allErrs, field.Invalid(field.NewPath("metadata", "annotations", resources.MachineDeploymentOSPAnnotation), ospName, "OperatingSystemProfile  not found"))
+			allErrs = append(allErrs, field.Invalid(field.NewPath("metadata", "annotations", resources.MachineDeploymentOSPAnnotation), ospName, fmt.Sprintf("OperatingSystemProfile %q not found", ospName)))
 		} else {
 			allErrs = append(allErrs, field.Invalid(field.NewPath("metadata", "annotations", resources.MachineDeploymentOSPAnnotation), ospName, err.Error()))
 		}
@@ -138,7 +138,7 @@ func ValidateMachineDeployment(ctx context.Context, md clusterv1alpha1.MachineDe
 
 	// Ensure that OSP supports the operating system
 	if osp.Spec.OSName != osmv1alpha1.OperatingSystem(providerConfig.OperatingSystem) {
-		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "template", "spec", "providerSpec", "OperatingSystem"), providerConfig.OperatingSystem, "OperatingSystemProfile does not support the OperatingSystem specified in MachineDeployment"))
+		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "template", "spec", "providerSpec", "OperatingSystem"), providerConfig.OperatingSystem, fmt.Sprintf("OperatingSystemProfile %q does not support the OperatingSystem %q specified in MachineDeployment", osp.Name, providerConfig.OperatingSystem)))
 	}
 
 	// Ensure that OSP supports the cloud provider
@@ -152,7 +152,7 @@ func ValidateMachineDeployment(ctx context.Context, md clusterv1alpha1.MachineDe
 
 	// Ensure that OSP supports the operating system
 	if !supportedCloudProvider {
-		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "template", "spec", "providerSpec", "CloudProvider"), providerConfig.CloudProvider, "OperatingSystemProfile does not support the CloudProvider specified in MachineDeployment"))
+		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "template", "spec", "providerSpec", "CloudProvider"), providerConfig.CloudProvider, fmt.Sprintf("OperatingSystemProfile %q does not support the CloudProvider %q specified in MachineDeployment", osp.Name, providerConfig.CloudProvider)))
 	}
 	return allErrs
 }
