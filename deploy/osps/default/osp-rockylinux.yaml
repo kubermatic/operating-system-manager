@@ -594,7 +594,7 @@ spec:
                 --container-runtime-endpoint=unix:///var/run/dockershim.sock \
                 {{- end }}
                 {{- /* If external or in-tree CCM is in use we don't need to set --node-ip as the cloud provider will know what IPs to return.  */}}
-                {{- if not (and (eq .NetworkIPFamily "IPv4+IPv6") (or (.CloudProviderName) (.IsExternal))) }}
+                {{- if not (and (eq .NetworkIPFamily "IPv4+IPv6") (or (.CloudProviderName) (.ExternalCloudProvider))) }}
                 --node-ip ${KUBELET_NODE_IP}
                 {{- end }}
 
