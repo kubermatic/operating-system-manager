@@ -116,8 +116,13 @@ func ValidateMachineDeployment(ctx context.Context, md clusterv1alpha1.MachineDe
 		return allErrs
 	}
 
+	ospNamespace := md.Annotations[resources.MachineDeploymentOSPNamespaceAnnotation]
+	if len(ospNamespace) == 0 {
+		ospNamespace = namespace
+	}
+
 	osp := &osmv1alpha1.OperatingSystemProfile{}
-	err := client.Get(ctx, types.NamespacedName{Name: ospName, Namespace: namespace}, osp)
+	err := client.Get(ctx, types.NamespacedName{Name: ospName, Namespace: ospNamespace}, osp)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			allErrs = append(allErrs, field.Invalid(field.NewPath("metadata", "annotations", resources.MachineDeploymentOSPAnnotation), ospName, fmt.Sprintf("OperatingSystemProfile %q not found", ospName)))
