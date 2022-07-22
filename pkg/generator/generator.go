@@ -183,7 +183,9 @@ var cloudInitTemplate = `#cloud-config
 hostname: <MACHINE_NAME>
 {{- end -}}
 {{ end }}
+
 ssh_pwauth: false
+
 ssh_authorized_keys:
 {{ range $_, $key := .UserSSHKeys -}}
 - '{{ $key }}'
@@ -201,13 +203,14 @@ write_files:
 {{ end }}
 {{- /* Hostname is configured only for the bootstrap configuration */}}
 {{- if eq .ConfigurationType "bootstrap" -}}
-{{- if ne .CloudProviderName "aws" -}}
+{{- if and (eq .CloudProviderName "openstack") (or (eq .OperatingSystem "centos") (eq .OperatingSystem "rhel")) -}}
 - path: /etc/hostname
   permissions: '0600'
   content: |
 	<MACHINE_NAME>
 {{- end -}}
 {{ end }}
+
 {{- if .CloudInitModules -}}
 {{ if .CloudInitModules.BootCMD }}
 bootcmd:

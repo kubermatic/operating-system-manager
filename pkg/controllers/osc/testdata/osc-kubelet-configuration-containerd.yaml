@@ -16,8 +16,9 @@ spec:
             update && apt install -y curl jq\ncurl -s -k -v --header 'Authorization:
             Bearer top-secret'\thttps://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/kubelet-configuration-kube-system-provisioning-config
             | jq '.data[\"cloud-config\"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/kubelet-configuration-kube-system-provisioning-config.cfg\ncloud-init
-            clean\ncloud-init --file /etc/cloud/cloud.cfg.d/kubelet-configuration-kube-system-provisioning-config.cfg
-            init\nsystemctl daemon-reload\n\nsystemctl restart setup.service\n"
+            clean\n\ncloud-init --file /etc/cloud/cloud.cfg.d/kubelet-configuration-kube-system-provisioning-config.cfg
+            init\nsystemctl daemon-reload\n\nsystemctl daemon-reload\nsystemctl restart
+            setup.service\n"
           encoding: b64
       path: /opt/bin/bootstrap
       permissions: 755

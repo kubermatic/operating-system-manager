@@ -25,7 +25,7 @@ spec:
             jq\ncurl -s -k -v --header 'Authorization: Bearer top-secret'\thttps://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/flatcar-aws-docker-kube-system-provisioning-config
             | jq '.data[\"cloud-config\"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/flatcar-aws-docker-kube-system-provisioning-config.cfg\ncloud-init
             clean\ncloud-init --file /etc/cloud/cloud.cfg.d/flatcar-aws-docker-kube-system-provisioning-config.cfg
-            init\nsystemctl daemon-reload\n\nsystemctl restart setup.service\n"
+            init\n\nsystemctl daemon-reload\nsystemctl restart setup.service\n"
       path: /opt/bin/bootstrap-cloud-init
       permissions: 755
     - content:

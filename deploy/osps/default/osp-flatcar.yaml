@@ -79,16 +79,8 @@ spec:
               curl -s -k -v --header 'Authorization: Bearer {{ .Token }}'	{{ .ServerURL }}/api/v1/namespaces/cloud-init-settings/secrets/{{ .SecretName }} | jq '.data["cloud-config"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/{{ .SecretName }}.cfg
               cloud-init clean
               cloud-init --file /etc/cloud/cloud.cfg.d/{{ .SecretName }}.cfg init
+
               systemctl daemon-reload
-
-              {{- /* The default cloud-init configurations files have a bug on Digital Ocean that causes the machine to be in-accessible on the 2nd cloud-init. Hence we disable network configuration. */}}
-              {{- if eq .CloudProviderName "digitalocean" }}
-              rm /etc/netplan/50-cloud-init.yaml
-              echo "network: {config: disabled}" > /etc/cloud/cloud.cfg.d/99-custom-networking.cfg
-              netplan generate
-              netplan apply
-              {{- end }}
-
               systemctl restart setup.service
 
       - path: /etc/systemd/system/bootstrap-cloud-init.service
