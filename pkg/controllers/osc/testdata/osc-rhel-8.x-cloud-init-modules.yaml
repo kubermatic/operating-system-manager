@@ -24,7 +24,6 @@ spec:
     - content:
         inline:
           data: |
-            #!/bin/bash
             [Install]
             WantedBy=multi-user.target
 
@@ -348,6 +347,7 @@ spec:
 
             systemctl enable --now kubelet
             systemctl enable --now --no-block kubelet-healthcheck.service
+            systemctl disable setup.service
           encoding: b64
       path: /opt/bin/setup
       permissions: 755

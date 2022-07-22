@@ -29,7 +29,6 @@ spec:
     - content:
         inline:
           data: |
-            #!/bin/bash
             [Install]
             WantedBy=multi-user.target
 
@@ -351,6 +350,7 @@ spec:
 
             systemctl enable --now kubelet
             systemctl enable --now --no-block kubelet-healthcheck.service
+            systemctl disable setup.service
           encoding: b64
       path: /opt/bin/setup
       permissions: 755
@@ -649,16 +649,16 @@ spec:
     - content:
         inline:
           data: |
-            runtime-endpoint: unix:///run/containerd/containerd.sock
-      path: /etc/crictl.yaml
-      permissions: 644
-    - content:
-        inline:
-          data: |
             [Service]
             Restart=always
             EnvironmentFile=-/etc/environment
       path: /etc/systemd/system/containerd.service.d/environment.conf
+      permissions: 644
+    - content:
+        inline:
+          data: |
+            runtime-endpoint: unix:///run/containerd/containerd.sock
+      path: /etc/crictl.yaml
       permissions: 644
     - content:
         inline:

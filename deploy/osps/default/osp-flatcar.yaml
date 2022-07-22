@@ -32,42 +32,10 @@ spec:
     - name: "vsphere"
 
   bootstrapConfig:
-    files:
-      - path: "/opt/bin/bootstrap"
-        permissions: 755
-        content:
-          inline:
-            data: |
-              #!/bin/bash
-              set -xeuo pipefail
-              apt update && apt install -y curl jq
-              curl -s -k -v --header 'Authorization: Bearer {{ .Token }}'	{{ .ServerURL }}/api/v1/namespaces/cloud-init-settings/secrets/{{ .SecretName }} | jq '.data["cloud-config"]' -r| base64 -d > /usr/share/oem/config.ign
-              touch /boot/flatcar/first_boot
-              systemctl disable bootstrap.service
-              rm /etc/systemd/system/bootstrap.service
-              rm /etc/machine-id
-              reboot
-
-      - path: "/etc/systemd/system/bootstrap.service"
-        permissions: 644
-        content:
-          inline:
-            data: |
-              #!/bin/bash
-              [Install]
-              WantedBy=multi-user.target
-
-              [Unit]
-              Requires=network-online.target
-              After=network-online.target
-              [Service]
-              Type=oneshot
-              RemainAfterExit=true
-              ExecStart=/opt/bin/bootstrap
-
-    # This is only applicable when `ignition` is used for provisioning.
+    # This is only used when `ignition` is used for provisioning.
+    # This unit serves as the initiating point for fetching and executing provisioning config.
     units:
-      - name: bootstrap.service
+      - name: bootstrap-ignition.service
         enable: true
         content: |
           [Install]
@@ -80,31 +48,96 @@ spec:
           [Service]
           Type=oneshot
           RemainAfterExit=true
-          ExecStart=/opt/bin/bootstrap
+          ExecStart=/opt/bin/bootstrap-ignition
 
+    files:
+      - path: /opt/bin/bootstrap-ignition
+        permissions: 755
+        content:
+          inline:
+            data: |
+              #!/bin/bash
+              set -xeuo pipefail
+              apt update && apt install -y curl jq
+              curl -s -k -v --header 'Authorization: Bearer {{ .Token }}'	{{ .ServerURL }}/api/v1/namespaces/cloud-init-settings/secrets/{{ .SecretName }} | jq '.data["cloud-config"]' -r| base64 -d > /usr/share/oem/config.ign
+
+              touch /boot/flatcar/first_boot
+              systemctl disable bootstrap-ignition.service
+              rm /etc/systemd/system/bootstrap-ignition.service
+              rm /etc/machine-id
+              reboot
+
+      - path: /opt/bin/bootstrap-cloud-init
+        permissions: 755
+        content:
+          inline:
+            data: |
+              #!/bin/bash
+              set -xeuo pipefail
+
+              apt update && apt install -y curl jq
+              curl -s -k -v --header 'Authorization: Bearer {{ .Token }}'	{{ .ServerURL }}/api/v1/namespaces/cloud-init-settings/secrets/{{ .SecretName }} | jq '.data["cloud-config"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/{{ .SecretName }}.cfg
+              cloud-init clean
+              cloud-init --file /etc/cloud/cloud.cfg.d/{{ .SecretName }}.cfg init
+              systemctl daemon-reload
+
+              {{- /* The default cloud-init configurations files have a bug on Digital Ocean that causes the machine to be in-accessible on the 2nd cloud-init. Hence we disable network configuration. */}}
+              {{- if eq .CloudProviderName "digitalocean" }}
+              rm /etc/netplan/50-cloud-init.yaml
+              echo "network: {config: disabled}" > /etc/cloud/cloud.cfg.d/99-custom-networking.cfg
+              netplan generate
+              netplan apply
+              {{- end }}
+
+              systemctl restart setup.service
+
+      - path: /etc/systemd/system/bootstrap-cloud-init.service
+        permissions: 644
+        content:
+          inline:
+            data: |
+              [Install]
+              WantedBy=multi-user.target
+
+              [Unit]
+              Requires=network-online.target
+              After=network-online.target
+              [Service]
+              Type=oneshot
+              RemainAfterExit=true
+              ExecStart=/opt/bin/bootstrap-cloud-init
+
+    # This is only used when `cloud-init` is used for provisioning.
+    # This commands serve as the initiating point for fetching and executing provisioning config.
     modules:
       runcmd:
-        - systemctl restart bootstrap.service
+        - systemctl restart bootstrap-cloud-init.service
         - systemctl daemon-reload
 
   provisioningConfig:
     supportedContainerRuntimes:
       - name: containerd
         files:
-          - path: /etc/containerd/config.toml
-            permissions: 600
-            content:
-              inline:
-                data: |
-                  {{ .ContainerRuntimeConfig }}
-
-          - path: "/etc/systemd/system/containerd.service.d/environment.conf"
+          - path: /etc/systemd/system/containerd.service.d/environment.conf
             content:
               inline:
                 data: |
                   [Service]
                   Restart=always
                   EnvironmentFile=-/etc/environment
+
+          - path: /etc/crictl.yaml
+            content:
+              inline:
+                data: |
+                  runtime-endpoint: unix:///run/containerd/containerd.sock
+
+          - path: /etc/containerd/config.toml
+            permissions: 600
+            content:
+              inline:
+                data: |
+                  {{ .ContainerRuntimeConfig }}
 
           - path: /etc/systemd/system/containerd.service.d/10-custom.conf
             content:
@@ -116,15 +149,9 @@ spec:
                   ExecStart=
                   ExecStart=/usr/bin/env PATH=${TORCX_BINDIR}:${PATH} ${TORCX_BINDIR}/containerd --config ${CONTAINERD_CONFIG}
 
-          - path: /etc/crictl.yaml
-            content:
-              inline:
-                data: |
-                  runtime-endpoint: unix:///run/containerd/containerd.sock
-
       - name: docker
         files:
-          - path: "/etc/systemd/system/containerd.service.d/environment.conf"
+          - path: /etc/systemd/system/containerd.service.d/environment.conf
             content:
               inline:
                 data: |
@@ -132,7 +159,7 @@ spec:
                   Restart=always
                   EnvironmentFile=-/etc/environment
 
-          - path: "/etc/systemd/system/docker.service.d/environment.conf"
+          - path: /etc/systemd/system/docker.service.d/environment.conf
             content:
               inline:
                 data: |
@@ -151,7 +178,6 @@ spec:
             permissions: 600
             content:
               inline:
-                encoding: b64
                 data: |-
                   {{ .ContainerRuntimeAuthConfig }}
 
@@ -270,6 +296,7 @@ spec:
         {{- end }}
 
     units:
+      # This is only used when `ignition` is used for provisioning.
       - name: setup.service
         enable: true
         content: |
@@ -277,24 +304,6 @@ spec:
           WantedBy=multi-user.target
 
           [Unit]
-          Requires=download-script.service
-          Requires=nodeip.service
-          After=download-script.service
-          After=nodeip.service
-
-          [Service]
-          Type=oneshot
-          RemainAfterExit=true
-          EnvironmentFile=-/etc/environment
-          ExecStart=/opt/bin/setup
-
-      - name: download-script.service
-        enable: true
-        content: |
-          [Install]
-          WantedBy=multi-user.target
-
-          [Unit]
           Requires=network-online.target
           After=network-online.target
 
@@ -302,25 +311,10 @@ spec:
           Type=oneshot
           RemainAfterExit=true
           EnvironmentFile=-/etc/environment
-          ExecStart=/opt/bin/download.sh
-
-      - name: nodeip.service
-        enable: true
-        content: |
-          [Unit]
-          Description=Setup Kubelet Node IP Env
-          Requires=network-online.target
-          After=network-online.target
-
-          [Service]
-          ExecStart=/opt/bin/setup_net_env.sh
-          RemainAfterExit=yes
-          Type=oneshot
-          [Install]
-          WantedBy=multi-user.target
+          ExecStart=/opt/bin/supervise.sh /opt/bin/setup
 
     files:
-      - path: "/opt/bin/health-monitor.sh"
+      - path: /opt/bin/health-monitor.sh
         permissions: 755
         content:
           inline:
@@ -442,25 +436,6 @@ spec:
                 echo "Health monitoring for component ${component} is not supported!"
               fi
 
-      - path: /etc/systemd/system/systemd-networkd.service.d/10-static-network.conf
-        content:
-          inline:
-            data: |
-              {{- if .NetworkConfig }}
-              [Match]
-              # Because of difficulty predicting specific NIC names on different cloud providers,
-              # we only support static addressing on VSphere. There should be a single NIC attached
-              # that we will match by name prefix 'en' which denotes ethernet devices.
-              Name=en*
-
-              [Network]
-              DHCP=no
-              Address={{ .NetworkConfig.CIDR }}
-              Gateway={{ .NetworkConfig.Gateway }}
-              {{ range .NetworkConfig.DNS.Servers }}DNS={{ . }}
-              {{ end }}
-              {{- end }}
-
       - path: /etc/systemd/journald.conf.d/max_disk_use.conf
         content:
           inline:
@@ -547,20 +522,6 @@ spec:
                 echo -e "[Service]\nEnvironment=\"KUBELET_NODE_IP=${DEFAULT_IFC_IP}\"\nEnvironment=\"KUBELET_HOSTNAME=${FULL_HOSTNAME}\"" > /etc/systemd/system/kubelet.service.d/nodeip.conf
               fi
 
-      - path: /opt/bin/download.sh
-        permissions: 755
-        content:
-          inline:
-            data: |
-              #!/usr/bin/env bash
-              set -xeuo pipefail
-
-              {{- template "safeDownloadBinariesScript" }}
-
-              {{- template "configureProxyScript" }}
-
-              systemctl disable download-script.service
-
       - path: /opt/bin/setup
         permissions: 755
         content:
@@ -612,6 +573,13 @@ spec:
               systemctl disable containerd
               {{- end }}
 
+              {{- template "safeDownloadBinariesScript" }}
+
+              {{- template "configureProxyScript" }}
+
+              # set kubelet nodeip environment variable
+              /opt/bin/setup_net_env.sh
+
               systemctl enable --now kubelet
               systemctl enable --now --no-block kubelet-healthcheck.service
               systemctl disable setup.service
@@ -627,6 +595,37 @@ spec:
           inline:
             data: |
               {{ .BootstrapKubeconfig }}
+
+      - path: /etc/systemd/system/setup.service
+        permissions: 644
+        content:
+          inline:
+            encoding: b64
+            data: |
+              [Install]
+              WantedBy=multi-user.target
+
+              [Unit]
+              Requires=network-online.target
+              After=network-online.target
+
+              [Service]
+              Type=oneshot
+              RemainAfterExit=true
+              EnvironmentFile=-/etc/environment
+              ExecStart=/opt/bin/supervise.sh /opt/bin/setup
+
+      - path: /opt/bin/supervise.sh
+        permissions: 755
+        content:
+          inline:
+            encoding: b64
+            data: |
+              #!/bin/bash
+              set -xeuo pipefail
+              while ! "$@"; do
+                sleep 1
+              done
 
       - path: /etc/systemd/system/kubelet.service
         content:
@@ -873,3 +872,22 @@ spec:
               PrintMotd no # handled by PAM
               PasswordAuthentication no
               ChallengeResponseAuthentication no
+
+      - path: /etc/systemd/system/systemd-networkd.service.d/10-static-network.conf
+        content:
+          inline:
+            data: |
+              {{- if .NetworkConfig }}
+              [Match]
+              # Because of difficulty predicting specific NIC names on different cloud providers,
+              # we only support static addressing on VSphere. There should be a single NIC attached
+              # that we will match by name prefix 'en' which denotes ethernet devices.
+              Name=en*
+
+              [Network]
+              DHCP=no
+              Address={{ .NetworkConfig.CIDR }}
+              Gateway={{ .NetworkConfig.Gateway }}
+              {{ range .NetworkConfig.DNS.Servers }}DNS={{ . }}
+              {{ end }}
+              {{- end }}

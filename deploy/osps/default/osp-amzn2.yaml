@@ -26,7 +26,7 @@ spec:
 
   bootstrapConfig:
     files:
-      - path: "/opt/bin/bootstrap"
+      - path: /opt/bin/bootstrap
         permissions: 755
         content:
           inline:
@@ -43,13 +43,12 @@ spec:
               systemctl daemon-reload
               systemctl restart setup.service
 
-      - path: "/etc/systemd/system/bootstrap.service"
+      - path: /etc/systemd/system/bootstrap.service
         permissions: 644
         content:
           inline:
             encoding: b64
             data: |
-              #!/bin/bash
               [Install]
               WantedBy=multi-user.target
 
@@ -70,13 +69,7 @@ spec:
     supportedContainerRuntimes:
       - name: containerd
         files:
-          - path: "/etc/crictl.yaml"
-            content:
-              inline:
-                data: |
-                  runtime-endpoint: unix:///run/containerd/containerd.sock
-
-          - path: "/etc/systemd/system/containerd.service.d/environment.conf"
+          - path: /etc/systemd/system/containerd.service.d/environment.conf
             content:
               inline:
                 data: |
@@ -84,7 +77,13 @@ spec:
                   Restart=always
                   EnvironmentFile=-/etc/environment
 
-          - path: "/etc/containerd/config.toml"
+          - path: /etc/crictl.yaml
+            content:
+              inline:
+                data: |
+                  runtime-endpoint: unix:///run/containerd/containerd.sock
+
+          - path: /etc/containerd/config.toml
             permissions: 600
             content:
               inline:
@@ -103,7 +102,7 @@ spec:
 
       - name: docker
         files:
-          - path: "/etc/systemd/system/containerd.service.d/environment.conf"
+          - path: /etc/systemd/system/containerd.service.d/environment.conf
             content:
               inline:
                 data: |
@@ -111,7 +110,7 @@ spec:
                   Restart=always
                   EnvironmentFile=-/etc/environment
 
-          - path: "/etc/systemd/system/docker.service.d/environment.conf"
+          - path: /etc/systemd/system/docker.service.d/environment.conf
             content:
               inline:
                 data: |
@@ -261,7 +260,7 @@ spec:
         {{- end }}
 
     files:
-      - path: "/opt/bin/health-monitor.sh"
+      - path: /opt/bin/health-monitor.sh
         permissions: 755
         content:
           inline:
@@ -384,7 +383,7 @@ spec:
                 echo "Health monitoring for component ${component} is not supported!"
               fi
 
-      - path: "/etc/systemd/journald.conf.d/max_disk_use.conf"
+      - path: /etc/systemd/journald.conf.d/max_disk_use.conf
         content:
           inline:
             encoding: b64
@@ -392,7 +391,7 @@ spec:
               [Journal]
               SystemMaxUse=5G
 
-      - path: "/opt/load-kernel-modules.sh"
+      - path: /opt/load-kernel-modules.sh
         permissions: 755
         content:
           inline:
@@ -412,7 +411,7 @@ spec:
                 modprobe nf_conntrack
               fi
 
-      - path: "/etc/sysctl.d/k8s.conf"
+      - path: /etc/sysctl.d/k8s.conf
         content:
           inline:
             encoding: b64
@@ -426,7 +425,7 @@ spec:
               fs.inotify.max_user_watches = 1048576
               fs.inotify.max_user_instances = 8192
 
-      - path: "/etc/selinux/config"
+      - path: /etc/selinux/config
         content:
           inline:
             encoding: b64
@@ -443,7 +442,7 @@ spec:
               #     mls - Multi Level Security protection.
               SELINUXTYPE=targeted
 
-      - path: "/opt/bin/setup"
+      - path: /opt/bin/setup
         permissions: 755
         content:
           inline:
@@ -488,8 +487,9 @@ spec:
 
               systemctl enable --now kubelet
               systemctl enable --now --no-block kubelet-healthcheck.service
+              systemctl disable setup.service
 
-      - path: "/opt/bin/supervise.sh"
+      - path: /opt/bin/supervise.sh
         permissions: 755
         content:
           inline:
@@ -501,7 +501,7 @@ spec:
                 sleep 1
               done
 
-      - path: "/etc/systemd/system/kubelet.service"
+      - path: /etc/systemd/system/kubelet.service
         content:
           inline:
             encoding: b64
@@ -574,7 +574,7 @@ spec:
               [Install]
               WantedBy=multi-user.target
 
-      - path: "/etc/kubernetes/cloud-config"
+      - path: /etc/kubernetes/cloud-config
         permissions: 600
         content:
           inline:
@@ -582,7 +582,7 @@ spec:
             data: |
               {{ .CloudConfig }}
 
-      - path: "/opt/bin/setup_net_env.sh"
+      - path: /opt/bin/setup_net_env.sh
         permissions: 755
         content:
           inline:
@@ -630,21 +630,21 @@ spec:
                 echo -e "[Service]\nEnvironment=\"KUBELET_NODE_IP=${DEFAULT_IFC_IP}\"\nEnvironment=\"KUBELET_HOSTNAME=${FULL_HOSTNAME}\"" > /etc/systemd/system/kubelet.service.d/nodeip.conf
               fi
 
-      - path: "/etc/kubernetes/pki/ca.crt"
+      - path: /etc/kubernetes/pki/ca.crt
         content:
           inline:
             encoding: b64
             data: |
               {{ .KubernetesCACert }}
 
-      - path: "/etc/kubernetes/bootstrap-kubelet.conf"
+      - path: /etc/kubernetes/bootstrap-kubelet.conf
         content:
           inline:
             encoding: b64
             data: |
               {{ .BootstrapKubeconfig }}
 
-      - path: "/etc/systemd/system/setup.service"
+      - path: /etc/systemd/system/setup.service
         permissions: 644
         content:
           inline:
@@ -663,7 +663,7 @@ spec:
               EnvironmentFile=-/etc/environment
               ExecStart=/opt/bin/supervise.sh /opt/bin/setup
 
-      - path: "/etc/profile.d/opt-bin-path.sh"
+      - path: /etc/profile.d/opt-bin-path.sh
         permissions: 644
         content:
           inline:
@@ -671,7 +671,7 @@ spec:
             data: |
               export PATH="/opt/bin:$PATH"
 
-      - path: "/etc/kubernetes/kubelet.conf"
+      - path: /etc/kubernetes/kubelet.conf
         content:
           inline:
             encoding: b64
@@ -803,7 +803,7 @@ spec:
               [Install]
               WantedBy=multi-user.target
 
-      - path: "/opt/disable-swap.sh"
+      - path: /opt/disable-swap.sh
         permissions: 755
         content:
           inline:
