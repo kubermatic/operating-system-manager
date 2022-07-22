@@ -26,6 +26,7 @@ spec:
     - name: "anexia"
     - name: "aws"
     - name: "azure"
+    - name: "equinixmetal"
     - name: "kubevirt"
     - name: "openstack"
     - name: "vsphere"
