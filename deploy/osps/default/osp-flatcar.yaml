@@ -23,11 +23,12 @@ spec:
   osVersion: "2983.2.0"
   version: "v0.1.4"
   supportedCloudProviders:
-    - name: aws
-    - name: azure
-    - name: kubevirt
-    - name: openstack
-    - name: vsphere
+    - name: "anexia"
+    - name: "aws"
+    - name: "azure"
+    - name: "kubevirt"
+    - name: "openstack"
+    - name: "vsphere"
 
   bootstrapConfig:
     files:
@@ -35,7 +36,6 @@ spec:
         permissions: 755
         content:
           inline:
-            encoding: b64
             data: |
               #!/bin/bash
               set -xeuo pipefail
@@ -51,7 +51,6 @@ spec:
         permissions: 644
         content:
           inline:
-            encoding: b64
             data: |
               #!/bin/bash
               [Install]

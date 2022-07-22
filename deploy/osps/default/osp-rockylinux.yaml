@@ -25,6 +25,7 @@ spec:
     - name: "aws"
     - name: "azure"
     - name: "digitalocean"
+    - name: "equinixmetal"
     - name: "hetzner"
     - name: "openstack"
     - name: "kubevirt"
@@ -417,6 +418,7 @@ spec:
               #!/usr/bin/env bash
               set -euo pipefail
 
+              modprobe ip_tables
               modprobe ip_vs
               modprobe ip_vs_rr
               modprobe ip_vs_wrr

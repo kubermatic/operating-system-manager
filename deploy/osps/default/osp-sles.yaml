@@ -22,7 +22,7 @@ spec:
   osVersion: "15-SP-1"
   version: "v0.1.4"
   supportedCloudProviders:
-    - name: aws
+    - name: "aws"
 
   bootstrapConfig:
     files:
