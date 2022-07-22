@@ -65,6 +65,23 @@ spec:
               RemainAfterExit=true
               ExecStart=/opt/bin/bootstrap
 
+    # This is only applicable when `ignition` is used for provisioning.
+    units:
+      - name: bootstrap.service
+        enable: true
+        content: |
+          [Install]
+          WantedBy=multi-user.target
+
+          [Unit]
+          Requires=network-online.target
+          After=network-online.target
+
+          [Service]
+          Type=oneshot
+          RemainAfterExit=true
+          ExecStart=/opt/bin/bootstrap
+
     modules:
       runcmd:
         - systemctl restart bootstrap.service

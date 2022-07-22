@@ -181,7 +181,7 @@ var cloudInitTemplate = `#cloud-config
 {{- /* Never set the hostname on AWS nodes. Kubernetes(kube-proxy) requires the hostname to be the private dns name */}}
 {{- /* machine-controller will replace "<MACHINE_NAME>" placeholder with the name of the machine */}}
 hostname: <MACHINE_NAME>
-{{ end }}
+{{- end -}}
 {{ end }}
 ssh_pwauth: false
 ssh_authorized_keys:
@@ -201,15 +201,12 @@ write_files:
 {{ end }}
 {{- /* Hostname is configured only for the bootstrap configuration */}}
 {{- if eq .ConfigurationType "bootstrap" -}}
-{{- if and (eq .CloudProviderName "openstack") (or (eq .OperatingSystem "centos") (eq .OperatingSystem "rhel")) -}}
-{{- /*  The normal way of setting it via cloud-init is broken, see */}}
-{{- /*  https://bugs.launchpad.net/cloud-init/+bug/1662542 */}}
-{{- /* machine-controller will replace "<MACHINE_NAME>" placeholder with the name of the machine */}}
+{{- if ne .CloudProviderName "aws" -}}
 - path: /etc/hostname
   permissions: '0600'
   content: |
 	<MACHINE_NAME>
-{{ end }}
+{{- end -}}
 {{ end }}
 {{- if .CloudInitModules -}}
 {{ if .CloudInitModules.BootCMD }}

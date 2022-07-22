@@ -122,7 +122,6 @@ func Add(
 		nodeRegistryCredentialsSecret: nodeRegistryCredentialsSecret,
 		kubeletFeatureGates:           kubeletFeatureGates,
 	}
-	log.Info("Reconciling OSC resource..")
 	c, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: reconciler, MaxConcurrentReconciles: workerCount})
 	if err != nil {
 		return err

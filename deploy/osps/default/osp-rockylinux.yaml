@@ -577,8 +577,10 @@ spec:
                 {{- else if and (eq .CloudProviderName "aws") (.ExternalCloudProvider) }}
                 --hostname-override=${KUBELET_HOSTNAME} \
                 {{- end }}
+                {{- if semverCompare "<1.23" .KubeVersion }}
                 --dynamic-config-dir=/etc/kubernetes/dynamic-config-dir \
                 --feature-gates=DynamicKubeletConfig=true \
+                {{- end }}
                 --exit-on-lock-contention \
                 --lock-file=/tmp/kubelet.lock \
                 {{- if .PauseImage }}
