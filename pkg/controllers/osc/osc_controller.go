@@ -298,7 +298,7 @@ func (r *Reconciler) ensureCloudConfigSecret(ctx context.Context, config osmv1al
 		return nil
 	}
 
-	provisionData, err := r.generator.Generate(&config, operatingSystem, cloudProvider, secretType)
+	provisionData, err := r.generator.Generate(&config, operatingSystem, cloudProvider, *md, secretType)
 	if err != nil {
 		return fmt.Errorf("failed to generate %s data", secretType)
 	}

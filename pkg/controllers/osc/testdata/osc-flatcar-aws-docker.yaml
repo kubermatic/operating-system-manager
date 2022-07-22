@@ -17,7 +17,6 @@ spec:
             | jq '.data[\"cloud-config\"]' -r| base64 -d > /usr/share/oem/config.ign\ntouch
             /boot/flatcar/first_boot\nsystemctl disable bootstrap.service\nrm /etc/systemd/system/bootstrap.service\nrm
             /etc/machine-id\nreboot\n"
-          encoding: b64
       path: /opt/bin/bootstrap
       permissions: 755
     - content:
@@ -34,7 +33,6 @@ spec:
             Type=oneshot
             RemainAfterExit=true
             ExecStart=/opt/bin/bootstrap
-          encoding: b64
       path: /etc/systemd/system/bootstrap.service
       permissions: 644
     modules:

@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"text/template"
 
+	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/controllers/osc/resources"
 	"k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
@@ -34,7 +35,7 @@ const (
 
 // CloudConfigGenerator generates the machine bootstrapping and provisioning configurations for the corresponding operating system config
 type CloudConfigGenerator interface {
-	Generate(config *osmv1alpha1.OSCConfig, operatingSystem v1alpha1.OperatingSystem, cloudProvider v1alpha1.CloudProvider, secretType resources.CloudConfigSecret) ([]byte, error)
+	Generate(config *osmv1alpha1.OSCConfig, operatingSystem v1alpha1.OperatingSystem, cloudProvider v1alpha1.CloudProvider, md clusterv1alpha1.MachineDeployment, secretType resources.CloudConfigSecret) ([]byte, error)
 }
 
 // DefaultCloudConfigGenerator represents the default generator of the machine provisioning configurations
@@ -53,13 +54,17 @@ func NewDefaultCloudConfigGenerator(unitsPath string) CloudConfigGenerator {
 	}
 }
 
-func (d *DefaultCloudConfigGenerator) Generate(config *osmv1alpha1.OSCConfig, operatingSystem v1alpha1.OperatingSystem, cloudProvider v1alpha1.CloudProvider, secretType resources.CloudConfigSecret) ([]byte, error) {
-	provisioningUtility := GetProvisioningUtility(operatingSystem)
+func (d *DefaultCloudConfigGenerator) Generate(config *osmv1alpha1.OSCConfig, operatingSystem v1alpha1.OperatingSystem, cloudProvider v1alpha1.CloudProvider, md clusterv1alpha1.MachineDeployment, secretType resources.CloudConfigSecret) ([]byte, error) {
+	provisioningUtility, err := GetProvisioningUtility(operatingSystem, md)
+	if err != nil {
+		return nil, fmt.Errorf("failed to determine provisioning utility: %w", err)
+	}
 
 	var files []*fileSpec
 	for _, file := range config.Files {
 		content := file.Content.Inline.Data
-		if file.Content.Inline.Encoding == base64Encoding {
+		// Ignition doesn't support base64 encoding
+		if file.Content.Inline.Encoding == base64Encoding && provisioningUtility == CloudInit {
 			content = base64.StdEncoding.EncodeToString([]byte(file.Content.Inline.Data))
 		}
 
@@ -107,11 +112,7 @@ func (d *DefaultCloudConfigGenerator) Generate(config *osmv1alpha1.OSCConfig, op
 	}
 
 	// Fetch user data template based on the provisioning utility
-	userDataTemplate, err := getUserDataTemplate(operatingSystem)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get an appropriate user-data template: %w", err)
-	}
-
+	userDataTemplate := getUserDataTemplate(provisioningUtility)
 	tmpl, err := template.New("user-data").Funcs(TxtFuncMap()).Parse(userDataTemplate)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse user-data template: %w", err)
@@ -138,24 +139,18 @@ func (d *DefaultCloudConfigGenerator) Generate(config *osmv1alpha1.OSCConfig, op
 		return nil, err
 	}
 
-	if GetProvisioningUtility(operatingSystem) == CloudInit {
+	if provisioningUtility == CloudInit {
 		return buf.Bytes(), nil
 	}
 
 	return toIgnition(buf.String())
 }
 
-func getUserDataTemplate(osName osmv1alpha1.OperatingSystem) (string, error) {
-	pUtil := GetProvisioningUtility(osName)
-	switch pUtil {
-	case CloudInit:
-		return cloudInitTemplate, nil
-	case Ignition:
-		return ignitionTemplate, nil
-	default:
-		return "", fmt.Errorf("invalid provisioning utility %s, allowed values are %s or %s",
-			pUtil, Ignition, CloudInit)
+func getUserDataTemplate(p ProvisioningUtility) string {
+	if p == Ignition {
+		return ignitionTemplate
 	}
+	return cloudInitTemplate
 }
 
 type fileSpec struct {
@@ -188,7 +183,7 @@ var cloudInitTemplate = `#cloud-config
 hostname: <MACHINE_NAME>
 {{ end }}
 {{ end }}
-ssh_pwauth: no
+ssh_pwauth: false
 ssh_authorized_keys:
 {{ range $_, $key := .UserSSHKeys -}}
 - '{{ $key }}'

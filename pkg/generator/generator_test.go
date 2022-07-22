@@ -17,10 +17,16 @@ limitations under the License.
 package generator
 
 import (
+	"encoding/json"
 	"testing"
 
+	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
+	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
 	"k8c.io/operating-system-manager/pkg/controllers/osc/resources"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
+	"k8s.io/apimachinery/pkg/runtime"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestDefaultCloudConfigGenerator_Generate(t *testing.T) {
@@ -75,7 +81,7 @@ func TestDefaultCloudConfigGenerator_Generate(t *testing.T) {
 				},
 			},
 			expectedCloudConfig: []byte(`#cloud-config
-ssh_pwauth: no
+ssh_pwauth: false
 ssh_authorized_keys:
 - 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3'
 - 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4'
@@ -155,7 +161,7 @@ rh_subscription:
 				},
 			},
 			expectedCloudConfig: []byte(`#cloud-config
-ssh_pwauth: no
+ssh_pwauth: false
 ssh_authorized_keys:
 - 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3'
 - 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4'
@@ -228,7 +234,7 @@ rh_subscription:
 hostname: <MACHINE_NAME>
 
 
-ssh_pwauth: no
+ssh_pwauth: false
 ssh_authorized_keys:
 - 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3'
 - 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4'
@@ -279,7 +285,7 @@ runcmd:
 				},
 			},
 			expectedCloudConfig: []byte(`#cloud-config
-ssh_pwauth: no
+ssh_pwauth: false
 ssh_authorized_keys:
 - 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3'
 - 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4'
@@ -325,7 +331,7 @@ runcmd:
 				},
 			},
 			expectedCloudConfig: []byte(`#cloud-config
-ssh_pwauth: no
+ssh_pwauth: false
 ssh_authorized_keys:
 write_files:
 - path: '/opt/bin/test'
@@ -501,7 +507,7 @@ runcmd:
 				},
 			},
 			expectedCloudConfig: []byte(`#cloud-config
-ssh_pwauth: no
+ssh_pwauth: false
 ssh_authorized_keys:
 - 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3'
 - 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4'
@@ -557,7 +563,8 @@ yum_repo_dir: /store/custom/yum.repos.d`),
 				secretType = *testCase.secretType
 			}
 
-			userData, err := generator.Generate(&testCase.osc.Spec.ProvisioningConfig, testCase.osc.Spec.OSName, testCase.osc.Spec.CloudProvider.Name, secretType)
+			md := generateMachineDeployment(t, providerconfigtypes.OperatingSystem(testCase.osc.Spec.OSName), "aws")
+			userData, err := generator.Generate(&testCase.osc.Spec.ProvisioningConfig, testCase.osc.Spec.OSName, testCase.osc.Spec.CloudProvider.Name, md, secretType)
 			if err != nil {
 				t.Fatalf("failed to generate cloud config: %v", err)
 			}
@@ -567,4 +574,39 @@ yum_repo_dir: /store/custom/yum.repos.d`),
 			}
 		})
 	}
+}
+
+func generateMachineDeployment(t *testing.T, os providerconfigtypes.OperatingSystem, cloudprovider string) clusterv1alpha1.MachineDeployment {
+	pconfig := providerconfigtypes.Config{
+		SSHPublicKeys:     []string{"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c"},
+		OperatingSystem:   os,
+		CloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"cloudProvider":"aws", "cloudProviderSpec":"test-provider-spec"}`)},
+		CloudProvider:     providerconfigtypes.CloudProvider(cloudprovider),
+	}
+	mdConfig, err := json.Marshal(pconfig)
+	if err != nil {
+		t.Fatalf("failed to generate machine deployment: %v", err)
+	}
+
+	md := clusterv1alpha1.MachineDeployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "default",
+			Namespace: "kube-system",
+		},
+		Spec: clusterv1alpha1.MachineDeploymentSpec{
+			Template: clusterv1alpha1.MachineTemplateSpec{
+				Spec: clusterv1alpha1.MachineSpec{
+					Versions: clusterv1alpha1.MachineVersionInfo{
+						Kubelet: "1.22.1",
+					},
+					ProviderSpec: clusterv1alpha1.ProviderSpec{
+						Value: &runtime.RawExtension{
+							Raw: mdConfig,
+						},
+					},
+				},
+			},
+		},
+	}
+	return md
 }
