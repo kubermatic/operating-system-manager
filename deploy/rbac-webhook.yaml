@@ -13,67 +13,35 @@
 # limitations under the License.
 
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: operating-system-manager-webhook
+  namespace: kube-system
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: operating-system-manager
+  name: operating-system-manager-webhook
 rules:
-  - apiGroups:
-      - "cluster.k8s.io"
-    resources:
-      - "machinedeployments"
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - "apps"
-    resources:
-      - "deployments"
-    verbs:
-      - get
-      - list
-      - watch
   - apiGroups:
       - "operatingsystemmanager.k8c.io"
     resources:
       - "operatingsystemprofiles"
-      - "operatingsystemconfigs"
     verbs:
-      - "*"
-  - apiGroups:
-      - ""
-    resources:
-      - "events"
-    verbs:
-      - create
-      - patch
-  - apiGroups:
-      - ""
-    resources:
-      - "configmaps"
-    verbs:
-      - create
-      - update
-      - list
       - get
-  - apiGroups:
-      - "coordination.k8s.io"
-    resources:
-      - "leases"
-    verbs:
-      - "*"
+      - list
+      - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: operating-system-manager
+  name: operating-system-manager-webhook
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: operating-system-manager
+  name: operating-system-manager-webhook
 subjects:
   - kind: ServiceAccount
-    name: operating-system-manager
+    name: operating-system-manager-webhook
     namespace: kube-system
----
