@@ -225,7 +225,7 @@ write_files:
 
 {{- /* Hostname is configured only for the bootstrap configuration */}}
 {{- if eq .ConfigurationType "bootstrap" -}}
-{{ if and (eq .CloudProviderName "openstack") (or (eq .OperatingSystem "centos") (eq .OperatingSystem "rhel")) }}
+{{ if and (eq .CloudProviderName "openstack") (or (eq .OperatingSystem "centos") (eq .OperatingSystem "rhel") (eq .OperatingSystem "rockylinux")) }}
 - path: /etc/hostname
   permissions: '0600'
   content: |-

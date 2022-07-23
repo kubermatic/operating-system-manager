@@ -12,12 +12,18 @@ spec:
     files:
     - content:
         inline:
-          data: "#!/bin/bash\nset -xeuo pipefail\n\nexport DEBIAN_FRONTEND=noninteractive\napt
-            update && apt install -y curl jq\ncurl -s -k -v --header 'Authorization:
-            Bearer top-secret'\thttps://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/osp-rhel-aws-kube-system-provisioning-config
-            | jq '.data[\"cloud-config\"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/osp-rhel-aws-kube-system-provisioning-config.cfg\ncloud-init
-            clean\ncloud-init --file /etc/cloud/cloud.cfg.d/osp-rhel-aws-kube-system-provisioning-config.cfg
-            init\nsystemctl daemon-reload\n\nsystemctl restart setup.service\n"
+          data: |
+            #!/bin/bash
+            set -xeuo pipefail
+
+            yum install -y curl jq
+
+            curl -s -k -v --header 'Authorization: Bearer top-secret' https://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/osp-rhel-aws-kube-system-provisioning-config | jq '.data["cloud-config"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/osp-rhel-aws-kube-system-provisioning-config.cfg
+            cloud-init clean
+            cloud-init --file /etc/cloud/cloud.cfg.d/osp-rhel-aws-kube-system-provisioning-config.cfg init
+
+            systemctl daemon-reload
+            systemctl restart setup.service
           encoding: b64
       path: /opt/bin/bootstrap
       permissions: 755
@@ -491,6 +497,31 @@ spec:
       permissions: 644
     - content:
         inline:
+          data: |+
+            apiVersion: v1
+            clusters:
+            - cluster:
+                certificate-authority-data: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURHRENDQWdDZ0F3SUJBZ0lCQURBTkJna3Foa2lHOXcwQkFRc0ZBREE5TVRzd09RWURWUVFERXpKeWIyOTAKTFdOaExuUTNjV3R4ZURWeGRDNWxkWEp2Y0dVdGQyVnpkRE10WXk1a1pYWXVhM1ZpWlhKdFlYUnBZeTVwYnpBZQpGdzB4T0RBeU1ERXhNelUyTURoYUZ3MHlPREF4TXpBeE16VTJNRGhhTUQweE96QTVCZ05WQkFNVE1uSnZiM1F0ClkyRXVkRGR4YTNGNE5YRjBMbVYxY205d1pTMTNaWE4wTXkxakxtUmxkaTVyZFdKbGNtMWhkR2xqTG1sdk1JSUIKSWpBTkJna3Foa2lHOXcwQkFRRUZBQU9DQVE4QU1JSUJDZ0tDQVFFQXA2SDZWNTZiWUh2Q2V6TGtyZkl6TTgxYgppbzcvWmF3L0xLRXcwZUYrTE12NEUrL1EvZkZoc0hDK21oZUxnMUhXVVBGUFJrNFBRODVtQS80dGppbWpTUEZECms2U0ltektGTFlRZ3dDZ2dpVzhOMmhPKzl6ckJVQUxKRkdCNjRvT2NiQmo2RXIvK05sUEdJM1JSV1dkaUVUV0YKV1lDNGpmSmpiRjVQYnl5WEhuc0dmdFNOWVpCTDcxVzdoOWpMV3B5VVdLTDZaWUFOd0RPTjJSYnA3dHB1dzBYNgprayswQVZ3VnprMzArTU56bWY1MHF3K284MThiZkxVRGthTk1mTFM2STB3UW03UkdnK01nVlJEeTNDdVlxZklXClkyeng2YzdQcXpGc1ZWZklyYTBiMHFhdE5sMVhIajh0K0dOcWRiaTIvRlFqQ3hpbFROdW50VDN2eTJlT0hRSUQKQVFBQm95TXdJVEFPQmdOVkhROEJBZjhFQkFNQ0FxUXdEd1lEVlIwVEFRSC9CQVV3QXdFQi96QU5CZ2txaGtpRwo5dzBCQVFzRkFBT0NBUUVBSW1FbklYVjNEeW1DcTlxUDdwK3VKNTV1Zlhka1IyZ2hEVVlyVFRjUHdqUjJqVEhhCmlaQStnOG42UXJVb0NENnN6RytsaGFsN2hQNnhkV3VSalhGSE83Yk52NjNJcUVHelJEZ3c1Z3djcVVUWkV2d2cKZ216NzU5dy9hRmYxVjEyaDFhZlBtQTlFRzVOZEh4c3g5QWxIK0Y2dHlzcHBXaFU4WEVRVUFLQ1BqbndVbUs0cAo3Z3ZUWnIyeno0bndoWm8zTDg5MDNxcHRjcTFsWjRPWXNEb1hvbDF1emFRSDgyeHl3ZVNLQ0tYcE9iaXplNVowCndwbmpkRHVIODd4NHI0TGpNWnB1M3ZYNkxqQkRNUFdrSEhQTjVBaW0xSkx0Ny9STFBnVHRqc0pNclRBUzdoZ1oKZktMTDlRTVFsNnMxckhKNEtrL2U3S0c4SEE0aEVORWhrOVlEZlE9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+                server: https://foo.bar:6443
+              name: c
+            contexts:
+            - context:
+                cluster: c
+                user: c
+              name: c
+            current-context: c
+            kind: Config
+            preferences: {}
+            users:
+            - name: c
+              user:
+                token: test.test
+
+          encoding: b64
+      path: /etc/kubernetes/bootstrap-kubelet.conf
+      permissions: 644
+    - content:
+        inline:
           data: |
             [Install]
             WantedBy=multi-user.target
@@ -624,16 +655,16 @@ spec:
     - content:
         inline:
           data: |
-            runtime-endpoint: unix:///run/containerd/containerd.sock
-      path: /etc/crictl.yaml
-      permissions: 644
-    - content:
-        inline:
-          data: |
             [Service]
             Restart=always
             EnvironmentFile=-/etc/environment
       path: /etc/systemd/system/containerd.service.d/environment.conf
+      permissions: 644
+    - content:
+        inline:
+          data: |
+            runtime-endpoint: unix:///run/containerd/containerd.sock
+      path: /etc/crictl.yaml
       permissions: 644
     - content:
         inline:
