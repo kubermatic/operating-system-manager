@@ -15,38 +15,10 @@ spec:
           data: "#!/bin/bash\nset -xeuo pipefail\n\ncurl -s -k -v --header 'Authorization:
             Bearer top-secret'\thttps://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/flatcar-aws-containerd-kube-system-provisioning-config
             | jq '.data[\"cloud-config\"]' -r| base64 -d > /usr/share/oem/config.ign\n\ntouch
-            /boot/flatcar/first_boot\nsystemctl disable bootstrap-ignition.service\nrm
-            /etc/systemd/system/bootstrap-ignition.service\nrm /etc/machine-id\nreboot\n"
-      path: /opt/bin/bootstrap-ignition
+            /boot/flatcar/first_boot\nsystemctl disable bootstrap.service\nrm /etc/systemd/system/bootstrap.service\nrm
+            /etc/machine-id\nreboot\n"
+      path: /opt/bin/bootstrap
       permissions: 755
-    - content:
-        inline:
-          data: "#!/bin/bash\nset -xeuo pipefail\n\ncurl -s -k -v --header 'Authorization:
-            Bearer top-secret'\thttps://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/flatcar-aws-containerd-kube-system-provisioning-config
-            | jq '.data[\"cloud-config\"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/flatcar-aws-containerd-kube-system-provisioning-config.cfg\ncloud-init
-            clean\ncloud-init --file /etc/cloud/cloud.cfg.d/flatcar-aws-containerd-kube-system-provisioning-config.cfg
-            init\n\nsystemctl daemon-reload\nsystemctl restart setup.service\n"
-      path: /opt/bin/bootstrap-cloud-init
-      permissions: 755
-    - content:
-        inline:
-          data: |
-            [Install]
-            WantedBy=multi-user.target
-
-            [Unit]
-            Requires=network-online.target
-            After=network-online.target
-            [Service]
-            Type=oneshot
-            RemainAfterExit=true
-            ExecStart=/opt/bin/bootstrap-cloud-init
-      path: /etc/systemd/system/bootstrap-cloud-init.service
-      permissions: 644
-    modules:
-      runcmd:
-      - systemctl restart bootstrap-cloud-init.service
-      - systemctl daemon-reload
     units:
     - content: |
         [Install]
@@ -59,9 +31,9 @@ spec:
         [Service]
         Type=oneshot
         RemainAfterExit=true
-        ExecStart=/opt/bin/bootstrap-ignition
+        ExecStart=/opt/bin/bootstrap
       enable: true
-      name: bootstrap-ignition.service
+      name: bootstrap.service
     userSSHKeys:
     - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c
   cloudProvider:

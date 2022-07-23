@@ -18,6 +18,7 @@ package generator
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
@@ -31,11 +32,14 @@ import (
 
 func TestDefaultCloudConfigGenerator_Generate(t *testing.T) {
 	bootstrapConfig := resources.BootstrapCloudConfig
+	distUpgradeOnBootEnabled := runtime.RawExtension{Raw: []byte(`{"distUpgradeOnBoot":true}`)}
+	emptyOperatingSystemSpec := runtime.RawExtension{Raw: []byte(`{}`)}
 
 	testCases := []struct {
 		name                string
 		osc                 *osmv1alpha1.OperatingSystemConfig
 		secretType          *resources.CloudConfigSecret
+		operatingSystemSpec *runtime.RawExtension
 		expectedCloudConfig []byte
 	}{
 		{
@@ -80,8 +84,11 @@ func TestDefaultCloudConfigGenerator_Generate(t *testing.T) {
 					},
 				},
 			},
+			operatingSystemSpec: &distUpgradeOnBootEnabled,
 			expectedCloudConfig: []byte(`#cloud-config
 
+package_upgrade: true
+package_reboot_if_required: true
 ssh_pwauth: false
 
 ssh_authorized_keys:
@@ -203,8 +210,9 @@ rh_subscription:
 `),
 		},
 		{
-			name:       "generated bootstrap cloud-init for ubuntu without a service",
-			secretType: &bootstrapConfig,
+			name:                "generated bootstrap cloud-init for ubuntu without a service",
+			secretType:          &bootstrapConfig,
+			operatingSystemSpec: &emptyOperatingSystemSpec,
 			osc: &osmv1alpha1.OperatingSystemConfig{
 				Spec: osmv1alpha1.OperatingSystemConfigSpec{
 					OSName:    "ubuntu",
@@ -288,9 +296,12 @@ runcmd:
 					},
 				},
 			},
+			operatingSystemSpec: &distUpgradeOnBootEnabled,
 			expectedCloudConfig: []byte(`#cloud-config
 hostname: <MACHINE_NAME>
 
+package_upgrade: true
+package_reboot_if_required: true
 ssh_pwauth: false
 
 ssh_authorized_keys:
@@ -394,8 +405,11 @@ runcmd:
 					},
 				},
 			},
+			operatingSystemSpec: &distUpgradeOnBootEnabled,
 			expectedCloudConfig: []byte(`#cloud-config
 
+package_upgrade: true
+package_reboot_if_required: true
 ssh_pwauth: false
 
 ssh_authorized_keys:
@@ -631,25 +645,35 @@ yum_repo_dir: /store/custom/yum.repos.d`),
 				secretType = *testCase.secretType
 			}
 
-			md := generateMachineDeployment(t, providerconfigtypes.OperatingSystem(testCase.osc.Spec.OSName), "aws")
+			osSpec := runtime.RawExtension{Raw: []byte(`{"distUpgradeOnBoot":false}`)}
+			if testCase.operatingSystemSpec != nil {
+				osSpec = *testCase.operatingSystemSpec
+			}
+
+			md := generateMachineDeployment(t, providerconfigtypes.OperatingSystem(testCase.osc.Spec.OSName), "aws", &osSpec)
 			userData, err := generator.Generate(&testCase.osc.Spec.ProvisioningConfig, testCase.osc.Spec.OSName, testCase.osc.Spec.CloudProvider.Name, md, secretType)
 			if err != nil {
 				t.Fatalf("failed to generate cloud config: %v", err)
 			}
 
 			if string(userData) != string(testCase.expectedCloudConfig) {
+				fmt.Printf("\nExpected:\n%s\n", string(userData))
 				t.Fatal("unexpected generated cloud config")
 			}
 		})
 	}
 }
 
-func generateMachineDeployment(t *testing.T, os providerconfigtypes.OperatingSystem, cloudprovider string) clusterv1alpha1.MachineDeployment {
+func generateMachineDeployment(t *testing.T, os providerconfigtypes.OperatingSystem, cloudprovider string, osSpec *runtime.RawExtension) clusterv1alpha1.MachineDeployment {
 	pconfig := providerconfigtypes.Config{
 		SSHPublicKeys:     []string{"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c"},
 		OperatingSystem:   os,
 		CloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"cloudProvider":"aws", "cloudProviderSpec":"test-provider-spec"}`)},
 		CloudProvider:     providerconfigtypes.CloudProvider(cloudprovider),
+	}
+
+	if osSpec != nil {
+		pconfig.OperatingSystemSpec = *osSpec
 	}
 
 	mdConfig, err := json.Marshal(pconfig)

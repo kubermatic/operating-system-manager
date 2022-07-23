@@ -23,9 +23,12 @@ import (
 	"text/template"
 
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
+	"github.com/kubermatic/machine-controller/pkg/jsonutil"
+	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
 	"k8c.io/operating-system-manager/pkg/controllers/osc/resources"
 	"k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
+	"k8c.io/operating-system-manager/pkg/providerconfig"
 )
 
 const (
@@ -111,6 +114,17 @@ func (d *DefaultCloudConfigGenerator) Generate(config *osmv1alpha1.OSCConfig, op
 		units = append(units, uSpec)
 	}
 
+	// Retrieve Operating System Config.
+	providerConfig := providerconfigtypes.Config{}
+	if err := jsonutil.StrictUnmarshal(md.Spec.Template.Spec.ProviderSpec.Value.Raw, &providerConfig); err != nil {
+		return nil, fmt.Errorf("failed to decode provider configs: %w", err)
+	}
+
+	osConfig, err := providerconfig.LoadConfig((providerConfig.OperatingSystemSpec))
+	if err != nil {
+		return nil, err
+	}
+
 	// Fetch user data template based on the provisioning utility
 	userDataTemplate := getUserDataTemplate(provisioningUtility)
 	tmpl, err := template.New("user-data").Funcs(TxtFuncMap()).Parse(userDataTemplate)
@@ -127,6 +141,7 @@ func (d *DefaultCloudConfigGenerator) Generate(config *osmv1alpha1.OSCConfig, op
 		CloudProviderName string
 		OperatingSystem   string
 		ConfigurationType string
+		OSConfig          providerconfig.Config
 	}{
 		Files:             files,
 		Units:             units,
@@ -135,6 +150,7 @@ func (d *DefaultCloudConfigGenerator) Generate(config *osmv1alpha1.OSCConfig, op
 		CloudProviderName: string(cloudProvider),
 		OperatingSystem:   string(operatingSystem),
 		ConfigurationType: string(secretType),
+		OSConfig:          *osConfig,
 	}); err != nil {
 		return nil, err
 	}
@@ -183,6 +199,11 @@ var cloudInitTemplate = `#cloud-config
 hostname: <MACHINE_NAME>
 {{- end -}}
 {{ end }}
+
+{{ if .OSConfig.DistUpgradeOnBoot -}}
+package_upgrade: true
+package_reboot_if_required: true
+{{ end -}}
 
 ssh_pwauth: false
 
