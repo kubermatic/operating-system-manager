@@ -23,7 +23,6 @@ spec:
   osVersion: "2983.2.0"
   version: "v0.1.4"
   supportedCloudProviders:
-    - name: "anexia"
     - name: "aws"
     - name: "azure"
     - name: "equinixmetal"
@@ -32,10 +31,8 @@ spec:
     - name: "vsphere"
 
   bootstrapConfig:
-    # This is only used when `ignition` is used for provisioning.
-    # This unit serves as the initiating point for fetching and executing provisioning config.
     units:
-      - name: bootstrap-ignition.service
+      - name: bootstrap.service
         enable: true
         content: |
           [Install]
@@ -48,10 +45,10 @@ spec:
           [Service]
           Type=oneshot
           RemainAfterExit=true
-          ExecStart=/opt/bin/bootstrap-ignition
+          ExecStart=/opt/bin/bootstrap
 
     files:
-      - path: /opt/bin/bootstrap-ignition
+      - path: /opt/bin/bootstrap
         permissions: 755
         content:
           inline:
@@ -62,48 +59,10 @@ spec:
               curl -s -k -v --header 'Authorization: Bearer {{ .Token }}'	{{ .ServerURL }}/api/v1/namespaces/cloud-init-settings/secrets/{{ .SecretName }} | jq '.data["cloud-config"]' -r| base64 -d > /usr/share/oem/config.ign
 
               touch /boot/flatcar/first_boot
-              systemctl disable bootstrap-ignition.service
-              rm /etc/systemd/system/bootstrap-ignition.service
+              systemctl disable bootstrap.service
+              rm /etc/systemd/system/bootstrap.service
               rm /etc/machine-id
               reboot
-
-      - path: /opt/bin/bootstrap-cloud-init
-        permissions: 755
-        content:
-          inline:
-            data: |
-              #!/bin/bash
-              set -xeuo pipefail
-
-              curl -s -k -v --header 'Authorization: Bearer {{ .Token }}'	{{ .ServerURL }}/api/v1/namespaces/cloud-init-settings/secrets/{{ .SecretName }} | jq '.data["cloud-config"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/{{ .SecretName }}.cfg
-              cloud-init clean
-              cloud-init --file /etc/cloud/cloud.cfg.d/{{ .SecretName }}.cfg init
-
-              systemctl daemon-reload
-              systemctl restart setup.service
-
-      - path: /etc/systemd/system/bootstrap-cloud-init.service
-        permissions: 644
-        content:
-          inline:
-            data: |
-              [Install]
-              WantedBy=multi-user.target
-
-              [Unit]
-              Requires=network-online.target
-              After=network-online.target
-              [Service]
-              Type=oneshot
-              RemainAfterExit=true
-              ExecStart=/opt/bin/bootstrap-cloud-init
-
-    # This is only used when `cloud-init` is used for provisioning.
-    # This commands serve as the initiating point for fetching and executing provisioning config.
-    modules:
-      runcmd:
-        - systemctl restart bootstrap-cloud-init.service
-        - systemctl daemon-reload
 
   provisioningConfig:
     supportedContainerRuntimes:
@@ -287,7 +246,6 @@ spec:
         {{- end }}
 
     units:
-      # This is only used when `ignition` is used for provisioning.
       - name: setup.service
         enable: true
         content: |

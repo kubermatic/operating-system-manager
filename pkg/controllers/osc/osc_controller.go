@@ -224,7 +224,14 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 		r.containerRuntimeConfig.RegistryCredentials = registryCredentials
 	}
 
-	bootstrapKubeconfig, err := r.bootstrappingManager.CreateBootstrapKubeconfig(ctx, fmt.Sprintf("%s-%s", md.Namespace, md.Name))
+	machineDeploymentKey := fmt.Sprintf("%s-%s", md.Namespace, md.Name)
+	// machineDeploymentKey must be no more than 63 characters else it'll fail to create bootstrap token.
+	if len(machineDeploymentKey) >= 63 {
+		// As a fallback, we just use the name of the machine deployment.
+		machineDeploymentKey = md.Name
+	}
+
+	bootstrapKubeconfig, err := r.bootstrappingManager.CreateBootstrapKubeconfig(ctx, machineDeploymentKey)
 	if err != nil {
 		return fmt.Errorf("failed to create bootstrap kubeconfig: %w", err)
 	}
