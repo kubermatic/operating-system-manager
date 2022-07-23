@@ -58,7 +58,7 @@ spec:
             data: |
               #!/bin/bash
               set -xeuo pipefail
-              apt update && apt install -y curl jq
+
               curl -s -k -v --header 'Authorization: Bearer {{ .Token }}'	{{ .ServerURL }}/api/v1/namespaces/cloud-init-settings/secrets/{{ .SecretName }} | jq '.data["cloud-config"]' -r| base64 -d > /usr/share/oem/config.ign
 
               touch /boot/flatcar/first_boot
@@ -75,7 +75,6 @@ spec:
               #!/bin/bash
               set -xeuo pipefail
 
-              apt update && apt install -y curl jq
               curl -s -k -v --header 'Authorization: Bearer {{ .Token }}'	{{ .ServerURL }}/api/v1/namespaces/cloud-init-settings/secrets/{{ .SecretName }} | jq '.data["cloud-config"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/{{ .SecretName }}.cfg
               cloud-init clean
               cloud-init --file /etc/cloud/cloud.cfg.d/{{ .SecretName }}.cfg init

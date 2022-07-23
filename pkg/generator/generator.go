@@ -201,15 +201,16 @@ write_files:
   content: |-
 {{ $file.Content | indent 4 }}
 {{ end }}
+
 {{- /* Hostname is configured only for the bootstrap configuration */}}
 {{- if eq .ConfigurationType "bootstrap" -}}
-{{- if and (eq .CloudProviderName "openstack") (or (eq .OperatingSystem "centos") (eq .OperatingSystem "rhel")) -}}
+{{ if and (eq .CloudProviderName "openstack") (or (eq .OperatingSystem "centos") (eq .OperatingSystem "rhel")) }}
 - path: /etc/hostname
   permissions: '0600'
-  content: |
-	<MACHINE_NAME>
-{{- end -}}
+  content: |-
+        <MACHINE_NAME>
 {{ end }}
+{{- end -}}
 
 {{- if .CloudInitModules -}}
 {{ if .CloudInitModules.BootCMD }}

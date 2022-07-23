@@ -12,8 +12,8 @@ spec:
     files:
     - content:
         inline:
-          data: "#!/bin/bash\nset -xeuo pipefail\napt update && apt install -y curl
-            jq\ncurl -s -k -v --header 'Authorization: Bearer top-secret'\thttps://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/flatcar-aws-docker-kube-system-provisioning-config
+          data: "#!/bin/bash\nset -xeuo pipefail\n\ncurl -s -k -v --header 'Authorization:
+            Bearer top-secret'\thttps://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/flatcar-aws-docker-kube-system-provisioning-config
             | jq '.data[\"cloud-config\"]' -r| base64 -d > /usr/share/oem/config.ign\n\ntouch
             /boot/flatcar/first_boot\nsystemctl disable bootstrap-ignition.service\nrm
             /etc/systemd/system/bootstrap-ignition.service\nrm /etc/machine-id\nreboot\n"
@@ -21,8 +21,8 @@ spec:
       permissions: 755
     - content:
         inline:
-          data: "#!/bin/bash\nset -xeuo pipefail\n\napt update && apt install -y curl
-            jq\ncurl -s -k -v --header 'Authorization: Bearer top-secret'\thttps://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/flatcar-aws-docker-kube-system-provisioning-config
+          data: "#!/bin/bash\nset -xeuo pipefail\n\ncurl -s -k -v --header 'Authorization:
+            Bearer top-secret'\thttps://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/flatcar-aws-docker-kube-system-provisioning-config
             | jq '.data[\"cloud-config\"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/flatcar-aws-docker-kube-system-provisioning-config.cfg\ncloud-init
             clean\ncloud-init --file /etc/cloud/cloud.cfg.d/flatcar-aws-docker-kube-system-provisioning-config.cfg
             init\n\nsystemctl daemon-reload\nsystemctl restart setup.service\n"

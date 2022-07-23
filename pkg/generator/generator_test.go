@@ -257,6 +257,65 @@ runcmd:
 `),
 		},
 		{
+			name:       "generated bootstrap cloud-init for rhel",
+			secretType: &bootstrapConfig,
+			osc: &osmv1alpha1.OperatingSystemConfig{
+				Spec: osmv1alpha1.OperatingSystemConfigSpec{
+					OSName:    "rhel",
+					OSVersion: "20.04",
+					CloudProvider: osmv1alpha1.CloudProviderSpec{
+						Name: "openstack",
+					},
+					ProvisioningConfig: osmv1alpha1.OSCConfig{
+						Files: []osmv1alpha1.File{
+							{
+								Path:        "/opt/bin/test",
+								Permissions: 700,
+								Content: osmv1alpha1.FileContent{
+									Inline: &osmv1alpha1.FileContentInline{
+										Data: "    #!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    cloud-init init\n    systemctl start provision.service",
+									},
+								},
+							},
+						},
+						UserSSHKeys: []string{
+							"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3",
+							"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4",
+						},
+						CloudInitModules: &osmv1alpha1.CloudInitModule{
+							RunCMD: []string{"systemctl daemon-reload"},
+						},
+					},
+				},
+			},
+			expectedCloudConfig: []byte(`#cloud-config
+hostname: <MACHINE_NAME>
+
+ssh_pwauth: false
+
+ssh_authorized_keys:
+- 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3'
+- 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4'
+write_files:
+- path: '/opt/bin/test'
+  permissions: '0700'
+  content: |-
+        #!/bin/bash
+        set -xeuo pipefail
+        cloud-init clean
+        cloud-init init
+        systemctl start provision.service
+
+- path: /etc/hostname
+  permissions: '0600'
+  content: |-
+        <MACHINE_NAME>
+
+runcmd:
+- systemctl daemon-reload
+`),
+		},
+		{
 			name: "generated cloud-init for ubuntu without a service",
 			osc: &osmv1alpha1.OperatingSystemConfig{
 				Spec: osmv1alpha1.OperatingSystemConfigSpec{
