@@ -648,9 +648,9 @@ spec:
 
               # get the full hostname
               FULL_HOSTNAME=$(hostname -f)
-              # if /etc/hostname is not empty then use the hostname from there
-              if [ -s /etc/hostname ]; then
-                FULL_HOSTNAME=$(cat /etc/hostname)
+              # if /etc/machine-name is not empty then use the hostname from there
+              if [ -s /etc/machine-name ]; then
+                FULL_HOSTNAME=$(cat /etc/machine-name)
               fi
               {{- if eq .CloudProviderName "openstack" }}
               FULL_HOSTNAME=$(echo $FULL_HOSTNAME | sed -e "s/.novalocal//")
@@ -855,7 +855,6 @@ spec:
               # providers swap gets enabled on reboot or after the setup script has finished executing.
               sed -i.orig '/.*swap.*/d' /etc/fstab
               swapoff -a
-
 
     modules:
       yum_repos:

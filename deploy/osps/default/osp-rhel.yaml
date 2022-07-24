@@ -474,6 +474,12 @@ spec:
               systemctl restart systemd-modules-load.service
               sysctl --system
 
+              # Override hostname if /etc/machine-name exists
+              if [ -x "$(command -v hostnamectl)" ] && [ -s /etc/machine-name ]; then
+                machine_name=$(cat /etc/machine-name)
+                hostnamectl set-hostname ${machine_name}
+              fi
+
               yum install -y \
                 device-mapper-persistent-data \
                 lvm2 \
@@ -648,13 +654,10 @@ spec:
 
               # get the full hostname
               FULL_HOSTNAME=$(hostname -f)
-              # if /etc/hostname is not empty then use the hostname from there
-              if [ -s /etc/hostname ]; then
-                FULL_HOSTNAME=$(cat /etc/hostname)
+              # if /etc/machine-name is not empty then use the hostname from there
+              if [ -s /etc/machine-name ]; then
+                FULL_HOSTNAME=$(cat /etc/machine-name)
               fi
-              {{- if eq .CloudProviderName "openstack" }}
-              FULL_HOSTNAME=$(echo $FULL_HOSTNAME | sed -e "s/.novalocal//")
-              {{- end }}
 
               # write the nodeip_env file
               # we need the line below because flatcar has the same string "coreos" in that file

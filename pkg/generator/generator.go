@@ -224,8 +224,10 @@ write_files:
 
 {{- /* Hostname is configured only for the bootstrap configuration */}}
 {{- if eq .ConfigurationType "bootstrap" -}}
-{{ if and (eq .CloudProviderName "openstack") (or (eq .OperatingSystem "centos") (eq .OperatingSystem "rhel") (eq .OperatingSystem "rockylinux")) }}
-- path: /etc/hostname
+{{ if ne .CloudProviderName "aws" }}
+{{- /* Never set the hostname on AWS nodes. Kubernetes(kube-proxy) requires the hostname to be the private dns name */}}
+{{- /* machine-controller will replace "<MACHINE_NAME>" placeholder with the name of the machine */}}
+- path: /etc/machine-name
   permissions: '0600'
   content: |-
         <MACHINE_NAME>
@@ -284,7 +286,7 @@ storage:
 {{- if ne .CloudProviderName "aws" -}}
 {{- /* Never set the hostname on AWS nodes. Kubernetes(kube-proxy) requires the hostname to be the private dns name */}}
 {{- /* machine-controller will replace "<MACHINE_NAME>" placeholder with the name of the machine */}}
-  - path: /etc/hostname
+  - path: /etc/machine-name
     mode: 0600
     filesystem: root
     contents:
