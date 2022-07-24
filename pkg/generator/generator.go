@@ -77,12 +77,11 @@ func (d *DefaultCloudConfigGenerator) Generate(config *osmv1alpha1.OSCConfig, op
 			Encoding: file.Content.Inline.Encoding,
 		}
 		permissions := fmt.Sprintf("%v", file.Permissions)
-		// cloud-init expects an octal value for file permissions.
-		if provisioningUtility == CloudInit && len(permissions) == 3 {
+		// Convert to an octal value for file permissions.
+		if len(permissions) == 3 {
 			permissions = "0" + permissions
 		}
 		fSpec.Permissions = &permissions
-
 		files = append(files, fSpec)
 	}
 
@@ -286,7 +285,7 @@ storage:
 {{- /* Never set the hostname on AWS nodes. Kubernetes(kube-proxy) requires the hostname to be the private dns name */}}
 {{- /* machine-controller will replace "<MACHINE_NAME>" placeholder with the name of the machine */}}
   - path: /etc/hostname
-    mode: 600
+    mode: 0600
     filesystem: root
     contents:
         inline: '<MACHINE_NAME>'
@@ -294,7 +293,7 @@ storage:
 {{ end }}
 {{- range $_, $file := .Files }}
   - path: '{{ $file.Path }}'
-    mode: {{or $file.Permissions 644}}
+    mode: {{or $file.Permissions 0644}}
     filesystem: root
     contents:
         inline: |

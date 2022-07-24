@@ -327,6 +327,63 @@ runcmd:
 `),
 		},
 		{
+			name:       "generated bootstrap cloud-init for ubuntu",
+			secretType: &bootstrapConfig,
+			osc: &osmv1alpha1.OperatingSystemConfig{
+				Spec: osmv1alpha1.OperatingSystemConfigSpec{
+					OSName:    "ubuntu",
+					OSVersion: "20.04",
+					CloudProvider: osmv1alpha1.CloudProviderSpec{
+						Name: "openstack",
+					},
+					ProvisioningConfig: osmv1alpha1.OSCConfig{
+						Files: []osmv1alpha1.File{
+							{
+								Path:        "/opt/bin/test",
+								Permissions: 700,
+								Content: osmv1alpha1.FileContent{
+									Inline: &osmv1alpha1.FileContentInline{
+										Data: "    #!/bin/bash\n    set -xeuo pipefail\n    cloud-init clean\n    cloud-init init\n    systemctl start provision.service",
+									},
+								},
+							},
+						},
+						UserSSHKeys: []string{
+							"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3",
+							"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4",
+						},
+						CloudInitModules: &osmv1alpha1.CloudInitModule{
+							RunCMD: []string{"systemctl daemon-reload"},
+						},
+					},
+				},
+			},
+			operatingSystemSpec: &distUpgradeOnBootEnabled,
+			expectedCloudConfig: []byte(`#cloud-config
+hostname: <MACHINE_NAME>
+
+package_upgrade: true
+package_reboot_if_required: true
+ssh_pwauth: false
+
+ssh_authorized_keys:
+- 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3'
+- 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4'
+write_files:
+- path: '/opt/bin/test'
+  permissions: '0700'
+  content: |-
+        #!/bin/bash
+        set -xeuo pipefail
+        cloud-init clean
+        cloud-init init
+        systemctl start provision.service
+
+runcmd:
+- systemctl daemon-reload
+`),
+		},
+		{
 			name: "generated cloud-init for ubuntu without a service",
 			osc: &osmv1alpha1.OperatingSystemConfig{
 				Spec: osmv1alpha1.OperatingSystemConfigSpec{
@@ -464,7 +521,7 @@ runcmd:
 					},
 				},
 			},
-			expectedCloudConfig: []byte(`{"ignition":{"config":{},"security":{"tls":{}},"timeouts":{},"version":"2.3.0"},"networkd":{},"passwd":{"users":[{"name":"core","sshAuthorizedKeys":["ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3","ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4"]}]},"storage":{"files":[{"filesystem":"root","path":"/opt/bin/test.service","contents":{"source":"data:,%23!%2Fbin%2Fbash%0Aset%20-xeuo%20pipefail%0Acloud-init%20clean%0Acloud-init%20init%0Asystemctl%20start%20provision.service%0A","verification":{}},"mode":700},{"filesystem":"root","path":"/opt/bin/setup.service","contents":{"source":"data:,%23!%2Fbin%2Fbash%0Aset%20-xeuo%20pipefail%0Acloud-init%20clean%0Acloud-init%20init%0Asystemctl%20start%20provision.service%0A","verification":{}},"mode":700}]},"systemd":{}}`),
+			expectedCloudConfig: []byte(`{"ignition":{"config":{},"security":{"tls":{}},"timeouts":{},"version":"2.3.0"},"networkd":{},"passwd":{"users":[{"name":"core","sshAuthorizedKeys":["ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3","ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4"]}]},"storage":{"files":[{"filesystem":"root","path":"/opt/bin/test.service","contents":{"source":"data:,%23!%2Fbin%2Fbash%0Aset%20-xeuo%20pipefail%0Acloud-init%20clean%0Acloud-init%20init%0Asystemctl%20start%20provision.service%0A","verification":{}},"mode":448},{"filesystem":"root","path":"/opt/bin/setup.service","contents":{"source":"data:,%23!%2Fbin%2Fbash%0Aset%20-xeuo%20pipefail%0Acloud-init%20clean%0Acloud-init%20init%0Asystemctl%20start%20provision.service%0A","verification":{}},"mode":448}]},"systemd":{}}`),
 		},
 		{
 			name: "generated ignition config for flatcar for azure",
@@ -503,7 +560,7 @@ runcmd:
 					},
 				},
 			},
-			expectedCloudConfig: []byte(`{"ignition":{"config":{},"security":{"tls":{}},"timeouts":{},"version":"2.3.0"},"networkd":{},"passwd":{"users":[{"name":"core","sshAuthorizedKeys":["ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3","ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4"]}]},"storage":{"files":[{"filesystem":"root","path":"/opt/bin/test.service","contents":{"source":"data:,%23!%2Fbin%2Fbash%0Aset%20-xeuo%20pipefail%0Acloud-init%20clean%0Acloud-init%20init%0Asystemctl%20start%20provision.service%0A","verification":{}},"mode":700},{"filesystem":"root","path":"/opt/bin/setup.service","contents":{"source":"data:,%23!%2Fbin%2Fbash%0Aset%20-xeuo%20pipefail%0Acloud-init%20clean%0Acloud-init%20init%0Asystemctl%20start%20provision.service%0A","verification":{}},"mode":700}]},"systemd":{}}`),
+			expectedCloudConfig: []byte(`{"ignition":{"config":{},"security":{"tls":{}},"timeouts":{},"version":"2.3.0"},"networkd":{},"passwd":{"users":[{"name":"core","sshAuthorizedKeys":["ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3","ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4"]}]},"storage":{"files":[{"filesystem":"root","path":"/opt/bin/test.service","contents":{"source":"data:,%23!%2Fbin%2Fbash%0Aset%20-xeuo%20pipefail%0Acloud-init%20clean%0Acloud-init%20init%0Asystemctl%20start%20provision.service%0A","verification":{}},"mode":448},{"filesystem":"root","path":"/opt/bin/setup.service","contents":{"source":"data:,%23!%2Fbin%2Fbash%0Aset%20-xeuo%20pipefail%0Acloud-init%20clean%0Acloud-init%20init%0Asystemctl%20start%20provision.service%0A","verification":{}},"mode":448}]},"systemd":{}}`),
 		},
 		{
 			name:       "generated bootstrap ignition config for flatcar for azure",
@@ -543,7 +600,7 @@ runcmd:
 					},
 				},
 			},
-			expectedCloudConfig: []byte(`{"ignition":{"config":{},"security":{"tls":{}},"timeouts":{},"version":"2.3.0"},"networkd":{},"passwd":{"users":[{"name":"core","sshAuthorizedKeys":["ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3","ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4"]}]},"storage":{"files":[{"filesystem":"root","path":"/etc/hostname","contents":{"source":"data:,%3CMACHINE_NAME%3E","verification":{}},"mode":600},{"filesystem":"root","path":"/opt/bin/test.service","contents":{"source":"data:,%23!%2Fbin%2Fbash%0Aset%20-xeuo%20pipefail%0Acloud-init%20clean%0Acloud-init%20init%0Asystemctl%20start%20provision.service%0A","verification":{}},"mode":700},{"filesystem":"root","path":"/opt/bin/setup.service","contents":{"source":"data:,%23!%2Fbin%2Fbash%0Aset%20-xeuo%20pipefail%0Acloud-init%20clean%0Acloud-init%20init%0Asystemctl%20start%20provision.service%0A","verification":{}},"mode":700}]},"systemd":{}}`),
+			expectedCloudConfig: []byte(`{"ignition":{"config":{},"security":{"tls":{}},"timeouts":{},"version":"2.3.0"},"networkd":{},"passwd":{"users":[{"name":"core","sshAuthorizedKeys":["ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3","ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4"]}]},"storage":{"files":[{"filesystem":"root","path":"/etc/hostname","contents":{"source":"data:,%3CMACHINE_NAME%3E","verification":{}},"mode":384},{"filesystem":"root","path":"/opt/bin/test.service","contents":{"source":"data:,%23!%2Fbin%2Fbash%0Aset%20-xeuo%20pipefail%0Acloud-init%20clean%0Acloud-init%20init%0Asystemctl%20start%20provision.service%0A","verification":{}},"mode":448},{"filesystem":"root","path":"/opt/bin/setup.service","contents":{"source":"data:,%23!%2Fbin%2Fbash%0Aset%20-xeuo%20pipefail%0Acloud-init%20clean%0Acloud-init%20init%0Asystemctl%20start%20provision.service%0A","verification":{}},"mode":448}]},"systemd":{}}`),
 		},
 		{
 			name: "generated cloud-init modules for rhel",
