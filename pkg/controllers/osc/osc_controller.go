@@ -58,8 +58,6 @@ const (
 
 type Reconciler struct {
 	client.Client
-	apiReader client.Reader
-
 	workerClient client.Client
 
 	log *zap.SugaredLogger
@@ -86,7 +84,6 @@ func Add(
 	log *zap.SugaredLogger,
 	workerClient client.Client,
 	client client.Client,
-	apiReader client.Reader,
 	bootstrappingManager bootstrap.Bootstrap,
 	caCert string,
 	namespace string,
@@ -106,7 +103,6 @@ func Add(
 		log:                           log,
 		workerClient:                  workerClient,
 		Client:                        client,
-		apiReader:                     apiReader,
 		bootstrappingManager:          bootstrappingManager,
 		caCert:                        caCert,
 		namespace:                     namespace,
@@ -208,12 +204,7 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 	}
 
 	osp := &osmv1alpha1.OperatingSystemProfile{}
-
-	// By default, controller manager is tied to a single namespace that is provided using `-namespace` flag. It
-	// will only populate cache for OSPs against that particular namespace.
-	// Although users can specify a different namespace for OSPs as well. Hence, instead of relying on `cache`
-	// we use APIReader to directly retriev OSPs using API server.
-	if err := r.apiReader.Get(ctx, types.NamespacedName{Name: ospName, Namespace: ospNamespace}, osp); err != nil {
+	if err := r.Get(ctx, types.NamespacedName{Name: ospName, Namespace: ospNamespace}, osp); err != nil {
 		return fmt.Errorf("failed to get OperatingSystemProfile %q from namespace %q: %w", ospName, ospNamespace, err)
 	}
 
