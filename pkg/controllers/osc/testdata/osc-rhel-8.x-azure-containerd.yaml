@@ -421,6 +421,14 @@ spec:
     - content:
         inline:
           data: |
+            [Service]
+            Environment="KUBELET_EXTRA_ARGS=--resolv-conf=/run/systemd/resolve/resolv.conf"
+          encoding: b64
+      path: /etc/systemd/system/kubelet.service.d/extras.conf
+      permissions: 644
+    - content:
+        inline:
+          data: |
             {"cloud":"AZUREPUBLICCLOUD","tenantId":"","subscriptionId":"","aadClientId":"","aadClientSecret":"","resourceGroup":"","location":"","vnetName":"","subnetName":"","routeTableName":"","securityGroupName":"fake-sg","primaryAvailabilitySetName":"","vnetResourceGroup":"","useInstanceMetadata":true,"loadBalancerSku":""}
           encoding: b64
       path: /etc/kubernetes/cloud-config
