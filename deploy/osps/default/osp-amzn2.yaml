@@ -459,12 +459,6 @@ spec:
               systemctl restart systemd-modules-load.service
               sysctl --system
 
-              # Override hostname if /etc/machine-name exists
-              if [ -x "$(command -v hostnamectl)" ] && [ -s /etc/machine-name ]; then
-                machine_name=$(cat /etc/machine-name)
-                hostnamectl set-hostname ${machine_name}
-              fi
-
               yum install -y \
                 device-mapper-persistent-data \
                 lvm2 \

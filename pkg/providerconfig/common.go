@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The Operating System Manager contributors.
+Copyright 2022 The Operating System Manager contributors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// Config contains specific configuration for CentOS.
 type Config struct {
 	DistUpgradeOnBoot bool `json:"distUpgradeOnBoot"`
 }
@@ -35,7 +34,6 @@ func DefaultConfig(operatingSystemSpec runtime.RawExtension) runtime.RawExtensio
 	return operatingSystemSpec
 }
 
-// LoadConfig retrieves the CentOS configuration from raw data.
 func LoadConfig(r runtime.RawExtension) (*Config, error) {
 	r = DefaultConfig(r)
 	cfg := Config{}
