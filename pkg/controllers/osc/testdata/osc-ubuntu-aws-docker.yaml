@@ -16,15 +16,15 @@ spec:
             update && apt install -y curl jq\ncurl -s -k -v --header 'Authorization:
             Bearer top-secret'\thttps://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/ubuntu-aws-kube-system-provisioning-config
             | jq '.data[\"cloud-config\"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/ubuntu-aws-kube-system-provisioning-config.cfg\ncloud-init
-            clean\ncloud-init --file /etc/cloud/cloud.cfg.d/ubuntu-aws-kube-system-provisioning-config.cfg
-            init\nsystemctl daemon-reload\n\nsystemctl restart setup.service\n"
+            clean\n\ncloud-init --file /etc/cloud/cloud.cfg.d/ubuntu-aws-kube-system-provisioning-config.cfg
+            init\nsystemctl daemon-reload\n\nsystemctl daemon-reload\nsystemctl restart
+            setup.service\n"
           encoding: b64
       path: /opt/bin/bootstrap
       permissions: 755
     - content:
         inline:
           data: |
-            #!/bin/bash
             [Install]
             WantedBy=multi-user.target
 
@@ -236,6 +236,12 @@ spec:
             systemctl restart systemd-modules-load.service
             sysctl --system
 
+            # Override hostname if /etc/machine-name exists
+            if [ -x "$(command -v hostnamectl)" ] && [ -s /etc/machine-name ]; then
+              machine_name=$(cat /etc/machine-name)
+              hostnamectl set-hostname ${machine_name}
+            fi
+
             apt-get update
 
             DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y \
@@ -336,6 +342,7 @@ spec:
 
             systemctl enable --now kubelet
             systemctl enable --now --no-block kubelet-healthcheck.service
+            systemctl disable setup.service
           encoding: b64
       path: /opt/bin/setup
       permissions: 755
@@ -433,9 +440,9 @@ spec:
 
             # get the full hostname
             FULL_HOSTNAME=$(hostname -f)
-            # if /etc/hostname is not empty then use the hostname from there
-            if [ -s /etc/hostname ]; then
-              FULL_HOSTNAME=$(cat /etc/hostname)
+            # if /etc/machine-name is not empty then use the hostname from there
+            if [ -s /etc/machine-name ]; then
+              FULL_HOSTNAME=$(cat /etc/machine-name)
             fi
 
             # write the nodeip_env file

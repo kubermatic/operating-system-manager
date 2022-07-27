@@ -118,7 +118,6 @@ func Add(
 		nodeRegistryCredentialsSecret: nodeRegistryCredentialsSecret,
 		kubeletFeatureGates:           kubeletFeatureGates,
 	}
-	log.Info("Reconciling OSC resource..")
 	c, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: reconciler, MaxConcurrentReconciles: workerCount})
 	if err != nil {
 		return err
@@ -216,7 +215,14 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 		r.containerRuntimeConfig.RegistryCredentials = registryCredentials
 	}
 
-	bootstrapKubeconfig, err := r.bootstrappingManager.CreateBootstrapKubeconfig(ctx, fmt.Sprintf("%s-%s", md.Namespace, md.Name))
+	machineDeploymentKey := fmt.Sprintf("%s-%s", md.Namespace, md.Name)
+	// machineDeploymentKey must be no more than 63 characters else it'll fail to create bootstrap token.
+	if len(machineDeploymentKey) >= 63 {
+		// As a fallback, we just use the name of the machine deployment.
+		machineDeploymentKey = md.Name
+	}
+
+	bootstrapKubeconfig, err := r.bootstrappingManager.CreateBootstrapKubeconfig(ctx, machineDeploymentKey)
 	if err != nil {
 		return fmt.Errorf("failed to create bootstrap kubeconfig: %w", err)
 	}
@@ -289,7 +295,7 @@ func (r *Reconciler) ensureCloudConfigSecret(ctx context.Context, config osmv1al
 		return nil
 	}
 
-	provisionData, err := r.generator.Generate(&config, operatingSystem, cloudProvider, secretType)
+	provisionData, err := r.generator.Generate(&config, operatingSystem, cloudProvider, *md, secretType)
 	if err != nil {
 		return fmt.Errorf("failed to generate %s data", secretType)
 	}

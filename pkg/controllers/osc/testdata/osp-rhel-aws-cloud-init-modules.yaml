@@ -20,7 +20,7 @@ metadata:
 spec:
   osName: "rhel"
   osVersion: "8.5"
-  version: "v0.1.3"
+  version: "v0.1.4"
   supportedCloudProviders:
     - name: "aws"
     - name: "azure"
@@ -30,7 +30,7 @@ spec:
 
   bootstrapConfig:
     files:
-      - path: "/opt/bin/bootstrap"
+      - path: /opt/bin/bootstrap
         permissions: 755
         content:
           inline:
@@ -39,30 +39,21 @@ spec:
               #!/bin/bash
               set -xeuo pipefail
 
-              export DEBIAN_FRONTEND=noninteractive
-              apt update && apt install -y curl jq
-              curl -s -k -v --header 'Authorization: Bearer {{ .Token }}'	{{ .ServerURL }}/api/v1/namespaces/cloud-init-settings/secrets/{{ .SecretName }} | jq '.data["cloud-config"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/{{ .SecretName }}.cfg
+              yum install -y curl jq
+
+              curl -s -k -v --header 'Authorization: Bearer {{ .Token }}' {{ .ServerURL }}/api/v1/namespaces/cloud-init-settings/secrets/{{ .SecretName }} | jq '.data["cloud-config"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/{{ .SecretName }}.cfg
               cloud-init clean
               cloud-init --file /etc/cloud/cloud.cfg.d/{{ .SecretName }}.cfg init
+
               systemctl daemon-reload
-
-              {{- /* The default cloud-init configurations files have a bug on Digital Ocean that causes the machine to be in-accessible on the 2nd cloud-init. Hence we disable network configuration. */}}
-              {{- if eq .CloudProviderName "digitalocean" }}
-              rm /etc/netplan/50-cloud-init.yaml
-              echo "network: {config: disabled}" > /etc/cloud/cloud.cfg.d/99-custom-networking.cfg
-              netplan generate
-              netplan apply
-              {{- end }}
-
               systemctl restart setup.service
 
-      - path: "/etc/systemd/system/bootstrap.service"
+      - path: /etc/systemd/system/bootstrap.service
         permissions: 644
         content:
           inline:
             encoding: b64
             data: |
-              #!/bin/bash
               [Install]
               WantedBy=multi-user.target
 
@@ -83,13 +74,7 @@ spec:
     supportedContainerRuntimes:
       - name: containerd
         files:
-          - path: "/etc/crictl.yaml"
-            content:
-              inline:
-                data: |
-                  runtime-endpoint: unix:///run/containerd/containerd.sock
-
-          - path: "/etc/systemd/system/containerd.service.d/environment.conf"
+          - path: /etc/systemd/system/containerd.service.d/environment.conf
             content:
               inline:
                 data: |
@@ -97,7 +82,13 @@ spec:
                   Restart=always
                   EnvironmentFile=-/etc/environment
 
-          - path: "/etc/containerd/config.toml"
+          - path: /etc/crictl.yaml
+            content:
+              inline:
+                data: |
+                  runtime-endpoint: unix:///run/containerd/containerd.sock
+
+          - path: /etc/containerd/config.toml
             permissions: 600
             content:
               inline:
@@ -122,7 +113,7 @@ spec:
 
       - name: docker
         files:
-          - path: "/etc/systemd/system/containerd.service.d/environment.conf"
+          - path: /etc/systemd/system/containerd.service.d/environment.conf
             content:
               inline:
                 data: |
@@ -130,7 +121,7 @@ spec:
                   Restart=always
                   EnvironmentFile=-/etc/environment
 
-          - path: "/etc/systemd/system/docker.service.d/environment.conf"
+          - path: /etc/systemd/system/docker.service.d/environment.conf
             content:
               inline:
                 data: |
@@ -285,7 +276,7 @@ spec:
         {{- end }}
 
     files:
-      - path: "/opt/bin/health-monitor.sh"
+      - path: /opt/bin/health-monitor.sh
         permissions: 755
         content:
           inline:
@@ -408,7 +399,7 @@ spec:
                 echo "Health monitoring for component ${component} is not supported!"
               fi
 
-      - path: "/etc/systemd/journald.conf.d/max_disk_use.conf"
+      - path: /etc/systemd/journald.conf.d/max_disk_use.conf
         content:
           inline:
             encoding: b64
@@ -416,7 +407,7 @@ spec:
               [Journal]
               SystemMaxUse=5G
 
-      - path: "/opt/load-kernel-modules.sh"
+      - path: /opt/load-kernel-modules.sh
         permissions: 755
         content:
           inline:
@@ -437,7 +428,7 @@ spec:
                 modprobe nf_conntrack
               fi
 
-      - path: "/etc/sysctl.d/k8s.conf"
+      - path: /etc/sysctl.d/k8s.conf
         content:
           inline:
             encoding: b64
@@ -451,7 +442,7 @@ spec:
               fs.inotify.max_user_watches = 1048576
               fs.inotify.max_user_instances = 8192
 
-      - path: "/etc/selinux/config"
+      - path: /etc/selinux/config
         content:
           inline:
             encoding: b64
@@ -468,7 +459,7 @@ spec:
               #     mls - Multi Level Security protection.
               SELINUXTYPE=targeted
 
-      - path: "/opt/bin/setup"
+      - path: /opt/bin/setup
         permissions: 755
         content:
           inline:
@@ -532,8 +523,9 @@ spec:
               {{ end -}}
               systemctl enable --now kubelet
               systemctl enable --now --no-block kubelet-healthcheck.service
+              systemctl disable setup.service
 
-      - path: "/opt/bin/supervise.sh"
+      - path: /opt/bin/supervise.sh
         permissions: 755
         content:
           inline:
@@ -545,7 +537,7 @@ spec:
                 sleep 1
               done
 
-      - path: "/etc/systemd/system/kubelet.service"
+      - path: /etc/systemd/system/kubelet.service
         content:
           inline:
             encoding: b64
@@ -618,7 +610,7 @@ spec:
               [Install]
               WantedBy=multi-user.target
 
-      - path: "/etc/kubernetes/cloud-config"
+      - path: /etc/kubernetes/cloud-config
         permissions: 600
         content:
           inline:
@@ -626,7 +618,7 @@ spec:
             data: |
               {{ .CloudConfig }}
 
-      - path: "/opt/bin/setup_net_env.sh"
+      - path: /opt/bin/setup_net_env.sh
         permissions: 755
         content:
           inline:
@@ -656,9 +648,9 @@ spec:
 
               # get the full hostname
               FULL_HOSTNAME=$(hostname -f)
-              # if /etc/hostname is not empty then use the hostname from there
-              if [ -s /etc/hostname ]; then
-                FULL_HOSTNAME=$(cat /etc/hostname)
+              # if /etc/machine-name is not empty then use the hostname from there
+              if [ -s /etc/machine-name ]; then
+                FULL_HOSTNAME=$(cat /etc/machine-name)
               fi
               {{- if eq .CloudProviderName "openstack" }}
               FULL_HOSTNAME=$(echo $FULL_HOSTNAME | sed -e "s/.novalocal//")
@@ -677,14 +669,21 @@ spec:
                 echo -e "[Service]\nEnvironment=\"KUBELET_NODE_IP=${DEFAULT_IFC_IP}\"\nEnvironment=\"KUBELET_HOSTNAME=${FULL_HOSTNAME}\"" > /etc/systemd/system/kubelet.service.d/nodeip.conf
               fi
 
-      - path: "/etc/kubernetes/pki/ca.crt"
+      - path: /etc/kubernetes/pki/ca.crt
         content:
           inline:
             encoding: b64
             data: |
               {{ .KubernetesCACert }}
 
-      - path: "/etc/systemd/system/setup.service"
+      - path: /etc/kubernetes/bootstrap-kubelet.conf
+        content:
+          inline:
+            encoding: b64
+            data: |
+              {{ .BootstrapKubeconfig }}
+
+      - path: /etc/systemd/system/setup.service
         permissions: 644
         content:
           inline:
@@ -703,7 +702,7 @@ spec:
               EnvironmentFile=-/etc/environment
               ExecStart=/opt/bin/supervise.sh /opt/bin/setup
 
-      - path: "/etc/profile.d/opt-bin-path.sh"
+      - path: /etc/profile.d/opt-bin-path.sh
         permissions: 644
         content:
           inline:
@@ -711,7 +710,7 @@ spec:
             data: |
               export PATH="/opt/bin:$PATH"
 
-      - path: "/etc/kubernetes/kubelet.conf"
+      - path: /etc/kubernetes/kubelet.conf
         content:
           inline:
             encoding: b64
@@ -843,7 +842,7 @@ spec:
               [Install]
               WantedBy=multi-user.target
 
-      - path: "/opt/disable-swap.sh"
+      - path: /opt/disable-swap.sh
         permissions: 755
         content:
           inline:

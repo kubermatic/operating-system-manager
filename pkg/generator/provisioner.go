@@ -17,7 +17,13 @@ limitations under the License.
 package generator
 
 import (
+	"fmt"
+
+	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
+	"github.com/kubermatic/machine-controller/pkg/jsonutil"
+	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
+	"k8c.io/operating-system-manager/pkg/providerconfig/flatcar"
 )
 
 // ProvisioningUtility specifies the type of utility used for machine provisioning
@@ -29,11 +35,25 @@ const (
 )
 
 // GetProvisioningUtility returns the provisioning utility for the given machine
-func GetProvisioningUtility(osName osmv1alpha1.OperatingSystem) ProvisioningUtility {
-	switch osName {
-	case osmv1alpha1.OperatingSystemFlatcar:
-		return Ignition
-	default:
-		return CloudInit
+func GetProvisioningUtility(osName osmv1alpha1.OperatingSystem, md clusterv1alpha1.MachineDeployment) (ProvisioningUtility, error) {
+	// We need to check if `ProvisioningUtility` was explicitly specified in the machine deployment. If not then we
+	// will always default to `ignition`.
+	if osName == osmv1alpha1.OperatingSystemFlatcar {
+		providerConfig := providerconfigtypes.Config{}
+		if err := jsonutil.StrictUnmarshal(md.Spec.Template.Spec.ProviderSpec.Value.Raw, &providerConfig); err != nil {
+			return "", fmt.Errorf("failed to decode provider configs: %w", err)
+		}
+
+		config, err := flatcar.LoadConfig(providerConfig.OperatingSystemSpec)
+		if err != nil {
+			return "", err
+		}
+
+		if config.ProvisioningUtility == "" {
+			return Ignition, err
+		}
+		return ProvisioningUtility(config.ProvisioningUtility), err
 	}
+	// Only flatcar supports ignition.
+	return CloudInit, nil
 }

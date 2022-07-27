@@ -21,6 +21,7 @@ spec:
             curl -s -k -v --header 'Authorization: Bearer top-secret' https://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/osp-rhel-azure-kube-system-provisioning-config | jq '.data["cloud-config"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/osp-rhel-azure-kube-system-provisioning-config.cfg
             cloud-init clean
             cloud-init --file /etc/cloud/cloud.cfg.d/osp-rhel-azure-kube-system-provisioning-config.cfg init
+
             systemctl daemon-reload
             systemctl restart setup.service
           encoding: b64
@@ -29,7 +30,6 @@ spec:
     - content:
         inline:
           data: |
-            #!/bin/bash
             [Install]
             WantedBy=multi-user.target
 
@@ -252,6 +252,12 @@ spec:
             systemctl restart systemd-modules-load.service
             sysctl --system
 
+            # Override hostname if /etc/machine-name exists
+            if [ -x "$(command -v hostnamectl)" ] && [ -s /etc/machine-name ]; then
+              machine_name=$(cat /etc/machine-name)
+              hostnamectl set-hostname ${machine_name}
+            fi
+
             yum install -y \
               device-mapper-persistent-data \
               lvm2 \
@@ -351,6 +357,7 @@ spec:
 
             systemctl enable --now kubelet
             systemctl enable --now --no-block kubelet-healthcheck.service
+            systemctl disable setup.service
           encoding: b64
       path: /opt/bin/setup
       permissions: 755
@@ -437,9 +444,9 @@ spec:
 
             # get the full hostname
             FULL_HOSTNAME=$(hostname -f)
-            # if /etc/hostname is not empty then use the hostname from there
-            if [ -s /etc/hostname ]; then
-              FULL_HOSTNAME=$(cat /etc/hostname)
+            # if /etc/machine-name is not empty then use the hostname from there
+            if [ -s /etc/machine-name ]; then
+              FULL_HOSTNAME=$(cat /etc/machine-name)
             fi
 
             # write the nodeip_env file
@@ -649,16 +656,16 @@ spec:
     - content:
         inline:
           data: |
-            runtime-endpoint: unix:///run/containerd/containerd.sock
-      path: /etc/crictl.yaml
-      permissions: 644
-    - content:
-        inline:
-          data: |
             [Service]
             Restart=always
             EnvironmentFile=-/etc/environment
       path: /etc/systemd/system/containerd.service.d/environment.conf
+      permissions: 644
+    - content:
+        inline:
+          data: |
+            runtime-endpoint: unix:///run/containerd/containerd.sock
+      path: /etc/crictl.yaml
       permissions: 644
     - content:
         inline:
