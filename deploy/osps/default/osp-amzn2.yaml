@@ -576,6 +576,14 @@ spec:
               [Install]
               WantedBy=multi-user.target
 
+      - path: /etc/systemd/system/kubelet.service.d/extras.conf
+        content:
+          inline:
+            encoding: b64
+            data: |
+              [Service]
+              Environment="KUBELET_EXTRA_ARGS=--resolv-conf=/run/systemd/resolve/resolv.conf"
+
       - path: /etc/kubernetes/cloud-config
         permissions: 600
         content:
