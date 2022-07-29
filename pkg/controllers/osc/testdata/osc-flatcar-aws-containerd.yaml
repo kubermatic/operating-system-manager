@@ -468,6 +468,13 @@ spec:
       permissions: 644
     - content:
         inline:
+          data: |
+            [Service]
+            Environment="KUBELET_EXTRA_ARGS=--resolv-conf=/run/systemd/resolve/resolv.conf"
+      path: /etc/systemd/system/kubelet.service.d/extras.conf
+      permissions: 644
+    - content:
+        inline:
           data: |+
             [global]
             Zone="eu-central-1b"
