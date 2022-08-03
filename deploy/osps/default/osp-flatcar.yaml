@@ -471,6 +471,13 @@ spec:
                 echo -e "[Service]\nEnvironment=\"KUBELET_NODE_IP=${DEFAULT_IFC_IP}\"\nEnvironment=\"KUBELET_HOSTNAME=${FULL_HOSTNAME}\"" > /etc/systemd/system/kubelet.service.d/nodeip.conf
               fi
 
+      - path: /etc/systemd/network/zz-default.network.d/ipv6-fix.conf
+        permissions: 755
+        content:
+          inline:
+            data: |
+              [Network]
+              IPv6AcceptRA=true
       - path: /opt/bin/setup
         permissions: 755
         content:
