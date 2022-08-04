@@ -2,7 +2,7 @@ apiVersion: operatingsystemmanager.k8c.io/v1alpha1
 kind: OperatingSystemConfig
 metadata:
   annotations:
-    k8c.io/machine-deployment-revision: "1"
+    k8c.io/machine-deployment-revision: ""
   creationTimestamp: null
   name: kubelet-configuration-kube-system-config
   namespace: kube-system
