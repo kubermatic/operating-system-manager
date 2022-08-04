@@ -30,7 +30,6 @@ import (
 	"github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	cloudproviderutil "github.com/kubermatic/machine-controller/pkg/cloudprovider/util"
 	"github.com/kubermatic/machine-controller/pkg/containerruntime"
-	machinecontrollerutil "github.com/kubermatic/machine-controller/pkg/controller/util"
 	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
 	"k8c.io/operating-system-manager/pkg/bootstrap"
 	"k8c.io/operating-system-manager/pkg/clusterinfo"
@@ -45,6 +44,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	controllerruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	fakectrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -571,7 +571,7 @@ func TestOSCAndSecretRotation(t *testing.T) {
 			oscRevision := osc.Annotations[MachineDeploymentRevision]
 			bootstrapSecretRevision := bootstrapSecret.Annotations[MachineDeploymentRevision]
 			provisioningSecretRevision := provisioningSecret.Annotations[MachineDeploymentRevision]
-			revision := md.Annotations[machinecontrollerutil.RevisionAnnotation]
+			revision := md.ResourceVersion
 
 			if revision != oscRevision {
 				t.Fatal("revision for machine deployment and OSC didn't match")
@@ -585,8 +585,11 @@ func TestOSCAndSecretRotation(t *testing.T) {
 				t.Fatal("revision for machine deployment and provisioning secret didn't match")
 			}
 
-			// Change the revision manually to trigger OSC and secret rotation
-			md.Annotations[machinecontrollerutil.RevisionAnnotation] = "2"
+			// Scale down machines manually to trigger osc and secret rotation
+			md.Spec.Replicas = pointer.Int32(int32(0))
+			if err := fakeClient.Update(ctx, md); err != nil {
+				t.Fatalf("failed to update machine: %v", err)
+			}
 
 			// Reconcile to trigger delete workflow
 			if err := reconciler.reconcile(ctx, md); err != nil {
@@ -623,7 +626,7 @@ func TestOSCAndSecretRotation(t *testing.T) {
 			oscRevision = osc.Annotations[MachineDeploymentRevision]
 			bootstrapSecretRevision = bootstrapSecret.Annotations[MachineDeploymentRevision]
 			provisioningSecretRevision = provisioningSecret.Annotations[MachineDeploymentRevision]
-			updatedRevision := md.Annotations[machinecontrollerutil.RevisionAnnotation]
+			updatedRevision := md.ResourceVersion
 
 			if updatedRevision == revision {
 				t.Fatal("revision for machine deployment was not updated")
@@ -815,7 +818,6 @@ func generateMachineDeployment(t *testing.T, name, namespace, osp, kubeletVersio
 	}
 
 	annotations := make(map[string]string)
-	annotations[machinecontrollerutil.RevisionAnnotation] = "1"
 	annotations[resources.MachineDeploymentOSPAnnotation] = osp
 	for k, v := range additionalAnnotations {
 		annotations[k] = v
