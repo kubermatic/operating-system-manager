@@ -246,6 +246,13 @@ spec:
     - content:
         inline:
           data: |
+            [Network]
+            IPv6AcceptRA=true
+      path: /etc/systemd/network/zz-default.network.d/ipv6-fix.conf
+      permissions: 755
+    - content:
+        inline:
+          data: |
             #!/bin/bash
             set -xeuo pipefail
             cat << EOF | tee /etc/polkit-1/rules.d/60-noreboot_norestart.rules
