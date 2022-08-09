@@ -184,7 +184,7 @@ func (b *Bootstrap) createBootstrapToken(ctx context.Context, name string) (stri
 			"description":                    []byte("bootstrap token for " + name),
 			tokenIDKey:                       []byte(tokenID),
 			tokenSecretKey:                   []byte(tokenSecret),
-			expirationKey:                    []byte(metav1.Now().Add(1 * time.Hour).Format(time.RFC3339)),
+			expirationKey:                    []byte(metav1.Now().Add(15 * time.Minute).Format(time.RFC3339)),
 			"usage-bootstrap-authentication": []byte("true"),
 			"usage-bootstrap-signing":        []byte("true"),
 			"auth-extra-groups":              []byte("system:bootstrappers:machine-controller:default-node-token"),
