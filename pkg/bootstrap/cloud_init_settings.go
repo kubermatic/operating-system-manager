@@ -21,20 +21,17 @@ import (
 	"errors"
 	"fmt"
 
+	"k8c.io/operating-system-manager/pkg/resources"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-	CloudInitNamespace    = "cloud-init-settings"
-	cloudInitGetterSecret = "cloud-init-getter-token"
-)
-
 func ExtractAPIServerToken(ctx context.Context, client ctrlruntimeclient.Client) (string, error) {
 	secret := &corev1.Secret{}
-	if err := client.Get(ctx, types.NamespacedName{Name: cloudInitGetterSecret, Namespace: CloudInitNamespace}, secret); err != nil {
-		return "", fmt.Errorf("failed to get %s secrets in namespace %s: %w", cloudInitGetterSecret, CloudInitNamespace, err)
+	if err := client.Get(ctx, types.NamespacedName{Name: resources.CloudInitGetterToken, Namespace: resources.CloudInitSettingsNamespace}, secret); err != nil {
+		return "", fmt.Errorf("failed to get %s secrets in namespace %s: %w", resources.CloudInitGetterToken, resources.CloudInitSettingsNamespace, err)
 	}
 
 	token := secret.Data["token"]

@@ -174,24 +174,37 @@ func (r *Reconciler) reconcile(ctx context.Context, md *clusterv1alpha1.MachineD
 		return fmt.Errorf("failed to perform rotation for OSC and secrets: %w", err)
 	}
 
-	if err := r.reconcileOperatingSystemConfigs(ctx, md); err != nil {
+	err, updated := r.reconcileOperatingSystemConfigs(ctx, md)
+	if err != nil {
 		return fmt.Errorf("failed to reconcile operating system config: %w", err)
 	}
 
-	if err := r.reconcileSecrets(ctx, md); err != nil {
+	if err := r.reconcileSecrets(ctx, md, updated); err != nil {
 		return fmt.Errorf("failed to reconcile secrets: %w", err)
 	}
 
 	return nil
 }
 
-func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
+func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *clusterv1alpha1.MachineDeployment) (error, bool) {
 	// Check if OSC already exists, in that case we don't need to do anything since OSC are immutable
 	oscName := fmt.Sprintf(resources.OperatingSystemConfigNamePattern, md.Name, md.Namespace)
 	osc := &osmv1alpha1.OperatingSystemConfig{}
-	if err := r.Get(ctx, types.NamespacedName{Name: oscName, Namespace: r.namespace}, osc); err == nil {
-		// Early return since the object already exists
-		return nil
+	getOSCErr := r.Get(ctx, types.NamespacedName{Name: oscName, Namespace: r.namespace}, osc)
+	if getOSCErr != nil && !kerrors.IsNotFound(getOSCErr) {
+		return getOSCErr, false
+	}
+
+	machineDeploymentKey := fmt.Sprintf("%s-%s", md.Namespace, md.Name)
+	// machineDeploymentKey must be no more than 63 characters else it'll fail to create bootstrap token.
+	if len(machineDeploymentKey) >= 63 {
+		// As a fallback, we just use the name of the machine deployment.
+		machineDeploymentKey = md.Name
+	}
+
+	bootstrapKubeconfig, updated, err := r.bootstrappingManager.CreateBootstrapKubeconfig(ctx, machineDeploymentKey)
+	if err != nil {
+		return fmt.Errorf("failed to create bootstrap kubeconfig: %w", err), false
 	}
 
 	ospName := md.Annotations[resources.MachineDeploymentOSPAnnotation]
@@ -204,32 +217,20 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 
 	osp := &osmv1alpha1.OperatingSystemProfile{}
 	if err := r.Get(ctx, types.NamespacedName{Name: ospName, Namespace: ospNamespace}, osp); err != nil {
-		return fmt.Errorf("failed to get OperatingSystemProfile %q from namespace %q: %w", ospName, ospNamespace, err)
+		return fmt.Errorf("failed to get OperatingSystemProfile %q from namespace %q: %w", ospName, ospNamespace, err), false
 	}
 
 	if r.nodeRegistryCredentialsSecret != "" {
 		registryCredentials, err := containerruntime.GetContainerdAuthConfig(ctx, r.Client, r.nodeRegistryCredentialsSecret)
 		if err != nil {
-			return fmt.Errorf("failed to get containerd auth config: %w", err)
+			return fmt.Errorf("failed to get containerd auth config: %w", err), false
 		}
 		r.containerRuntimeConfig.RegistryCredentials = registryCredentials
 	}
 
-	machineDeploymentKey := fmt.Sprintf("%s-%s", md.Namespace, md.Name)
-	// machineDeploymentKey must be no more than 63 characters else it'll fail to create bootstrap token.
-	if len(machineDeploymentKey) >= 63 {
-		// As a fallback, we just use the name of the machine deployment.
-		machineDeploymentKey = md.Name
-	}
-
-	bootstrapKubeconfig, err := r.bootstrappingManager.CreateBootstrapKubeconfig(ctx, machineDeploymentKey)
-	if err != nil {
-		return fmt.Errorf("failed to create bootstrap kubeconfig: %w", err)
-	}
-
 	token, err := bootstrap.ExtractAPIServerToken(ctx, r.workerClient)
 	if err != nil {
-		return fmt.Errorf("failed to fetch api-server token: %w", err)
+		return fmt.Errorf("failed to fetch api-server token: %w", err), false
 	}
 
 	// We need to create OSC resource as it doesn't exist
@@ -252,47 +253,64 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 		r.kubeletFeatureGates,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to generate %s osc: %w", oscName, err)
+		return fmt.Errorf("failed to generate %s osc: %w", oscName, err), false
 	}
 
 	// Add machine deployment revision to OSC
 	revision := md.Annotations[machinecontrollerutil.RevisionAnnotation]
 	osc.Annotations = addMachineDeploymentRevision(revision, osc.Annotations)
 
-	// Create resource in cluster
-	if err := r.Create(ctx, osc); err != nil {
-		return fmt.Errorf("failed to create %s osc: %w", oscName, err)
+	if kerrors.IsNotFound(getOSCErr) {
+		// Create resource in cluster
+		if err := r.Create(ctx, osc); err != nil {
+			return fmt.Errorf("failed to create %s osc: %w", oscName, err), false
+		}
+		r.log.Infof("successfully generated provisioning osc: %v", oscName)
+
+		return nil, false
 	}
-	r.log.Infof("successfully generated provisioning osc: %v", oscName)
-	return nil
+
+	// We check if the bootstrapping kubeconfig has been updated or not. If it was updated, it means that the expiry time
+	// has been extended, meaning that we should keep using the same OSC. However if it wasn't updated, it means it has been
+	// created again, thus we need to update the OSC to have the new referenced kubelet bootstrapping kubeconfig.
+	if !updated {
+		if err := r.Update(ctx, osc); err != nil {
+			return fmt.Errorf("failed to update %s osc: %w", oscName, err), false
+		}
+		r.log.Infof("successfully updated provisioning osc: %v", oscName)
+
+		return nil, true
+	}
+
+	return nil, false
 }
 
-func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
+func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.MachineDeployment, updated bool) error {
 	oscName := fmt.Sprintf(resources.OperatingSystemConfigNamePattern, md.Name, md.Namespace)
 	osc := &osmv1alpha1.OperatingSystemConfig{}
 	if err := r.Get(ctx, types.NamespacedName{Namespace: r.namespace, Name: oscName}, osc); err != nil {
 		return fmt.Errorf("failed to get OperatingSystemConfigs %q from namespace %q: %w", oscName, r.namespace, err)
 	}
 
-	if err := r.ensureCloudConfigSecret(ctx, osc.Spec.BootstrapConfig, resources.BootstrapCloudConfig, osc.Spec.OSName, osc.Spec.CloudProvider.Name, md); err != nil {
+	if err := r.ensureCloudConfigSecret(ctx, osc.Spec.BootstrapConfig, resources.BootstrapCloudConfig, osc.Spec.OSName, osc.Spec.CloudProvider.Name, md, updated); err != nil {
 		return fmt.Errorf("failed to reconcile bootstrapping config secret: %w", err)
 	}
 
-	if err := r.ensureCloudConfigSecret(ctx, osc.Spec.ProvisioningConfig, resources.ProvisioningCloudConfig, osc.Spec.OSName, osc.Spec.CloudProvider.Name, md); err != nil {
+	if err := r.ensureCloudConfigSecret(ctx, osc.Spec.ProvisioningConfig, resources.ProvisioningCloudConfig, osc.Spec.OSName, osc.Spec.CloudProvider.Name, md, updated); err != nil {
 		return fmt.Errorf("failed to reconcile provisioning config secret: %w", err)
 	}
 
 	return nil
 }
 
-func (r *Reconciler) ensureCloudConfigSecret(ctx context.Context, config osmv1alpha1.OSCConfig, secretType resources.CloudConfigSecret, operatingSystem osmv1alpha1.OperatingSystem, cloudProvider osmv1alpha1.CloudProvider, md *clusterv1alpha1.MachineDeployment) error {
+func (r *Reconciler) ensureCloudConfigSecret(ctx context.Context, config osmv1alpha1.OSCConfig, secretType resources.CloudConfigSecret, operatingSystem osmv1alpha1.OperatingSystem, cloudProvider osmv1alpha1.CloudProvider, md *clusterv1alpha1.MachineDeployment, updated bool) error {
 	secretName := fmt.Sprintf(resources.CloudConfigSecretNamePattern, md.Name, md.Namespace, secretType)
 
 	// Check if secret already exists, in that case we don't need to do anything since secrets are immutable
 	secret := &corev1.Secret{}
-	if err := r.workerClient.Get(ctx, types.NamespacedName{Name: secretName, Namespace: CloudInitSettingsNamespace}, secret); err == nil {
-		// Early return since the object already exists
-		return nil
+	getSecretErr := r.workerClient.Get(ctx, types.NamespacedName{Name: secretName, Namespace: CloudInitSettingsNamespace}, secret)
+	if getSecretErr != nil && !kerrors.IsNotFound(getSecretErr) {
+		return getSecretErr
 	}
 
 	provisionData, err := r.generator.Generate(&config, operatingSystem, cloudProvider, *md, secretType)
@@ -307,11 +325,27 @@ func (r *Reconciler) ensureCloudConfigSecret(ctx context.Context, config osmv1al
 	revision := md.Annotations[machinecontrollerutil.RevisionAnnotation]
 	secret.Annotations = addMachineDeploymentRevision(revision, secret.Annotations)
 
-	// Create resource in cluster
-	if err := r.workerClient.Create(ctx, secret); err != nil {
-		return fmt.Errorf("failed to create %s %s secret: %w", secretName, secretType, err)
+	if kerrors.IsNotFound(getSecretErr) {
+		// Create resource in cluster
+		if err := r.workerClient.Create(ctx, secret); err != nil {
+			return fmt.Errorf("failed to create %s %s secret: %w", secretName, secretType, err)
+		}
+		r.log.Infof("successfully generated %s secret: %v", secretType, secretName)
+
+		return nil
 	}
-	r.log.Infof("successfully generated %s secret: %v", secretType, secretName)
+
+	if secretType == resources.ProvisioningCloudConfig {
+		if updated {
+			// Update resource in cluster
+			if err := r.workerClient.Update(ctx, secret); err != nil {
+				return fmt.Errorf("failed to update %s %s secret: %w", secretName, secretType, err)
+			}
+
+			r.log.Infof("successfully updated provisioning secret: %v", secretName)
+		}
+	}
+
 	return nil
 }
 

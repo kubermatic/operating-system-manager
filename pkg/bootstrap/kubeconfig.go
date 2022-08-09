@@ -74,27 +74,28 @@ func New(client client.Client, kubeconfigProvider KubeconfigProvider, bootstrapT
 	}
 }
 
-func (b *Bootstrap) CreateBootstrapKubeconfig(ctx context.Context, name string) (*clientcmdapi.Config, error) {
+func (b *Bootstrap) CreateBootstrapKubeconfig(ctx context.Context, name string) (*clientcmdapi.Config, bool, error) {
 	var (
-		token string
-		err   error
+		token   string
+		err     error
+		updated bool
 	)
 
 	if b.bootstrapTokenServiceAccountName != nil {
 		token, err = b.getTokenFromServiceAccount(ctx, *b.bootstrapTokenServiceAccountName)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get token from ServiceAccount %s/%s: %w", b.bootstrapTokenServiceAccountName.Namespace, b.bootstrapTokenServiceAccountName.Name, err)
+			return nil, false, fmt.Errorf("failed to get token from ServiceAccount %s/%s: %w", b.bootstrapTokenServiceAccountName.Namespace, b.bootstrapTokenServiceAccountName.Name, err)
 		}
 	} else {
-		token, err = b.createBootstrapToken(ctx, name)
+		token, updated, err = b.createBootstrapToken(ctx, name)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create bootstrap token: %w", err)
+			return nil, false, fmt.Errorf("failed to create bootstrap token: %w", err)
 		}
 	}
 
 	infoKubeconfig, err := b.kubeconfigProvider.GetKubeconfig(ctx)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	outConfig := infoKubeconfig.DeepCopy()
@@ -134,7 +135,7 @@ func (b *Bootstrap) CreateBootstrapKubeconfig(ctx context.Context, name string) 
 	outConfig.Contexts = map[string]*clientcmdapi.Context{contextIdentifier: {Cluster: contextIdentifier, AuthInfo: contextIdentifier}}
 	outConfig.CurrentContext = contextIdentifier
 
-	return outConfig, nil
+	return outConfig, updated, nil
 }
 
 func (b *Bootstrap) getTokenFromServiceAccount(ctx context.Context, name types.NamespacedName) (string, error) {
@@ -159,13 +160,14 @@ func (b *Bootstrap) getTokenFromServiceAccount(ctx context.Context, name types.N
 	return "", errors.New("no serviceAccountSecret found")
 }
 
-func (b *Bootstrap) createBootstrapToken(ctx context.Context, name string) (string, error) {
+func (b *Bootstrap) createBootstrapToken(ctx context.Context, name string) (string, bool, error) {
 	existingSecret, err := b.getSecretIfExists(ctx, name)
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 	if existingSecret != nil {
-		return b.updateSecretExpirationAndGetToken(ctx, existingSecret)
+		token, err := b.updateSecretExpirationAndGetToken(ctx, existingSecret)
+		return token, true, err
 	}
 
 	tokenID := rand.String(6)
@@ -190,10 +192,10 @@ func (b *Bootstrap) createBootstrapToken(ctx context.Context, name string) (stri
 	}
 
 	if err := b.client.Create(ctx, &secret); err != nil {
-		return "", fmt.Errorf("failed to create bootstrap token secret: %w", err)
+		return "", false, fmt.Errorf("failed to create bootstrap token secret: %w", err)
 	}
 
-	return fmt.Sprintf(tokenFormatter, tokenID, tokenSecret), nil
+	return fmt.Sprintf(tokenFormatter, tokenID, tokenSecret), false, nil
 }
 
 func (b *Bootstrap) updateSecretExpirationAndGetToken(ctx context.Context, secret *corev1.Secret) (string, error) {
