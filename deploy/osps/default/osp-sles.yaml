@@ -587,13 +587,6 @@ spec:
             data: |
               {{ .KubernetesCACert }}
 
-      - path: /etc/kubernetes/bootstrap-kubelet.conf
-        content:
-          inline:
-            encoding: b64
-            data: |
-              {{ .BootstrapKubeconfig }}
-
       - path: /etc/ssh/trusted-user-ca-keys.pem
         content:
           inline:

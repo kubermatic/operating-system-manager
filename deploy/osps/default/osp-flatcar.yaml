@@ -555,12 +555,6 @@ spec:
             data: |
               {{ .KubernetesCACert }}
 
-      - path: /etc/kubernetes/bootstrap-kubelet.conf
-        content:
-          inline:
-            data: |
-              {{ .BootstrapKubeconfig }}
-
       - path: /etc/systemd/system/setup.service
         permissions: 644
         content:
