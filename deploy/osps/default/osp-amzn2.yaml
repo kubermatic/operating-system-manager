@@ -20,7 +20,7 @@ metadata:
 spec:
   osName: "amzn2"
   osVersion: "2.0"
-  version: "v0.1.4"
+  version: "v0.1.5"
   supportedCloudProviders:
     - name: "aws"
 
@@ -486,6 +486,9 @@ spec:
               mkdir -p /etc/systemd/system/kubelet.service.d/
               # set kubelet nodeip environment variable
               /opt/bin/setup_net_env.sh
+
+              {{- /* fetch kubelet bootstrapping kubeconfig */}}
+              curl -s -k -v --header 'Authorization: Bearer {{ .Token }}' {{ .ServerURL }}/api/v1/namespaces/cloud-init-settings/secrets/{{ .BootstrapKubeconfigSecretName }} | jq '.data["kubeconfig"]' -r| base64 -d > /etc/kubernetes/bootstrap-kubelet.conf
 
               systemctl enable --now kubelet
               systemctl enable --now --no-block kubelet-healthcheck.service
