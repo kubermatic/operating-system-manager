@@ -527,7 +527,7 @@ spec:
               {{ if eq .CloudProviderName "vsphere" }}
               systemctl enable --now vmtoolsd.service
               {{ end -}}
-              
+
               {{- /* fetch kubelet bootstrapping kubeconfig */}}
               curl -s -k -v --header 'Authorization: Bearer {{ .Token }}' {{ .ServerURL }}/api/v1/namespaces/cloud-init-settings/secrets/{{ .BootstrapKubeconfigSecretName }} | jq '.data["kubeconfig"]' -r| base64 -d > /etc/kubernetes/bootstrap-kubelet.conf
 
