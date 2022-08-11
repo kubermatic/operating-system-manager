@@ -339,7 +339,7 @@ spec:
 
             # set kubelet nodeip environment variable
             /opt/bin/setup_net_env.sh
-            curl -s -k -v --header 'Authorization: Bearer top-secret' https://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/bootstrap-config-kube-system-flatcar-aws-docker | jq '.data["kubeconfig"]' -r| base64 -d > /etc/kubernetes/bootstrap-kubelet.conf
+            curl -s -k -v --header 'Authorization: Bearer top-secret' https://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/kube-system-flatcar-aws-docker-kubelet-bootstrap-config | jq '.data["kubeconfig"]' -r| base64 -d > /etc/kubernetes/bootstrap-kubelet.conf
 
             systemctl enable --now kubelet
             systemctl enable --now --no-block kubelet-healthcheck.service
