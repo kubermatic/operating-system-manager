@@ -106,7 +106,7 @@ func (b *Bootstrap) CreateBootstrapKubeconfig(ctx context.Context, name string) 
 		return nil, "", err
 	}
 
-	bootstrapConfigName := fmt.Sprintf("bootstrap-config-%s", name)
+	bootstrapConfigName := fmt.Sprintf("%s-kubelet-bootstrap-config", name)
 	bootstrapConfig := &corev1.Secret{}
 	if err := b.client.Get(ctx, types.NamespacedName{Name: bootstrapConfigName, Namespace: CloudInitNamespace}, bootstrapConfig); err != nil {
 		if kerrors.IsNotFound(err) {
