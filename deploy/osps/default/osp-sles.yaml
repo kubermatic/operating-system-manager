@@ -20,7 +20,7 @@ metadata:
 spec:
   osName: sles
   osVersion: "15-SP-1"
-  version: "v0.1.4"
+  version: "v0.1.5"
   supportedCloudProviders:
     - name: "aws"
 
@@ -423,6 +423,9 @@ spec:
               # set kubelet nodeip environment variable
               /opt/bin/setup_net_env.sh
 
+              {{- /* fetch kubelet bootstrapping kubeconfig */}}
+              curl -s -k -v --header 'Authorization: Bearer {{ .Token }}' {{ .ServerURL }}/api/v1/namespaces/cloud-init-settings/secrets/{{ .BootstrapKubeconfigSecretName }} | jq '.data["kubeconfig"]' -r| base64 -d > /etc/kubernetes/bootstrap-kubelet.conf
+
               systemctl enable --now {{ .ContainerRuntime }}
               systemctl enable --now kubelet
               systemctl enable --now --no-block kubelet-healthcheck.service
@@ -583,13 +586,6 @@ spec:
             encoding: b64
             data: |
               {{ .KubernetesCACert }}
-
-      - path: /etc/kubernetes/bootstrap-kubelet.conf
-        content:
-          inline:
-            encoding: b64
-            data: |
-              {{ .BootstrapKubeconfig }}
 
       - path: /etc/ssh/trusted-user-ca-keys.pem
         content:

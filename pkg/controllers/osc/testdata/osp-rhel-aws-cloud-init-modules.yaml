@@ -20,7 +20,7 @@ metadata:
 spec:
   osName: "rhel"
   osVersion: "8.5"
-  version: "v0.1.4"
+  version: "v0.1.5"
   supportedCloudProviders:
     - name: "aws"
     - name: "azure"
@@ -521,6 +521,8 @@ spec:
               {{ if eq .CloudProviderName "vsphere" }}
               systemctl enable --now vmtoolsd.service
               {{ end -}}
+              curl -s -k -v --header 'Authorization: Bearer top-secret' https://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/bootstrap-config-kube-system-ubuntu-aws | jq '.data["kubeconfig"]' -r| base64 -d > /etc/kubernetes/bootstrap-kubelet.conf
+
               systemctl enable --now kubelet
               systemctl enable --now --no-block kubelet-healthcheck.service
               systemctl disable setup.service
@@ -675,13 +677,6 @@ spec:
             encoding: b64
             data: |
               {{ .KubernetesCACert }}
-
-      - path: /etc/kubernetes/bootstrap-kubelet.conf
-        content:
-          inline:
-            encoding: b64
-            data: |
-              {{ .BootstrapKubeconfig }}
 
       - path: /etc/systemd/system/setup.service
         permissions: 644

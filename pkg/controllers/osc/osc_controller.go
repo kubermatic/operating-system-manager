@@ -186,6 +186,18 @@ func (r *Reconciler) reconcile(ctx context.Context, md *clusterv1alpha1.MachineD
 }
 
 func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
+	machineDeploymentKey := fmt.Sprintf("%s-%s", md.Namespace, md.Name)
+	// machineDeploymentKey must be no more than 63 characters else it'll fail to create bootstrap token.
+	if len(machineDeploymentKey) >= 63 {
+		// As a fallback, we just use the name of the machine deployment.
+		machineDeploymentKey = md.Name
+	}
+
+	bootstrapKubeconfig, bootstrapKubeconfigName, err := r.bootstrappingManager.CreateBootstrapKubeconfig(ctx, machineDeploymentKey)
+	if err != nil {
+		return fmt.Errorf("failed to create bootstrap kubeconfig: %w", err)
+	}
+
 	// Check if OSC already exists, in that case we don't need to do anything since OSC are immutable
 	oscName := fmt.Sprintf(resources.OperatingSystemConfigNamePattern, md.Name, md.Namespace)
 	osc := &osmv1alpha1.OperatingSystemConfig{}
@@ -215,18 +227,6 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 		r.containerRuntimeConfig.RegistryCredentials = registryCredentials
 	}
 
-	machineDeploymentKey := fmt.Sprintf("%s-%s", md.Namespace, md.Name)
-	// machineDeploymentKey must be no more than 63 characters else it'll fail to create bootstrap token.
-	if len(machineDeploymentKey) >= 63 {
-		// As a fallback, we just use the name of the machine deployment.
-		machineDeploymentKey = md.Name
-	}
-
-	bootstrapKubeconfig, err := r.bootstrappingManager.CreateBootstrapKubeconfig(ctx, machineDeploymentKey)
-	if err != nil {
-		return fmt.Errorf("failed to create bootstrap kubeconfig: %w", err)
-	}
-
 	token, err := bootstrap.ExtractAPIServerToken(ctx, r.workerClient)
 	if err != nil {
 		return fmt.Errorf("failed to fetch api-server token: %w", err)
@@ -237,6 +237,7 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 		md,
 		osp,
 		bootstrapKubeconfig,
+		bootstrapKubeconfigName,
 		token,
 		oscName,
 		r.namespace,

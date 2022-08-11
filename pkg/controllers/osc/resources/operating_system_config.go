@@ -69,6 +69,7 @@ func GenerateOperatingSystemConfig(
 	md *v1alpha1.MachineDeployment,
 	osp *osmv1alpha1.OperatingSystemProfile,
 	bootstrapKubeconfig *clientcmdapi.Config,
+	bootstrapKubeconfigSecretName string,
 	apiServerToken string,
 	oscName string,
 	namespace string,
@@ -173,9 +174,10 @@ func GenerateOperatingSystemConfig(
 	serverURL := bootstrapKubeconfig.Clusters[clusterName].Server
 
 	bc := bootstrapConfig{
-		Token:      apiServerToken,
-		SecretName: provisioningSecretName,
-		ServerURL:  serverURL,
+		Token:                         apiServerToken,
+		SecretName:                    provisioningSecretName,
+		ServerURL:                     serverURL,
+		BootstrapKubeconfigSecretName: bootstrapKubeconfigSecretName,
 	}
 
 	data := filesData{
@@ -315,9 +317,10 @@ type kubeletConfig struct {
 }
 
 type bootstrapConfig struct {
-	Token      string
-	ServerURL  string
-	SecretName string
+	Token                         string
+	ServerURL                     string
+	SecretName                    string
+	BootstrapKubeconfigSecretName string
 }
 
 func renderedFiles(config osmv1alpha1.OSPConfig, containerRuntime string, data filesData) ([]osmv1alpha1.File, error) {

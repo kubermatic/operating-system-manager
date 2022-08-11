@@ -20,7 +20,7 @@ metadata:
 spec:
   osName: "ubuntu"
   osVersion: "20.04"
-  version: "v0.1.4"
+  version: "v0.1.5"
   supportedCloudProviders:
     - name: "alibaba"
     - name: "aws"
@@ -478,6 +478,7 @@ spec:
               if systemctl is-active ufw; then systemctl stop ufw; fi
               systemctl mask ufw
 
+
               {{- /* As we added some modules and don't want to reboot, restart the service */}}
               systemctl restart systemd-modules-load.service
               sysctl --system
@@ -520,6 +521,9 @@ spec:
 
               # set kubelet nodeip environment variable
               /opt/bin/setup_net_env.sh
+
+              {{- /* fetch kubelet bootstrapping kubeconfig */}}
+              curl -s -k -v --header 'Authorization: Bearer {{ .Token }}' {{ .ServerURL }}/api/v1/namespaces/cloud-init-settings/secrets/{{ .BootstrapKubeconfigSecretName }} | jq '.data["kubeconfig"]' -r| base64 -d > /etc/kubernetes/bootstrap-kubelet.conf
 
               systemctl enable --now kubelet
               systemctl enable --now --no-block kubelet-healthcheck.service
@@ -680,13 +684,6 @@ spec:
             encoding: b64
             data: |
               {{ .KubernetesCACert }}
-
-      - path: /etc/kubernetes/bootstrap-kubelet.conf
-        content:
-          inline:
-            encoding: b64
-            data: |
-              {{ .BootstrapKubeconfig }}
 
       - path: /etc/systemd/system/setup.service
         permissions: 644
