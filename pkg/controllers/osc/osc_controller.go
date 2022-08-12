@@ -170,7 +170,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrlruntime.Request) (re
 
 func (r *Reconciler) reconcile(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
 	// Check if OSC and secret need to be rotated
-	if err := r.handleOSCAndSecretRotation(ctx, md); err != nil {
+	if err := r.handleOSCAndSecretsRotation(ctx, md); err != nil {
 		return fmt.Errorf("failed to perform rotation for OSC and secrets: %w", err)
 	}
 
@@ -378,10 +378,26 @@ func (r *Reconciler) deleteGeneratedSecrets(ctx context.Context, md *clusterv1al
 	if err := r.workerClient.Delete(ctx, secret); err != nil && !kerrors.IsNotFound(err) {
 		return fmt.Errorf("failed to delete bootstrap secret %s against MachineDeployment %s: %w", bootstrapSecretName, md.Name, err)
 	}
+
+	// Delete kubelet bootstrapping kubeconfig secret
+	machineDeploymentKey := fmt.Sprintf("%s-%s", md.Namespace, md.Name)
+	// machineDeploymentKey must be no more than 63 characters else it'll fail to create bootstrap token.
+	if len(machineDeploymentKey) >= 63 {
+		// As a fallback, we just use the name of the machine deployment.
+		machineDeploymentKey = md.Name
+	}
+
+	bootstrapConfigName := fmt.Sprintf("%s-kubelet-bootstrap-config", machineDeploymentKey)
+	secret.Name = bootstrapConfigName
+
+	if err := r.workerClient.Delete(ctx, secret); err != nil && !kerrors.IsNotFound(err) {
+		return fmt.Errorf("failed to delete kubelet bootstrap config secret %s against MachineDeployment %s: %w", bootstrapConfigName, md.Name, err)
+	}
+
 	return nil
 }
 
-func (r *Reconciler) handleOSCAndSecretRotation(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
+func (r *Reconciler) handleOSCAndSecretsRotation(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
 	oscName := fmt.Sprintf(resources.OperatingSystemConfigNamePattern, md.Name, md.Namespace)
 	osc := &osmv1alpha1.OperatingSystemConfig{}
 	if err := r.Get(ctx, types.NamespacedName{Name: oscName, Namespace: r.namespace}, osc); err != nil {
