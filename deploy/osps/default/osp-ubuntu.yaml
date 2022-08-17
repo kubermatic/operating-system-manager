@@ -511,7 +511,15 @@ spec:
                 {{- if or (eq .CloudProviderName "vsphere") (eq .CloudProviderName "vmware-cloud-director") }}
                 open-vm-tools \
                 {{- end }}
+                {{- if eq .CloudProviderName "nutanix" }}
+                open-iscsi \
+                {{- end }}
                 ipvsadm
+
+              {{- /* iscsid service is required on Nutanix machines for CSI driver to attach volumes. */}}
+              {{- if eq .CloudProviderName "nutanix" }}
+              systemctl enable --now iscsid
+              {{ end }}
 
               {{- template "containerRuntimeInstallation" }}
 
