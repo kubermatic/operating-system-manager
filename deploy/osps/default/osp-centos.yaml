@@ -20,7 +20,7 @@ metadata:
 spec:
   osName: "centos"
   osVersion: "7.7"
-  version: "v0.1.5"
+  version: "v1.0.0"
   supportedCloudProviders:
     - name: "alibaba"
     - name: "aws"

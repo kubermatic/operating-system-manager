@@ -20,7 +20,7 @@ metadata:
 spec:
   osName: "rockylinux"
   osVersion: "8.6"
-  version: "v0.1.1"
+  version: "v1.0.0"
   supportedCloudProviders:
     - name: "aws"
     - name: "azure"
