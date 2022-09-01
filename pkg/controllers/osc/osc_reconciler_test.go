@@ -21,8 +21,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"net"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -850,7 +850,7 @@ func loadFile(obj runtime.Object, name string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get absolute path to testdata %s: %w", name, err)
 	}
-	objBytes, err := ioutil.ReadFile(path)
+	objBytes, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("failed to read testdata file: %w", err)
 	}
