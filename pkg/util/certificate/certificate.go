@@ -18,7 +18,7 @@ package certificate
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -55,7 +55,7 @@ func GetCACert(kubeconfigPath string, config *rest.Config) (string, error) {
 		return string(config.CAData), nil
 	}
 	if config != nil && len(config.CAFile) > 0 {
-		cert, err := ioutil.ReadFile(config.CAFile)
+		cert, err := os.ReadFile(config.CAFile)
 		if err != nil {
 			return "", fmt.Errorf("failed to load CA certificate %w", err)
 		}
