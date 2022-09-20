@@ -21,7 +21,7 @@ spec:
   osName: flatcar
   ## Flatcar Stable (09/11/2021)
   osVersion: "2983.2.0"
-  version: "v1.0.0"
+  version: "v1.0.1"
   supportedCloudProviders:
     - name: "aws"
     - name: "azure"
@@ -162,7 +162,7 @@ spec:
         fi
 
         {{- /* # CNI variables */}}
-        CNI_VERSION="${CNI_VERSION:-v0.8.7}"
+        CNI_VERSION="${CNI_VERSION:-v1.1.1}"
         cni_base_url="https://github.com/containernetworking/plugins/releases/download/$CNI_VERSION"
         cni_filename="cni-plugins-linux-$arch-$CNI_VERSION.tgz"
 
