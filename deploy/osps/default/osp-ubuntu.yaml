@@ -20,7 +20,7 @@ metadata:
 spec:
   osName: "ubuntu"
   osVersion: "20.04"
-  version: "v1.0.1"
+  version: "v1.0.2"
   supportedCloudProviders:
     - name: "alibaba"
     - name: "aws"
@@ -37,6 +37,18 @@ spec:
 
   bootstrapConfig:
     files:
+      - path: /opt/bin/supervise.sh
+        permissions: 755
+        content:
+          inline:
+            encoding: b64
+            data: |
+              #!/bin/bash
+              set -xeuo pipefail
+              while ! "$@"; do
+                sleep 1
+              done
+
       - path: /opt/bin/bootstrap
         permissions: 755
         content:
@@ -67,6 +79,7 @@ spec:
 
               systemctl daemon-reload
               systemctl restart setup.service
+              systemctl disable bootstrap.service
 
       - path: /etc/systemd/system/bootstrap.service
         permissions: 644
@@ -83,7 +96,7 @@ spec:
               [Service]
               Type=oneshot
               RemainAfterExit=true
-              ExecStart=/opt/bin/bootstrap
+              ExecStart=/opt/bin/supervise.sh /opt/bin/bootstrap
 
     modules:
       runcmd:
@@ -536,18 +549,6 @@ spec:
               systemctl enable --now kubelet
               systemctl enable --now --no-block kubelet-healthcheck.service
               systemctl disable setup.service
-
-      - path: /opt/bin/supervise.sh
-        permissions: 755
-        content:
-          inline:
-            encoding: b64
-            data: |
-              #!/bin/bash
-              set -xeuo pipefail
-              while ! "$@"; do
-                sleep 1
-              done
 
       - path: /etc/systemd/system/kubelet.service
         content:
