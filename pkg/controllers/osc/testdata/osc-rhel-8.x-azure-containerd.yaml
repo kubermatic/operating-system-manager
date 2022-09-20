@@ -15,6 +15,17 @@ spec:
           data: |
             #!/bin/bash
             set -xeuo pipefail
+            while ! "$@"; do
+              sleep 1
+            done
+          encoding: b64
+      path: /opt/bin/supervise.sh
+      permissions: 755
+    - content:
+        inline:
+          data: |
+            #!/bin/bash
+            set -xeuo pipefail
 
             yum install -y curl jq
 
@@ -24,6 +35,7 @@ spec:
 
             systemctl daemon-reload
             systemctl restart setup.service
+            systemctl disable bootstrap.service
           encoding: b64
       path: /opt/bin/bootstrap
       permissions: 755
@@ -39,7 +51,7 @@ spec:
             [Service]
             Type=oneshot
             RemainAfterExit=true
-            ExecStart=/opt/bin/bootstrap
+            ExecStart=/opt/bin/supervise.sh /opt/bin/bootstrap
           encoding: b64
       path: /etc/systemd/system/bootstrap.service
       permissions: 644
@@ -367,17 +379,6 @@ spec:
             systemctl disable setup.service
           encoding: b64
       path: /opt/bin/setup
-      permissions: 755
-    - content:
-        inline:
-          data: |
-            #!/bin/bash
-            set -xeuo pipefail
-            while ! "$@"; do
-              sleep 1
-            done
-          encoding: b64
-      path: /opt/bin/supervise.sh
       permissions: 755
     - content:
         inline:
