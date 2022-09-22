@@ -278,7 +278,7 @@ spec:
             curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
             add-apt-repository "deb https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
 
-            apt-get install -y --allow-downgrades containerd.io=1.5*
+            apt-get install -y --allow-downgrades containerd.io=1.6*
             apt-mark hold containerd.io
 
             systemctl daemon-reload
