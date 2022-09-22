@@ -12,13 +12,24 @@ spec:
     files:
     - content:
         inline:
+          data: |
+            #!/bin/bash
+            set -xeuo pipefail
+            while ! "$@"; do
+              sleep 1
+            done
+          encoding: b64
+      path: /opt/bin/supervise.sh
+      permissions: 755
+    - content:
+        inline:
           data: "#!/bin/bash\nset -xeuo pipefail\n\nexport DEBIAN_FRONTEND=noninteractive\napt
             update && apt install -y curl jq\ncurl -s -k -v --header 'Authorization:
             Bearer top-secret'\thttps://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/kubelet-configuration-kube-system-provisioning-config
             | jq '.data[\"cloud-config\"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/kubelet-configuration-kube-system-provisioning-config.cfg\ncloud-init
             clean\n\ncloud-init --file /etc/cloud/cloud.cfg.d/kubelet-configuration-kube-system-provisioning-config.cfg
             init\nsystemctl daemon-reload\n\nsystemctl daemon-reload\nsystemctl restart
-            setup.service\n"
+            setup.service\nsystemctl disable bootstrap.service\n"
           encoding: b64
       path: /opt/bin/bootstrap
       permissions: 755
@@ -34,7 +45,7 @@ spec:
             [Service]
             Type=oneshot
             RemainAfterExit=true
-            ExecStart=/opt/bin/bootstrap
+            ExecStart=/opt/bin/supervise.sh /opt/bin/bootstrap
           encoding: b64
       path: /etc/systemd/system/bootstrap.service
       permissions: 644
@@ -343,17 +354,6 @@ spec:
             systemctl disable setup.service
           encoding: b64
       path: /opt/bin/setup
-      permissions: 755
-    - content:
-        inline:
-          data: |
-            #!/bin/bash
-            set -xeuo pipefail
-            while ! "$@"; do
-              sleep 1
-            done
-          encoding: b64
-      path: /opt/bin/supervise.sh
       permissions: 755
     - content:
         inline:
