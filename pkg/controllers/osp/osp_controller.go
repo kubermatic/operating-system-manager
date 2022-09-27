@@ -30,6 +30,8 @@ import (
 	"k8c.io/operating-system-manager/pkg/resources/reconciling"
 
 	v1 "k8s.io/api/apps/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 	ctrlruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -117,6 +119,16 @@ func (r *Reconciler) reconcile(ctx context.Context) error {
 
 		// Remove file extension .yaml from the OSP name
 		name = strings.ReplaceAll(name, ".yaml", "")
+
+		// Check if OSP already exists
+		existingOSP := &v1alpha1.OperatingSystemProfile{}
+		if err := r.Client.Get(ctx, types.NamespacedName{Name: name, Namespace: r.namespace}, existingOSP); err != nil && !kerrors.IsNotFound(err) {
+			return fmt.Errorf("failed to retrieve existing OperatingSystemProfile: %w", err)
+		}
+
+		// OSP already exists
+		osp.SetResourceVersion(existingOSP.GetResourceVersion())
+		osp.SetGeneration(existingOSP.GetGeneration())
 
 		ospCreators = append(ospCreators, ospCreator(name, osp))
 	}
