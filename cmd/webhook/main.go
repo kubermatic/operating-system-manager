@@ -22,7 +22,7 @@ import (
 	"go.uber.org/zap"
 
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
-	mdvalidation "k8c.io/operating-system-manager/pkg/admission/machinedeployment/validation"
+	mdmutation "k8c.io/operating-system-manager/pkg/admission/machinedeployment/mutation"
 	oscvalidation "k8c.io/operating-system-manager/pkg/admission/operatingsystemconfig/validation"
 	ospvalidation "k8c.io/operating-system-manager/pkg/admission/operatingsystemprofile/validation"
 	"k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
@@ -93,7 +93,7 @@ func main() {
 	// Register webhooks
 	oscvalidation.NewAdmissionHandler().SetupWebhookWithManager(mgr)
 	ospvalidation.NewAdmissionHandler().SetupWebhookWithManager(mgr)
-	mdvalidation.NewAdmissionHandler(mgr.GetClient(), opt.namespace).SetupWebhookWithManager(mgr)
+	mdmutation.NewAdmissionHandler().SetupWebhookWithManager(mgr)
 
 	// Add health endpoints
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

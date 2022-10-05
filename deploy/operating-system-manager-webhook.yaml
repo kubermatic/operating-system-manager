@@ -87,7 +87,7 @@ spec:
             secretName: webhook-server-cert
 ---
 apiVersion: admissionregistration.k8s.io/v1
-kind: ValidatingWebhookConfiguration
+kind: MutatingWebhookConfiguration
 metadata:
   name: operatingsystemmanager.k8c.io
   annotations:
@@ -111,7 +111,15 @@ webhooks:
       service:
         namespace: kube-system
         name: operating-system-manager-webhook
-        path: /machinedeployment
+        path: /mutate-v1alpha1-machinedeployment
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: operatingsystemmanager.k8c.io
+  annotations:
+    cert-manager.io/inject-ca-from: kube-system/operating-system-manager-serving-cert
+webhooks:
   - name: operatingsystemprofiles.operatingsystemmanager.k8c.io
     failurePolicy: Fail
     sideEffects: None
