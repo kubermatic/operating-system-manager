@@ -23,9 +23,9 @@ import (
 	"text/template"
 
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
+	mcbootstrap "github.com/kubermatic/machine-controller/pkg/bootstrap"
 	"github.com/kubermatic/machine-controller/pkg/jsonutil"
 	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
-	"k8c.io/operating-system-manager/pkg/controllers/osc/resources"
 	"k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/providerconfig"
@@ -38,7 +38,7 @@ const (
 
 // CloudConfigGenerator generates the machine bootstrapping and provisioning configurations for the corresponding operating system config
 type CloudConfigGenerator interface {
-	Generate(config *osmv1alpha1.OSCConfig, operatingSystem v1alpha1.OperatingSystem, cloudProvider v1alpha1.CloudProvider, md clusterv1alpha1.MachineDeployment, secretType resources.CloudConfigSecret) ([]byte, error)
+	Generate(config *osmv1alpha1.OSCConfig, operatingSystem v1alpha1.OperatingSystem, cloudProvider v1alpha1.CloudProvider, md clusterv1alpha1.MachineDeployment, secretType mcbootstrap.CloudConfigSecret) ([]byte, error)
 }
 
 // DefaultCloudConfigGenerator represents the default generator of the machine provisioning configurations
@@ -57,7 +57,7 @@ func NewDefaultCloudConfigGenerator(unitsPath string) CloudConfigGenerator {
 	}
 }
 
-func (d *DefaultCloudConfigGenerator) Generate(config *osmv1alpha1.OSCConfig, operatingSystem v1alpha1.OperatingSystem, cloudProvider v1alpha1.CloudProvider, md clusterv1alpha1.MachineDeployment, secretType resources.CloudConfigSecret) ([]byte, error) {
+func (d *DefaultCloudConfigGenerator) Generate(config *osmv1alpha1.OSCConfig, operatingSystem v1alpha1.OperatingSystem, cloudProvider v1alpha1.CloudProvider, md clusterv1alpha1.MachineDeployment, secretType mcbootstrap.CloudConfigSecret) ([]byte, error) {
 	provisioningUtility, err := GetProvisioningUtility(operatingSystem, md)
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine provisioning utility: %w", err)

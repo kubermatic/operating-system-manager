@@ -24,6 +24,7 @@ import (
 	"go.uber.org/zap"
 
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
+	mcbootstrap "github.com/kubermatic/machine-controller/pkg/bootstrap"
 	"github.com/kubermatic/machine-controller/pkg/containerruntime"
 	machinecontrollerutil "github.com/kubermatic/machine-controller/pkg/controller/util"
 	"k8c.io/operating-system-manager/pkg/bootstrap"
@@ -50,10 +51,6 @@ const (
 	ControllerName = "operating-system-config-controller"
 	// MachineDeploymentCleanupFinalizer indicates that sub-resources created by OSC controller against a MachineDeployment should be deleted
 	MachineDeploymentCleanupFinalizer = "kubermatic.io/cleanup-operating-system-configs"
-	// CloudInitSettingsNamespace is the namespace in which OSCs and secrets are created by OSC controller
-	CloudInitSettingsNamespace = "cloud-init-settings"
-	// MachineDeploymentRevision is the revision for Machine Deployment.
-	MachineDeploymentRevision = "k8c.io/machine-deployment-revision"
 )
 
 type Reconciler struct {
@@ -279,19 +276,19 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.M
 		return fmt.Errorf("failed to reconcile provisioning config secret: %w", err)
 	}
 
-	if err := r.ensureCloudConfigSecret(ctx, osc.Spec.BootstrapConfig, resources.BootstrapCloudConfig, osc.Spec.OSName, osc.Spec.CloudProvider.Name, md); err != nil {
+	if err := r.ensureCloudConfigSecret(ctx, osc.Spec.BootstrapConfig, mcbootstrap.BootstrapCloudConfig, osc.Spec.OSName, osc.Spec.CloudProvider.Name, md); err != nil {
 		return fmt.Errorf("failed to reconcile bootstrapping config secret: %w", err)
 	}
 
 	return nil
 }
 
-func (r *Reconciler) ensureCloudConfigSecret(ctx context.Context, config osmv1alpha1.OSCConfig, secretType resources.CloudConfigSecret, operatingSystem osmv1alpha1.OperatingSystem, cloudProvider osmv1alpha1.CloudProvider, md *clusterv1alpha1.MachineDeployment) error {
-	secretName := fmt.Sprintf(resources.CloudConfigSecretNamePattern, md.Name, md.Namespace, secretType)
+func (r *Reconciler) ensureCloudConfigSecret(ctx context.Context, config osmv1alpha1.OSCConfig, secretType mcbootstrap.CloudConfigSecret, operatingSystem osmv1alpha1.OperatingSystem, cloudProvider osmv1alpha1.CloudProvider, md *clusterv1alpha1.MachineDeployment) error {
+	secretName := fmt.Sprintf(mcbootstrap.CloudConfigSecretNamePattern, md.Name, md.Namespace, secretType)
 
 	// Check if secret already exists, in that case we don't need to do anything since secrets are immutable
 	secret := &corev1.Secret{}
-	if err := r.workerClient.Get(ctx, types.NamespacedName{Name: secretName, Namespace: CloudInitSettingsNamespace}, secret); err == nil {
+	if err := r.workerClient.Get(ctx, types.NamespacedName{Name: secretName, Namespace: mcbootstrap.CloudInitSettingsNamespace}, secret); err == nil {
 		// Early return since the object already exists
 		return nil
 	}
@@ -302,7 +299,7 @@ func (r *Reconciler) ensureCloudConfigSecret(ctx context.Context, config osmv1al
 	}
 
 	// Generate secret for cloud-config
-	secret = resources.GenerateCloudConfigSecret(secretName, CloudInitSettingsNamespace, provisionData)
+	secret = resources.GenerateCloudConfigSecret(secretName, mcbootstrap.CloudInitSettingsNamespace, provisionData)
 
 	// Add machine deployment revision to secret
 	revision := md.Annotations[machinecontrollerutil.RevisionAnnotation]
@@ -359,11 +356,11 @@ func (r *Reconciler) deleteOperatingSystemConfig(ctx context.Context, md *cluste
 // deleteGeneratedSecrets deletes the secrets created against a MachineDeployment
 func (r *Reconciler) deleteGeneratedSecrets(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
 	// Delete provisioning secret
-	provisioningSecretName := fmt.Sprintf(resources.CloudConfigSecretNamePattern, md.Name, md.Namespace, resources.ProvisioningCloudConfig)
+	provisioningSecretName := fmt.Sprintf(mcbootstrap.CloudConfigSecretNamePattern, md.Name, md.Namespace, resources.ProvisioningCloudConfig)
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      provisioningSecretName,
-			Namespace: CloudInitSettingsNamespace,
+			Namespace: mcbootstrap.CloudInitSettingsNamespace,
 		},
 	}
 
@@ -372,7 +369,7 @@ func (r *Reconciler) deleteGeneratedSecrets(ctx context.Context, md *clusterv1al
 	}
 
 	// Delete bootstrap secret
-	bootstrapSecretName := fmt.Sprintf(resources.CloudConfigSecretNamePattern, md.Name, md.Namespace, resources.BootstrapCloudConfig)
+	bootstrapSecretName := fmt.Sprintf(mcbootstrap.CloudConfigSecretNamePattern, md.Name, md.Namespace, mcbootstrap.BootstrapCloudConfig)
 	secret.Name = bootstrapSecretName
 
 	if err := r.workerClient.Delete(ctx, secret); err != nil && !kerrors.IsNotFound(err) {
@@ -411,7 +408,7 @@ func (r *Reconciler) handleOSCAndSecretsRotation(ctx context.Context, md *cluste
 	// OSC already exists, we need to check if the template in machine deployment was updated. If it's updated then we need to rotate
 	// the OSC and secrets.
 	currentRevision := md.Annotations[machinecontrollerutil.RevisionAnnotation]
-	existingRevision := osc.Annotations[MachineDeploymentRevision]
+	existingRevision := osc.Annotations[mcbootstrap.MachineDeploymentRevision]
 
 	if currentRevision == existingRevision {
 		// Rotation is not required.
@@ -442,6 +439,6 @@ func addMachineDeploymentRevision(revision string, annotations map[string]string
 		annotations = map[string]string{}
 	}
 
-	annotations[MachineDeploymentRevision] = revision
+	annotations[mcbootstrap.MachineDeploymentRevision] = revision
 	return annotations
 }
