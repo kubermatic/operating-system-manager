@@ -118,10 +118,10 @@ Feedback and discussion are available on [the mailing list][5].
 See [the list of releases][3] to find out about feature changes.
 
 [1]: https://github.com/kubermatic/operating-system-manager/issues
-[2]: https://github.com/kubermatic/operating-system-manager/blob/master/CONTRIBUTING.md
+[2]: https://github.com/kubermatic/operating-system-manager/blob/main/CONTRIBUTING.md
 [3]: https://github.com/kubermatic/operating-system-manager/releases
-[4]: https://github.com/kubermatic/operating-system-manager/blob/master/CODE_OF_CONDUCT.md
+[4]: https://github.com/kubermatic/operating-system-manager/blob/main/CODE_OF_CONDUCT.md
 [5]: https://groups.google.com/forum/#!forum/kubermatic-dev
 [6]: https://kubermatic.slack.com/messages/kubermatic
 [7]: http://slack.kubermatic.io/
-[8]: https://github.com/kubermatic/operating-system-manager/blob/master/Zenhub.md
+[8]: https://github.com/kubermatic/operating-system-manager/blob/main/Zenhub.md
