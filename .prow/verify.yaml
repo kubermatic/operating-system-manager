@@ -36,7 +36,7 @@ presubmits:
       preset-goproxy: "true"
     spec:
       containers:
-        - image: golang:1.19.0
+        - image: golang:1.19.3
           command:
             - make
           args:
@@ -58,7 +58,7 @@ presubmits:
       preset-goproxy: "true"
     spec:
       containers:
-        - image: golang:1.19.0
+        - image: golang:1.19.3
           command:
             - make
           args:
@@ -100,7 +100,7 @@ presubmits:
       preset-goproxy: "true"
     spec:
       containers:
-        - image: golangci/golangci-lint:v1.49.0
+        - image: golangci/golangci-lint:v1.50.1
           command:
             - make
           args:
@@ -112,7 +112,7 @@ presubmits:
             limits:
               memory: 2Gi
 
-  - name: pull-operating-system-managerr-yamllint
+  - name: pull-operating-system-manager-yamllint
     always_run: true
     decorate: true
     clone_uri: "ssh://git@github.com/kubermatic/operating-system-manager.git"
@@ -166,7 +166,7 @@ presubmits:
       preset-goproxy: "true"
     spec:
       containers:
-        - image: golang:1.19.0
+        - image: golang:1.19.3
           command:
             - make
           args:
@@ -187,7 +187,7 @@ presubmits:
       preset-goproxy: "true"
     spec:
       containers:
-        - image: quay.io/kubermatic/build:go-1.19-node-18-kind-0.14-0
+        - image: quay.io/kubermatic/build:go-1.19-node-18-kind-0.17-4
           command:
             - "./hack/ci/run-e2e-tests.sh"
           resources:
