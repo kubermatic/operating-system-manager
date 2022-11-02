@@ -849,7 +849,7 @@ spec:
         content:
           inline:
             data: |
-              {{- if .NetworkConfig }}
+              {{- if and (.NetworkConfig) (or (.NetworkConfig.CIDR) (.NetworkConfig.Gateway) (.NetworkConfig.DNS.Servers)) }}
               [Match]
               # Because of difficulty predicting specific NIC names on different cloud providers,
               # we only support static addressing on VSphere. There should be a single NIC attached
