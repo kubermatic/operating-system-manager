@@ -21,7 +21,7 @@ spec:
   osName: flatcar
   ## Flatcar Stable (09/11/2021)
   osVersion: "2983.2.0"
-  version: "v1.0.2"
+  version: "v1.0.3"
   supportedCloudProviders:
     - name: "aws"
     - name: "azure"
@@ -537,14 +537,18 @@ spec:
               systemctl mask locksmithd.service
               {{- end }}
 
+              systemctl daemon-reload
+
               {{- /* Since both container runtimes are enabled/started by default in flatcar, disable the one that is not required */}}
               {{- if eq .ContainerRuntime "containerd" }}
               systemctl stop docker
               systemctl disable docker
+              systemctl restart containerd
               {{- end }}
               {{- if eq .ContainerRuntime "docker" }}
               systemctl stop containerd
               systemctl disable containerd
+              systemctl restart docker
               {{- end }}
 
               # Override hostname if /etc/machine-name exists
