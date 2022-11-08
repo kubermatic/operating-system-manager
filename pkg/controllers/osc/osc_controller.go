@@ -18,14 +18,17 @@ package osc
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 
 	"go.uber.org/zap"
 
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
+	mcbootstrap "github.com/kubermatic/machine-controller/pkg/bootstrap"
 	"github.com/kubermatic/machine-controller/pkg/containerruntime"
 	machinecontrollerutil "github.com/kubermatic/machine-controller/pkg/controller/util"
+	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
 	"k8c.io/operating-system-manager/pkg/bootstrap"
 	"k8c.io/operating-system-manager/pkg/controllers/osc/resources"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
@@ -36,8 +39,9 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	ctrlruntime "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -50,15 +54,12 @@ const (
 	ControllerName = "operating-system-config-controller"
 	// MachineDeploymentCleanupFinalizer indicates that sub-resources created by OSC controller against a MachineDeployment should be deleted
 	MachineDeploymentCleanupFinalizer = "kubermatic.io/cleanup-operating-system-configs"
-	// CloudInitSettingsNamespace is the namespace in which OSCs and secrets are created by OSC controller
-	CloudInitSettingsNamespace = "cloud-init-settings"
-	// MachineDeploymentRevision is the revision for Machine Deployment.
-	MachineDeploymentRevision = "k8c.io/machine-deployment-revision"
 )
 
 type Reconciler struct {
-	client.Client
-	workerClient client.Client
+	ctrlruntimeclient.Client
+	workerClient ctrlruntimeclient.Client
+	recorder     record.EventRecorder
 
 	log *zap.SugaredLogger
 
@@ -82,8 +83,8 @@ type Reconciler struct {
 func Add(
 	mgr manager.Manager,
 	log *zap.SugaredLogger,
-	workerClient client.Client,
-	client client.Client,
+	workerClient ctrlruntimeclient.Client,
+	client ctrlruntimeclient.Client,
 	bootstrappingManager bootstrap.Bootstrap,
 	caCert string,
 	namespace string,
@@ -103,6 +104,7 @@ func Add(
 		log:                           log,
 		workerClient:                  workerClient,
 		Client:                        client,
+		recorder:                      mgr.GetEventRecorderFor(ControllerName),
 		bootstrappingManager:          bootstrappingManager,
 		caCert:                        caCert,
 		namespace:                     namespace,
@@ -169,6 +171,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrlruntime.Request) (re
 }
 
 func (r *Reconciler) reconcile(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
+	if err := r.checkOSP(ctx, md); err != nil {
+		return fmt.Errorf("failed to validate referenced OSP: %w", err)
+	}
+
 	// Check if OSC and secret need to be rotated
 	if err := r.handleOSCAndSecretsRotation(ctx, md); err != nil {
 		return fmt.Errorf("failed to perform rotation for OSC and secrets: %w", err)
@@ -279,19 +285,19 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.M
 		return fmt.Errorf("failed to reconcile provisioning config secret: %w", err)
 	}
 
-	if err := r.ensureCloudConfigSecret(ctx, osc.Spec.BootstrapConfig, resources.BootstrapCloudConfig, osc.Spec.OSName, osc.Spec.CloudProvider.Name, md); err != nil {
+	if err := r.ensureCloudConfigSecret(ctx, osc.Spec.BootstrapConfig, mcbootstrap.BootstrapCloudConfig, osc.Spec.OSName, osc.Spec.CloudProvider.Name, md); err != nil {
 		return fmt.Errorf("failed to reconcile bootstrapping config secret: %w", err)
 	}
 
 	return nil
 }
 
-func (r *Reconciler) ensureCloudConfigSecret(ctx context.Context, config osmv1alpha1.OSCConfig, secretType resources.CloudConfigSecret, operatingSystem osmv1alpha1.OperatingSystem, cloudProvider osmv1alpha1.CloudProvider, md *clusterv1alpha1.MachineDeployment) error {
-	secretName := fmt.Sprintf(resources.CloudConfigSecretNamePattern, md.Name, md.Namespace, secretType)
+func (r *Reconciler) ensureCloudConfigSecret(ctx context.Context, config osmv1alpha1.OSCConfig, secretType mcbootstrap.CloudConfigSecret, operatingSystem osmv1alpha1.OperatingSystem, cloudProvider osmv1alpha1.CloudProvider, md *clusterv1alpha1.MachineDeployment) error {
+	secretName := fmt.Sprintf(mcbootstrap.CloudConfigSecretNamePattern, md.Name, md.Namespace, secretType)
 
 	// Check if secret already exists, in that case we don't need to do anything since secrets are immutable
 	secret := &corev1.Secret{}
-	if err := r.workerClient.Get(ctx, types.NamespacedName{Name: secretName, Namespace: CloudInitSettingsNamespace}, secret); err == nil {
+	if err := r.workerClient.Get(ctx, types.NamespacedName{Name: secretName, Namespace: mcbootstrap.CloudInitSettingsNamespace}, secret); err == nil {
 		// Early return since the object already exists
 		return nil
 	}
@@ -302,7 +308,7 @@ func (r *Reconciler) ensureCloudConfigSecret(ctx context.Context, config osmv1al
 	}
 
 	// Generate secret for cloud-config
-	secret = resources.GenerateCloudConfigSecret(secretName, CloudInitSettingsNamespace, provisionData)
+	secret = resources.GenerateCloudConfigSecret(secretName, mcbootstrap.CloudInitSettingsNamespace, provisionData)
 
 	// Add machine deployment revision to secret
 	revision := md.Annotations[machinecontrollerutil.RevisionAnnotation]
@@ -359,11 +365,11 @@ func (r *Reconciler) deleteOperatingSystemConfig(ctx context.Context, md *cluste
 // deleteGeneratedSecrets deletes the secrets created against a MachineDeployment
 func (r *Reconciler) deleteGeneratedSecrets(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
 	// Delete provisioning secret
-	provisioningSecretName := fmt.Sprintf(resources.CloudConfigSecretNamePattern, md.Name, md.Namespace, resources.ProvisioningCloudConfig)
+	provisioningSecretName := fmt.Sprintf(mcbootstrap.CloudConfigSecretNamePattern, md.Name, md.Namespace, resources.ProvisioningCloudConfig)
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      provisioningSecretName,
-			Namespace: CloudInitSettingsNamespace,
+			Namespace: mcbootstrap.CloudInitSettingsNamespace,
 		},
 	}
 
@@ -372,7 +378,7 @@ func (r *Reconciler) deleteGeneratedSecrets(ctx context.Context, md *clusterv1al
 	}
 
 	// Delete bootstrap secret
-	bootstrapSecretName := fmt.Sprintf(resources.CloudConfigSecretNamePattern, md.Name, md.Namespace, resources.BootstrapCloudConfig)
+	bootstrapSecretName := fmt.Sprintf(mcbootstrap.CloudConfigSecretNamePattern, md.Name, md.Namespace, mcbootstrap.BootstrapCloudConfig)
 	secret.Name = bootstrapSecretName
 
 	if err := r.workerClient.Delete(ctx, secret); err != nil && !kerrors.IsNotFound(err) {
@@ -411,7 +417,7 @@ func (r *Reconciler) handleOSCAndSecretsRotation(ctx context.Context, md *cluste
 	// OSC already exists, we need to check if the template in machine deployment was updated. If it's updated then we need to rotate
 	// the OSC and secrets.
 	currentRevision := md.Annotations[machinecontrollerutil.RevisionAnnotation]
-	existingRevision := osc.Annotations[MachineDeploymentRevision]
+	existingRevision := osc.Annotations[mcbootstrap.MachineDeploymentRevision]
 
 	if currentRevision == existingRevision {
 		// Rotation is not required.
@@ -430,9 +436,19 @@ func (r *Reconciler) handleOSCAndSecretsRotation(ctx context.Context, md *cluste
 	return nil
 }
 
+func (r *Reconciler) checkOSP(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
+	err := validateMachineDeployment(ctx, md, r.Client, r.namespace)
+
+	if err != nil {
+		r.recorder.Event(md, corev1.EventTypeWarning, "OperatingSystemProfileError", err.Error())
+	}
+
+	return err
+}
+
 // filterMachineDeploymentPredicate will filter machine deployments based on the presence of OSP annotation
 func filterMachineDeploymentPredicate() predicate.Predicate {
-	return predicate.NewPredicateFuncs(func(o client.Object) bool {
+	return predicate.NewPredicateFuncs(func(o ctrlruntimeclient.Object) bool {
 		return o.GetAnnotations()[resources.MachineDeploymentOSPAnnotation] != ""
 	})
 }
@@ -442,6 +458,58 @@ func addMachineDeploymentRevision(revision string, annotations map[string]string
 		annotations = map[string]string{}
 	}
 
-	annotations[MachineDeploymentRevision] = revision
+	annotations[mcbootstrap.MachineDeploymentRevision] = revision
 	return annotations
+}
+
+func validateMachineDeployment(ctx context.Context, md *clusterv1alpha1.MachineDeployment, client ctrlruntimeclient.Client, namespace string) error {
+	ospName := md.Annotations[resources.MachineDeploymentOSPAnnotation]
+	// Ignoring request since no OperatingSystemProfile found
+	if len(ospName) == 0 {
+		// Returning here as MD without this annotation shouldn't be validated
+		return nil
+	}
+
+	ospNamespace := md.Annotations[resources.MachineDeploymentOSPNamespaceAnnotation]
+	if len(ospNamespace) == 0 {
+		ospNamespace = namespace
+	}
+
+	osp := &osmv1alpha1.OperatingSystemProfile{}
+	err := client.Get(ctx, types.NamespacedName{Name: ospName, Namespace: ospNamespace}, osp)
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			return fmt.Errorf("OperatingSystemProfile %q not found", ospName)
+		}
+
+		return fmt.Errorf("failed to fetch OperatingSystemProfile %q: %w", ospName, err)
+	}
+
+	// Get providerConfig from machineDeployment
+	providerConfig := providerconfigtypes.Config{}
+	err = json.Unmarshal(md.Spec.Template.Spec.ProviderSpec.Value.Raw, &providerConfig)
+	if err != nil {
+		return fmt.Errorf("failed to decode provider config: %w", err)
+	}
+
+	// Ensure that OSP supports the operating system
+	if osp.Spec.OSName != osmv1alpha1.OperatingSystem(providerConfig.OperatingSystem) {
+		return fmt.Errorf("OperatingSystemProfile %q does not support operating system %q", osp.Name, providerConfig.OperatingSystem)
+	}
+
+	// Ensure that OSP supports the cloud provider
+	supportedCloudProvider := false
+	for _, cloudProvider := range osp.Spec.SupportedCloudProviders {
+		if providerconfigtypes.CloudProvider(cloudProvider.Name) == providerConfig.CloudProvider {
+			supportedCloudProvider = true
+			break
+		}
+	}
+
+	// Ensure that OSP supports the operating system
+	if !supportedCloudProvider {
+		return fmt.Errorf("OperatingSystemProfile %q does not support cloud provider %q", osp.Name, providerConfig.OperatingSystem)
+	}
+
+	return nil
 }

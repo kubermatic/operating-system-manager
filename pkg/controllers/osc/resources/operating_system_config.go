@@ -30,6 +30,7 @@ import (
 
 	"github.com/kubermatic/machine-controller/pkg/apis/cluster/common"
 	"github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
+	mcbootstrap "github.com/kubermatic/machine-controller/pkg/bootstrap"
 	"github.com/kubermatic/machine-controller/pkg/containerruntime"
 	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
 	"k8c.io/operating-system-manager/pkg/cloudprovider"
@@ -50,14 +51,10 @@ import (
 	"k8s.io/utils/pointer"
 )
 
-type CloudConfigSecret string
-
 const (
-	ProvisioningCloudConfig CloudConfigSecret = "provisioning"
-	BootstrapCloudConfig    CloudConfigSecret = "bootstrap"
+	ProvisioningCloudConfig mcbootstrap.CloudConfigSecret = "provisioning"
 
 	OperatingSystemConfigNamePattern        = "%s-%s-config"
-	CloudConfigSecretNamePattern            = "%s-%s-%s-config"
 	MachineDeploymentOSPAnnotation          = "k8c.io/operating-system-profile"
 	MachineDeploymentOSPNamespaceAnnotation = "k8c.io/operating-system-profile-namespace"
 
@@ -164,7 +161,7 @@ func GenerateOperatingSystemConfig(
 	if err != nil {
 		return nil, err
 	}
-	provisioningSecretName := fmt.Sprintf(CloudConfigSecretNamePattern, md.Name, md.Namespace, ProvisioningCloudConfig)
+	provisioningSecretName := fmt.Sprintf(mcbootstrap.CloudConfigSecretNamePattern, md.Name, md.Namespace, ProvisioningCloudConfig)
 
 	var clusterName string
 	for key := range bootstrapKubeconfig.Clusters {

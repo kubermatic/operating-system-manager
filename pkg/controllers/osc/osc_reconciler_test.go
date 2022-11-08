@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
+	mcbootstrap "github.com/kubermatic/machine-controller/pkg/bootstrap"
 	cloudproviderutil "github.com/kubermatic/machine-controller/pkg/cloudprovider/util"
 	"github.com/kubermatic/machine-controller/pkg/containerruntime"
 	machinecontrollerutil "github.com/kubermatic/machine-controller/pkg/controller/util"
@@ -405,10 +406,10 @@ func TestReconciler_Reconcile(t *testing.T) {
 			}
 			testUtil.CompareOutput(t, testCase.oscFile, string(buff), *update)
 
-			bootstrapSecretName := fmt.Sprintf(resources.CloudConfigSecretNamePattern, md.Name, md.Namespace, resources.BootstrapCloudConfig)
+			bootstrapSecretName := fmt.Sprintf(mcbootstrap.CloudConfigSecretNamePattern, md.Name, md.Namespace, mcbootstrap.BootstrapCloudConfig)
 			secret := &corev1.Secret{}
 			if err := fakeClient.Get(ctx, types.NamespacedName{
-				Namespace: CloudInitSettingsNamespace,
+				Namespace: mcbootstrap.CloudInitSettingsNamespace,
 				Name:      bootstrapSecretName},
 				secret); err != nil {
 				t.Fatalf("failed to get bootstrap secret: %v", err)
@@ -425,10 +426,10 @@ func TestReconciler_Reconcile(t *testing.T) {
 			}
 			testUtil.CompareOutput(t, testCase.bootstrapSecretFile, string(buff), *update)
 
-			provisioningSecretName := fmt.Sprintf(resources.CloudConfigSecretNamePattern, md.Name, md.Namespace, resources.ProvisioningCloudConfig)
+			provisioningSecretName := fmt.Sprintf(mcbootstrap.CloudConfigSecretNamePattern, md.Name, md.Namespace, resources.ProvisioningCloudConfig)
 			secret = &corev1.Secret{}
 			if err := fakeClient.Get(ctx, types.NamespacedName{
-				Namespace: CloudInitSettingsNamespace,
+				Namespace: mcbootstrap.CloudInitSettingsNamespace,
 				Name:      provisioningSecretName},
 				secret); err != nil {
 				t.Fatalf("failed to get provisioning secret: %v", err)
@@ -550,27 +551,27 @@ func TestOSCAndSecretRotation(t *testing.T) {
 			}
 
 			// Ensure that corresponding secrets were created
-			bootstrapSecretName := fmt.Sprintf(resources.CloudConfigSecretNamePattern, md.Name, md.Namespace, resources.BootstrapCloudConfig)
+			bootstrapSecretName := fmt.Sprintf(mcbootstrap.CloudConfigSecretNamePattern, md.Name, md.Namespace, mcbootstrap.BootstrapCloudConfig)
 			bootstrapSecret := &corev1.Secret{}
 			if err := fakeClient.Get(ctx, types.NamespacedName{
-				Namespace: CloudInitSettingsNamespace,
+				Namespace: mcbootstrap.CloudInitSettingsNamespace,
 				Name:      bootstrapSecretName},
 				bootstrapSecret); err != nil {
 				t.Fatalf("failed to get secret: %v", err)
 			}
 
-			provisioningSecretName := fmt.Sprintf(resources.CloudConfigSecretNamePattern, md.Name, md.Namespace, resources.ProvisioningCloudConfig)
+			provisioningSecretName := fmt.Sprintf(mcbootstrap.CloudConfigSecretNamePattern, md.Name, md.Namespace, resources.ProvisioningCloudConfig)
 			provisioningSecret := &corev1.Secret{}
 			if err := fakeClient.Get(ctx, types.NamespacedName{
-				Namespace: CloudInitSettingsNamespace,
+				Namespace: mcbootstrap.CloudInitSettingsNamespace,
 				Name:      provisioningSecretName},
 				provisioningSecret); err != nil {
 				t.Fatalf("failed to get secret: %v", err)
 			}
 
-			oscRevision := osc.Annotations[MachineDeploymentRevision]
-			bootstrapSecretRevision := bootstrapSecret.Annotations[MachineDeploymentRevision]
-			provisioningSecretRevision := provisioningSecret.Annotations[MachineDeploymentRevision]
+			oscRevision := osc.Annotations[mcbootstrap.MachineDeploymentRevision]
+			bootstrapSecretRevision := bootstrapSecret.Annotations[mcbootstrap.MachineDeploymentRevision]
+			provisioningSecretRevision := provisioningSecret.Annotations[mcbootstrap.MachineDeploymentRevision]
 			revision := md.Annotations[machinecontrollerutil.RevisionAnnotation]
 
 			if revision != oscRevision {
@@ -602,27 +603,27 @@ func TestOSCAndSecretRotation(t *testing.T) {
 			}
 
 			// Ensure that corresponding secret exists
-			bootstrapSecretName = fmt.Sprintf(resources.CloudConfigSecretNamePattern, md.Name, md.Namespace, resources.BootstrapCloudConfig)
+			bootstrapSecretName = fmt.Sprintf(mcbootstrap.CloudConfigSecretNamePattern, md.Name, md.Namespace, mcbootstrap.BootstrapCloudConfig)
 			bootstrapSecret = &corev1.Secret{}
 			if err := fakeClient.Get(ctx, types.NamespacedName{
-				Namespace: CloudInitSettingsNamespace,
+				Namespace: mcbootstrap.CloudInitSettingsNamespace,
 				Name:      bootstrapSecretName},
 				bootstrapSecret); err != nil {
 				t.Fatalf("failed to get secret: %v", err)
 			}
 
-			provisioningSecretName = fmt.Sprintf(resources.CloudConfigSecretNamePattern, md.Name, md.Namespace, resources.ProvisioningCloudConfig)
+			provisioningSecretName = fmt.Sprintf(mcbootstrap.CloudConfigSecretNamePattern, md.Name, md.Namespace, resources.ProvisioningCloudConfig)
 			provisioningSecret = &corev1.Secret{}
 			if err := fakeClient.Get(ctx, types.NamespacedName{
-				Namespace: CloudInitSettingsNamespace,
+				Namespace: mcbootstrap.CloudInitSettingsNamespace,
 				Name:      provisioningSecretName},
 				provisioningSecret); err != nil {
 				t.Fatalf("failed to get secret: %v", err)
 			}
 
-			oscRevision = osc.Annotations[MachineDeploymentRevision]
-			bootstrapSecretRevision = bootstrapSecret.Annotations[MachineDeploymentRevision]
-			provisioningSecretRevision = provisioningSecret.Annotations[MachineDeploymentRevision]
+			oscRevision = osc.Annotations[mcbootstrap.MachineDeploymentRevision]
+			bootstrapSecretRevision = bootstrapSecret.Annotations[mcbootstrap.MachineDeploymentRevision]
+			provisioningSecretRevision = provisioningSecret.Annotations[mcbootstrap.MachineDeploymentRevision]
 			updatedRevision := md.Annotations[machinecontrollerutil.RevisionAnnotation]
 
 			if updatedRevision == revision {
@@ -747,17 +748,17 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 
 			// Ensure that corresponding secrets were created
 			secret := &corev1.Secret{}
-			bootstrapSecretName := fmt.Sprintf(resources.CloudConfigSecretNamePattern, md.Name, md.Namespace, resources.BootstrapCloudConfig)
+			bootstrapSecretName := fmt.Sprintf(mcbootstrap.CloudConfigSecretNamePattern, md.Name, md.Namespace, mcbootstrap.BootstrapCloudConfig)
 			if err := fakeClient.Get(ctx, types.NamespacedName{
-				Namespace: CloudInitSettingsNamespace,
+				Namespace: mcbootstrap.CloudInitSettingsNamespace,
 				Name:      bootstrapSecretName},
 				secret); err != nil {
 				t.Fatalf("failed to get bootstrap secret: %v", err)
 			}
 
-			provisioningSecretName := fmt.Sprintf(resources.CloudConfigSecretNamePattern, md.Name, md.Namespace, resources.ProvisioningCloudConfig)
+			provisioningSecretName := fmt.Sprintf(mcbootstrap.CloudConfigSecretNamePattern, md.Name, md.Namespace, resources.ProvisioningCloudConfig)
 			if err := fakeClient.Get(ctx, types.NamespacedName{
-				Namespace: CloudInitSettingsNamespace,
+				Namespace: mcbootstrap.CloudInitSettingsNamespace,
 				Name:      provisioningSecretName},
 				secret); err != nil {
 				t.Fatalf("failed to get provisioning secret: %v", err)
@@ -774,7 +775,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 
 			// Ensure that OperatingSystemConfig was deleted
 			if err := fakeClient.Get(ctx, types.NamespacedName{
-				Namespace: CloudInitSettingsNamespace,
+				Namespace: mcbootstrap.CloudInitSettingsNamespace,
 				Name:      oscName},
 				osc); err == nil || !kerrors.IsNotFound(err) {
 				t.Fatalf("failed to ensure that osc is deleted: %v", err)
@@ -782,14 +783,14 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 
 			// Ensure that corresponding secret was deleted
 			if err := fakeClient.Get(ctx, types.NamespacedName{
-				Namespace: CloudInitSettingsNamespace,
+				Namespace: mcbootstrap.CloudInitSettingsNamespace,
 				Name:      bootstrapSecretName},
 				secret); err == nil || !kerrors.IsNotFound(err) {
 				t.Fatalf("failed to ensure that secret is deleted: %s", err)
 			}
 
 			if err := fakeClient.Get(ctx, types.NamespacedName{
-				Namespace: CloudInitSettingsNamespace,
+				Namespace: mcbootstrap.CloudInitSettingsNamespace,
 				Name:      provisioningSecretName},
 				secret); err == nil || !kerrors.IsNotFound(err) {
 				t.Fatalf("failed to ensure that secret is deleted: %s", err)
