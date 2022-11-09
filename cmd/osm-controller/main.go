@@ -135,7 +135,7 @@ func main() {
 	flag.BoolVar(&opt.enableLeaderElection, "leader-elect", true, "Enable leader election for controller manager.")
 	flag.StringVar(&opt.overrideBootstrapKubeletAPIServer, "override-bootstrap-kubelet-apiserver", "", "Override for the API server address used in worker nodes bootstrap-kubelet.conf")
 	flag.StringVar(&opt.bootstrapTokenServiceAccountName, "bootstrap-token-service-account-name", "", "When set use the service account token from this SA as bootstrap token instead of creating a temporary one. Passed in namespace/name format")
-	flag.StringVar(&opt.caBundleFile, "ca-bundle", "", "path to a file containing all PEM-encoded CA certificates. Will be used for Kubernetes CA certificates.")
+	flag.StringVar(&opt.caBundleFile, "ca-bundle", "", "Path to a file containing all PEM-encoded CA certificates. Will be used for Kubernetes CA certificates.")
 
 	flag.Parse()
 
@@ -374,7 +374,7 @@ func parseKubeletFeatureGates(s string) (map[string]bool, error) {
 func retrieveCustomCACertificate(filepath string) (string, error) {
 	cert, err := os.ReadFile(filepath)
 	if err != nil {
-		return "", fmt.Errorf("failed to read file: %w", err)
+		return "", fmt.Errorf("failed to read file %q: %w", filepath, err)
 	}
 
 	caBundle := x509.NewCertPool()
