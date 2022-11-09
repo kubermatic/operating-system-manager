@@ -500,7 +500,7 @@ func getKubeletConfigs(annotations map[string]string) (kubeletConfig, error) {
 		if err != nil {
 			return kubeletConfig{}, fmt.Errorf("failed to parse maxPods")
 		}
-		cfg.MaxPods = pointer.Int32Ptr(int32(mp))
+		cfg.MaxPods = pointer.Int32(int32(mp))
 	}
 
 	if val, ok := kubeletConfigs[common.ContainerLogMaxSizeKubeletConfig]; ok {
