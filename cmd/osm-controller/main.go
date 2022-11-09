@@ -18,9 +18,12 @@ package main
 
 import (
 	"context"
+	"crypto/x509"
+	"errors"
 	"flag"
 	"fmt"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 
@@ -80,6 +83,7 @@ type options struct {
 
 	overrideBootstrapKubeletAPIServer string
 	bootstrapTokenServiceAccountName  string
+	caBundleFile                      string
 }
 
 var (
@@ -131,6 +135,7 @@ func main() {
 	flag.BoolVar(&opt.enableLeaderElection, "leader-elect", true, "Enable leader election for controller manager.")
 	flag.StringVar(&opt.overrideBootstrapKubeletAPIServer, "override-bootstrap-kubelet-apiserver", "", "Override for the API server address used in worker nodes bootstrap-kubelet.conf")
 	flag.StringVar(&opt.bootstrapTokenServiceAccountName, "bootstrap-token-service-account-name", "", "When set use the service account token from this SA as bootstrap token instead of creating a temporary one. Passed in namespace/name format")
+	flag.StringVar(&opt.caBundleFile, "ca-bundle", "", "path to a file containing all PEM-encoded CA certificates. Will be used for Kubernetes CA certificates.")
 
 	flag.Parse()
 
@@ -140,6 +145,18 @@ func main() {
 
 	if !(opt.containerRuntime == "docker" || opt.containerRuntime == "containerd") {
 		klog.Fatalf("%s not supported; containerd, docker are the supported container runtimes", opt.containerRuntime)
+	}
+
+	var (
+		err          error
+		customCACert string
+	)
+
+	if len(opt.caBundleFile) > 0 {
+		customCACert, err = retrieveCustomCACertificate(opt.caBundleFile)
+		if err != nil {
+			klog.Fatalf("-ca-bundle is invalid: %w", err)
+		}
 	}
 
 	opt.kubeconfig = flag.Lookup("kubeconfig").Value.(flag.Getter).Get().(string)
@@ -236,9 +253,12 @@ func main() {
 		}
 	}
 
-	caCert, err := certificate.GetCACert(opt.kubeconfig, mgr.GetConfig())
-	if err != nil {
-		klog.Fatal("failed to load CA certificate", zap.Error(err))
+	caCert := customCACert
+	if customCACert != "" {
+		caCert, err = certificate.GetCACert(opt.kubeconfig, mgr.GetConfig())
+		if err != nil {
+			klog.Fatal("failed to load CA certificate", zap.Error(err))
+		}
 	}
 
 	kubeconfigProvider := clusterinfo.New(workerClient, caCert)
@@ -349,4 +369,18 @@ func parseKubeletFeatureGates(s string) (map[string]bool, error) {
 		featureGates["RotateKubeletServerCertificate"] = true
 	}
 	return featureGates, nil
+}
+
+func retrieveCustomCACertificate(filepath string) (string, error) {
+	cert, err := os.ReadFile(filepath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read file: %w", err)
+	}
+
+	caBundle := x509.NewCertPool()
+	if !caBundle.AppendCertsFromPEM(cert) {
+		return "", errors.New("file does not contain valid PEM-encoded certificates")
+	}
+
+	return string(cert), err
 }
