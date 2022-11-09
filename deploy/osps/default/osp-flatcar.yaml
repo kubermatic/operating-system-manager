@@ -676,9 +676,10 @@ spec:
               Environment="KUBELET_EXTRA_ARGS=--resolv-conf=/run/systemd/resolve/resolv.conf"
 
       - path: /etc/kubernetes/cloud-config
-        permissions: 400
+        permissions: 600
         content:
           inline:
+            encoding: b64
             data: |
               {{ .CloudConfig }}
 
