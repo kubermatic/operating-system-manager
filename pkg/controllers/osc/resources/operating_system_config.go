@@ -171,10 +171,9 @@ func GenerateOperatingSystemConfig(
 		BootstrapKubeconfigSecretName: bootstrapKubeconfigSecretName,
 	}
 
-	var inTreeCCM bool
-	if !externalCloudProvider &&
-		osmv1alpha1.CloudProvider(providerConfig.CloudProvider) == osmv1alpha1.CloudProviderGoogle {
-		inTreeCCM = true
+	inTreeCCM, external, err := cloudprovider.KubeletCloudProviderConfig(providerConfig.CloudProvider, externalCloudProvider)
+	if err != nil {
+		return nil, err
 	}
 
 	data := filesData{
@@ -185,7 +184,7 @@ func GenerateOperatingSystemConfig(
 		CloudConfig:                cloudConfig,
 		ContainerRuntime:           containerRuntime,
 		CloudProviderName:          osmv1alpha1.CloudProvider(providerConfig.CloudProvider),
-		ExternalCloudProvider:      externalCloudProvider,
+		ExternalCloudProvider:      external,
 		PauseImage:                 pauseImage,
 		InitialTaints:              initialTaints,
 		ContainerRuntimeConfig:     crConfig,
