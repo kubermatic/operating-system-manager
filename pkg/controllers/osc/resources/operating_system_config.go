@@ -124,11 +124,6 @@ func GenerateOperatingSystemConfig(
 		kubeletVersionStr = fmt.Sprintf("v%s", kubeletVersionStr)
 	}
 
-	inTreeCCM, external, err := cloudprovider.KubeletCloudProviderConfig(providerConfig.CloudProvider)
-	if err != nil {
-		return nil, err
-	}
-
 	// Handling for kubelet configuration
 	kubeletConfigs, err := getKubeletConfigs(md.Annotations)
 	if err != nil {
@@ -153,10 +148,6 @@ func GenerateOperatingSystemConfig(
 		return nil, fmt.Errorf("failed to generate container runtime auth config: %w", err)
 	}
 
-	if external {
-		externalCloudProvider = true
-	}
-
 	bootstrapKubeconfigString, err := kubeconfigutil.StringifyKubeconfig(bootstrapKubeconfig)
 	if err != nil {
 		return nil, err
@@ -177,6 +168,11 @@ func GenerateOperatingSystemConfig(
 		BootstrapKubeconfigSecretName: bootstrapKubeconfigSecretName,
 	}
 
+	inTreeCCM, external, err := cloudprovider.KubeletCloudProviderConfig(providerConfig.CloudProvider, externalCloudProvider)
+	if err != nil {
+		return nil, err
+	}
+
 	data := filesData{
 		KubeVersion:                kubeletVersionStr,
 		ClusterDNSIPs:              clusterDNSIPs,
@@ -185,7 +181,7 @@ func GenerateOperatingSystemConfig(
 		CloudConfig:                cloudConfig,
 		ContainerRuntime:           containerRuntime,
 		CloudProviderName:          osmv1alpha1.CloudProvider(providerConfig.CloudProvider),
-		ExternalCloudProvider:      externalCloudProvider,
+		ExternalCloudProvider:      external,
 		PauseImage:                 pauseImage,
 		InitialTaints:              initialTaints,
 		ContainerRuntimeConfig:     crConfig,
