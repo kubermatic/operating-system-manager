@@ -173,6 +173,11 @@ func GenerateOperatingSystemConfig(
 		return nil, err
 	}
 
+	if external &&
+		osmv1alpha1.CloudProvider(providerConfig.CloudProvider) == osmv1alpha1.CloudProviderVsphere {
+		cloudConfig = ""
+	}
+
 	data := filesData{
 		KubeVersion:                kubeletVersionStr,
 		ClusterDNSIPs:              clusterDNSIPs,

@@ -468,8 +468,9 @@ spec:
             VPC="e-123f"
             SubnetID="test-subnet"
 
+          encoding: b64
       path: /etc/kubernetes/cloud-config
-      permissions: 400
+      permissions: 600
     - content:
         inline:
           data: |
