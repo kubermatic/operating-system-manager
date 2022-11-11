@@ -96,22 +96,26 @@ func MutateMachineDeployment(md *clusterv1alpha1.MachineDeployment) error {
 		return fmt.Errorf("failed to read MachineDeployment.Spec.Template.Spec.ProviderSpec: %w", err)
 	}
 
-	if md.Annotations == nil {
-		md.Annotations = make(map[string]string)
-	}
+	// Check for existing annotation if it doesn't exist or if the value is empty
+	// inject the appropriate annotation.
+	if val, ok := md.Annotations[resources.MachineDeploymentOSPAnnotation]; !ok || val == "" {
+		if md.Annotations == nil {
+			md.Annotations = make(map[string]string)
+		}
 
-	switch providerConfig.OperatingSystem {
-	case providerconfigtypes.OperatingSystemUbuntu,
-		providerconfigtypes.OperatingSystemCentOS,
-		providerconfigtypes.OperatingSystemFlatcar,
-		providerconfigtypes.OperatingSystemAmazonLinux2,
-		providerconfigtypes.OperatingSystemRockyLinux,
-		providerconfigtypes.OperatingSystemSLES,
-		providerconfigtypes.OperatingSystemRHEL:
+		switch providerConfig.OperatingSystem {
+		case providerconfigtypes.OperatingSystemUbuntu,
+			providerconfigtypes.OperatingSystemCentOS,
+			providerconfigtypes.OperatingSystemFlatcar,
+			providerconfigtypes.OperatingSystemAmazonLinux2,
+			providerconfigtypes.OperatingSystemRockyLinux,
+			providerconfigtypes.OperatingSystemSLES,
+			providerconfigtypes.OperatingSystemRHEL:
 
-		md.Annotations[resources.MachineDeploymentOSPAnnotation] = fmt.Sprintf(ospNamePattern, providerConfig.OperatingSystem)
-	default:
-		return fmt.Errorf("failed to populate OSP annotation for machinedeployment with unsupported Operating System %s", providerConfig.OperatingSystem)
+			md.Annotations[resources.MachineDeploymentOSPAnnotation] = fmt.Sprintf(ospNamePattern, providerConfig.OperatingSystem)
+		default:
+			return fmt.Errorf("failed to populate OSP annotation for machinedeployment with unsupported Operating System %s", providerConfig.OperatingSystem)
+		}
 	}
 
 	return nil
