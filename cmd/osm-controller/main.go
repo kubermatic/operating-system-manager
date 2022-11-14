@@ -254,7 +254,7 @@ func main() {
 	}
 
 	caCert := customCACert
-	if customCACert != "" {
+	if opt.caBundleFile == "" {
 		caCert, err = certificate.GetCACert(opt.kubeconfig, mgr.GetConfig())
 		if err != nil {
 			klog.Fatal("failed to load CA certificate", zap.Error(err))
