@@ -29,7 +29,7 @@ import (
 	"k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/resources/reconciling"
 
-	v1 "k8s.io/api/apps/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
@@ -90,7 +90,7 @@ func Add(mgr manager.Manager, log *zap.SugaredLogger, namespace string, workerCo
 	// of any random resource in the underlying namespace where osm is deployed. machine controller deployment was picked
 	// up among those resources. Due to the relation between machine-controller and OSM, it makes sense to watch its deployment
 	// since OSM is connected with machine-controller for the provisioning process.
-	if err := c.Watch(&source.Kind{Type: &v1.Deployment{}}, &handler.EnqueueRequestForObject{},
+	if err := c.Watch(&source.Kind{Type: &appsv1.Deployment{}}, &handler.EnqueueRequestForObject{},
 		predicate.NewPredicateFuncs(func(o client.Object) bool {
 			return o.GetNamespace() == namespace && o.GetName() == "machine-controller"
 		}), filterMachineControllerPredicate()); err != nil {
@@ -110,7 +110,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrlruntime.Request) (re
 }
 
 func (r *Reconciler) reconcile(ctx context.Context) error {
-	var ospCreators []reconciling.NamedOperatingSystemProfileCreatorGetter
+	var ospReconcilers []reconciling.NamedOperatingSystemProfileReconcilerFactory
 	for name, ospFile := range r.defaultOSPFiles {
 		osp, err := parseYAMLToObject(ospFile)
 		if err != nil {
@@ -130,11 +130,11 @@ func (r *Reconciler) reconcile(ctx context.Context) error {
 		osp.SetResourceVersion(existingOSP.GetResourceVersion())
 		osp.SetGeneration(existingOSP.GetGeneration())
 
-		ospCreators = append(ospCreators, ospCreator(name, osp))
+		ospReconcilers = append(ospReconcilers, ospReconciler(name, osp))
 	}
 
 	if err := reconciling.ReconcileOperatingSystemProfiles(ctx,
-		ospCreators,
+		ospReconcilers,
 		r.namespace, r.Client); err != nil {
 		return fmt.Errorf("failed to reconcile osps: %w", err)
 	}
@@ -142,8 +142,8 @@ func (r *Reconciler) reconcile(ctx context.Context) error {
 	return nil
 }
 
-func ospCreator(name string, osp *v1alpha1.OperatingSystemProfile) reconciling.NamedOperatingSystemProfileCreatorGetter {
-	return func() (string, reconciling.OperatingSystemProfileCreator) {
+func ospReconciler(name string, osp *v1alpha1.OperatingSystemProfile) reconciling.NamedOperatingSystemProfileReconcilerFactory {
+	return func() (string, reconciling.OperatingSystemProfileReconciler) {
 		return name, func(*v1alpha1.OperatingSystemProfile) (*v1alpha1.OperatingSystemProfile, error) {
 			return osp, nil
 		}

@@ -19,7 +19,7 @@ set -euo pipefail
 cd $(dirname $0)/..
 source hack/lib.sh
 
-CONTAINERIZE_IMAGE=golang:1.19.3 containerize ./hack/update-codegen.sh
+#CONTAINERIZE_IMAGE=golang:1.19.3 containerize ./hack/update-codegen.sh
 SCRIPT_ROOT=$(dirname "${BASH_SOURCE}")
 
 echodate "Creating vendor directory"
@@ -32,5 +32,10 @@ go run sigs.k8s.io/controller-tools/cmd/controller-gen \
   object:headerFile="hack/header.txt" \
   paths="./..."
 
-echodate "Generating reconciling functions"
-go generate ./pkg/...
+echodate "Generating reconciling helpers"
+
+reconcileHelpers=pkg/resources/reconciling/zz_generated_reconcile.go
+go run k8c.io/reconciler/cmd/reconciler-gen --config hack/reconciling.yaml > $reconcileHelpers
+
+currentYear=$(date +%Y)
+sed -i "s/Copyright YEAR/Copyright $currentYear/g" $reconcileHelpers

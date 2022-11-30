@@ -1,6 +1,4 @@
-#!/usr/bin/env bash
-
-# Copyright 2021 The Operating System Manager contributors.
+# Copyright 2022 The Operating System Manager contributors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,20 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -euo pipefail
+# This defines the reconciling helpers we generate using
+# https://github.com/kubermatic/reconciler
 
-cd $(dirname $0)/..
-source hack/lib.sh
-
-CONTAINERIZE_IMAGE=golang:1.19.3 containerize ./hack/update-crds-openapi.sh
-SCRIPT_ROOT=$(dirname "${BASH_SOURCE}")
-
-echodate "Creating vendor directory"
-go mod vendor
-
-echodate "Generating OpenAPI 3 schema for CRDs"
-go run sigs.k8s.io/controller-tools/cmd/controller-gen \
-  crd \
-  object:headerFile="hack/header.txt" \
-  paths=./pkg/crd/... \
-  output:crd:artifacts:config=./deploy/crd
+package: reconciling
+boilerplate: hack/boilerplate/boilerplate.go.txt
+resourceTypes:
+  # osm/v1alpha1
+  - {package: k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1, resourceName: OperatingSystemProfile}
+  - {package: k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1, resourceName: OperatingSystemConfig}
