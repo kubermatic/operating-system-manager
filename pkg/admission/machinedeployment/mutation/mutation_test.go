@@ -21,13 +21,13 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/go-test/deep"
+
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-
-	"github.com/go-test/deep"
 )
 
 func TestMutateMachineDeployment(t *testing.T) {

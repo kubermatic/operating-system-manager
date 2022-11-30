@@ -38,6 +38,7 @@ import (
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/generator"
 	providerconfig "k8c.io/operating-system-manager/pkg/providerconfig/config"
+	"k8c.io/operating-system-manager/pkg/resources/reconciling"
 	"k8c.io/operating-system-manager/pkg/util/certificate"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -201,6 +202,8 @@ func main() {
 		klog.Fatal(err)
 	}
 	log := logger.Sugar()
+
+	reconciling.Configure(log)
 
 	// Create manager with client against in-cluster config
 	mgr, err := createManager(opt)
