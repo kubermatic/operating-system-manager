@@ -111,3 +111,5 @@ require (
 replace k8s.io/client-go => k8s.io/client-go v0.25.3
 
 replace github.com/ajeddeloh/go-json => github.com/coreos/go-json v0.0.0-20220810161552-7cce03887f34
+
+replace github.com/kubermatic/machine-controller => github.com/pratikdeoghare/machine-controller v1.44.1-0.20221124123252-807fd052eb7f
