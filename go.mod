@@ -8,7 +8,7 @@ require (
 	github.com/flatcar-linux/container-linux-config-transpiler v0.9.3
 	github.com/go-logr/logr v1.2.3
 	github.com/go-test/deep v1.0.8
-	github.com/kubermatic/machine-controller v1.55.1-0.20221108175604-e94dfa5fd85f
+	github.com/kubermatic/machine-controller v1.55.1-0.20221201122519-08403974f601
 	github.com/onsi/ginkgo v1.16.5
 	github.com/pmezard/go-difflib v1.0.0
 	go.uber.org/zap v1.23.0
@@ -111,5 +111,3 @@ require (
 replace k8s.io/client-go => k8s.io/client-go v0.25.3
 
 replace github.com/ajeddeloh/go-json => github.com/coreos/go-json v0.0.0-20220810161552-7cce03887f34
-
-replace github.com/kubermatic/machine-controller => github.com/pratikdeoghare/machine-controller v1.44.1-0.20221124123252-807fd052eb7f
