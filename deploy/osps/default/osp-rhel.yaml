@@ -618,7 +618,7 @@ spec:
                 --container-runtime-endpoint=unix:///var/run/dockershim.sock \
                 {{- end }}
                 {{- /* If external or in-tree CCM is in use we don't need to set --node-ip as the cloud provider will know what IPs to return.  */}}
-                {{- if not (and (eq .NetworkIPFamily "IPv4+IPv6") (or (.InTreeCCMAvailable) (.ExternalCloudProvider))) }}
+                {{- if not (and (or (eq .NetworkIPFamily "IPv4+IPv6") (eq .NetworkIPFamily "IPv6+IPv4")) (or (.InTreeCCMAvailable) (.ExternalCloudProvider))) }}
                 --node-ip ${KUBELET_NODE_IP}
                 {{- end }}
 
@@ -657,6 +657,17 @@ spec:
                 exit 1
               fi
               DEFAULT_IFC_IP=$DEFAULT_IFC_IPv4,$DEFAULT_IFC_IPv6
+              {{- else if eq .NetworkIPFamily "IPv6+IPv4" }}
+              DEFAULT_IFC_IPv4=$(ip -o route get  1 | grep -oP "src \K\S+")
+              DEFAULT_IFC_IPv6=$(ip -o -6 route get  1:: | grep -oP "src \K\S+")
+
+              if [ -z "${DEFAULT_IFC_IPv6}" ]
+              then
+                echodate "Failed to get IPv6 address for the default route interface"
+                exit 1
+              fi
+
+              DEFAULT_IFC_IP=$DEFAULT_IFC_IPv6,$DEFAULT_IFC_IPv4
               {{- else }}
               DEFAULT_IFC_IP=$(ip -o  route get 1 | grep -oP "src \K\S+")
               {{- end }}

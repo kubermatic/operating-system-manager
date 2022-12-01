@@ -160,10 +160,29 @@ func TestReconciler_Reconcile(t *testing.T) {
 			operatingSystem:        providerconfigtypes.OperatingSystemUbuntu,
 			oscFile:                "osc-ubuntu-aws-dualstack.yaml",
 			mdName:                 "ubuntu-aws",
-			ipFamily:               cloudproviderutil.DualStack,
+			ipFamily:               cloudproviderutil.IPFamilyIPv4IPv6,
 			kubeletVersion:         "1.24.2",
 			provisioningSecretFile: "secret-ubuntu-aws-dualstack-provisioning.yaml",
 			bootstrapSecretFile:    "secret-ubuntu-aws-dualstack-bootstrap.yaml",
+			config: testConfig{
+				namespace:        "kube-system",
+				containerRuntime: "containerd",
+				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
+			},
+			cloudProvider:     "aws",
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
+		},
+		{
+			name:                   "Ubuntu OS in AWS with Dualstack IPv6+IPv4 Networking",
+			ospFile:                defaultOSPPathPrefix + "osp-ubuntu.yaml",
+			ospName:                "osp-ubuntu",
+			operatingSystem:        providerconfigtypes.OperatingSystemUbuntu,
+			oscFile:                "osc-ubuntu-aws-dualstack-IPv6+IPv4.yaml",
+			mdName:                 "ubuntu-aws",
+			ipFamily:               cloudproviderutil.IPFamilyIPv6IPv4,
+			kubeletVersion:         "1.24.2",
+			provisioningSecretFile: "secret-ubuntu-aws-dualstack-IPv6+IPv4-provisioning.yaml",
+			bootstrapSecretFile:    "secret-ubuntu-aws-dualstack-IPv6+IPv4-bootstrap.yaml",
 			config: testConfig{
 				namespace:        "kube-system",
 				containerRuntime: "containerd",
@@ -520,7 +539,7 @@ func TestOSCAndSecretRotation(t *testing.T) {
 			},
 		}
 
-		md := generateMachineDeployment(t, testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.kubeletVersion, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec, nil, cloudproviderutil.IPv4)
+		md := generateMachineDeployment(t, testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.kubeletVersion, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec, nil, cloudproviderutil.IPFamilyIPv4)
 
 		objects = append(objects, osp)
 		objects = append(objects, md)
@@ -716,7 +735,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 			},
 		}
 
-		md := generateMachineDeployment(t, testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.kubeletVersion, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec, nil, cloudproviderutil.IPv4)
+		md := generateMachineDeployment(t, testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.kubeletVersion, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec, nil, cloudproviderutil.IPFamilyIPv4)
 
 		objects = append(objects, osp)
 		objects = append(objects, md)
