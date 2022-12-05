@@ -31,6 +31,20 @@ spec:
     - name: "vsphere"
 
   bootstrapConfig:
+    templates:
+      configureProxyScript: |-
+        {{- if .HTTPProxy }}
+        cat <<EOF | tee -a /etc/environment
+        HTTP_PROXY={{ .HTTPProxy }}
+        http_proxy={{ .HTTPProxy }}
+        HTTPS_PROXY={{ .HTTPProxy }}
+        https_proxy={{ .HTTPProxy }}
+        NO_PROXY={{ .NoProxy }}
+        no_proxy={{ .NoProxy }}
+        EOF
+        source /etc/environment
+        {{- end }}
+
     units:
       - name: bootstrap.service
         enable: true
@@ -45,6 +59,7 @@ spec:
           [Service]
           Type=oneshot
           RemainAfterExit=true
+          EnvironmentFile=-/etc/environment
           ExecStart=/opt/bin/supervise.sh /opt/bin/bootstrap
 
     files:
@@ -67,6 +82,9 @@ spec:
             data: |
               #!/bin/bash
               set -xeuo pipefail
+
+              {{- /* Configure proxy as the first step to ensure that all the phases of provisioning respect the proxy environment. */}}
+              {{- template "configureProxyScript" }}
 
               curl -s -k -v --header 'Authorization: Bearer {{ .Token }}'	{{ .ServerURL }}/api/v1/namespaces/cloud-init-settings/secrets/{{ .SecretName }} | jq '.data["cloud-config"]' -r| base64 -d > /usr/share/oem/config.ign
 
@@ -244,18 +262,6 @@ spec:
             {{- /* link kube binaries from verioned dir to $opt_bin */}}
             ln -sf "$kube_dir/$bin" "$opt_bin"/$bin
         done
-
-      configureProxyScript: |-
-        {{- if .HTTPProxy }}
-        cat <<EOF | tee -a /etc/environment
-        HTTP_PROXY={{ .HTTPProxy }}
-        http_proxy={{ .HTTPProxy }}
-        HTTPS_PROXY={{ .HTTPProxy }}
-        https_proxy={{ .HTTPProxy }}
-        NO_PROXY={{ .NoProxy }}
-        no_proxy={{ .NoProxy }}
-        EOF
-        {{- end }}
 
     units:
       - name: setup.service
@@ -570,8 +576,6 @@ spec:
 
               {{- template "safeDownloadBinariesScript" }}
 
-              {{- template "configureProxyScript" }}
-
               # set kubelet nodeip environment variable
               /opt/bin/setup_net_env.sh
 
@@ -819,6 +823,7 @@ spec:
               After=kubelet.service
 
               [Service]
+              EnvironmentFile=-/etc/environment
               ExecStart=/opt/bin/health-monitor.sh kubelet
 
               [Install]

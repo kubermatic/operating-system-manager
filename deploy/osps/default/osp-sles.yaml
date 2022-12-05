@@ -25,6 +25,20 @@ spec:
     - name: "aws"
 
   bootstrapConfig:
+    templates:
+      configureProxyScript: |-
+        {{- if .HTTPProxy }}
+        cat <<EOF | tee -a /etc/environment
+        HTTP_PROXY={{ .HTTPProxy }}
+        http_proxy={{ .HTTPProxy }}
+        HTTPS_PROXY={{ .HTTPProxy }}
+        https_proxy={{ .HTTPProxy }}
+        NO_PROXY={{ .NoProxy }}
+        no_proxy={{ .NoProxy }}
+        EOF
+        source /etc/environment
+        {{- end }}
+
     files:
       - path: /opt/bin/supervise.sh
         permissions: 755
@@ -46,6 +60,9 @@ spec:
             data: |
               #!/bin/bash
               set -xeuo pipefail
+
+              {{- /* Configure proxy as the first step to ensure that all the phases of provisioning respect the proxy environment. */}}
+              {{- template "configureProxyScript" }}
 
               # Install JQ
               zypper -n --quiet addrepo -C https://download.opensuse.org/repositories/utilities/openSUSE_Leap_15.3/utilities.repo
@@ -78,6 +95,7 @@ spec:
               [Service]
               Type=oneshot
               RemainAfterExit=true
+              EnvironmentFile=-/etc/environment
               ExecStart=/opt/bin/supervise.sh /opt/bin/bootstrap
 
     modules:
@@ -221,18 +239,6 @@ spec:
             {{- /* link kube binaries from verioned dir to $opt_bin */}}
             ln -sf "$kube_dir/$bin" "$opt_bin"/$bin
         done
-
-      configureProxyScript: |-
-        {{- if .HTTPProxy }}
-        cat <<EOF | tee -a /etc/environment
-        HTTP_PROXY={{ .HTTPProxy }}
-        http_proxy={{ .HTTPProxy }}
-        HTTPS_PROXY={{ .HTTPProxy }}
-        https_proxy={{ .HTTPProxy }}
-        NO_PROXY={{ .NoProxy }}
-        no_proxy={{ .NoProxy }}
-        EOF
-        {{- end }}
 
     files:
       - path: /opt/bin/health-monitor.sh
@@ -430,8 +436,6 @@ spec:
                 ipvsadm
 
               {{- template "safeDownloadBinariesScript" }}
-
-              {{- template "configureProxyScript" }}
 
               # set kubelet nodeip environment variable
               /opt/bin/setup_net_env.sh
@@ -768,6 +772,7 @@ spec:
               After=kubelet.service
 
               [Service]
+              EnvironmentFile=-/etc/environment
               ExecStart=/opt/bin/health-monitor.sh kubelet
 
               [Install]

@@ -156,7 +156,7 @@ func main() {
 	if len(opt.caBundleFile) > 0 {
 		customCACert, err = retrieveCustomCACertificate(opt.caBundleFile)
 		if err != nil {
-			klog.Fatalf("-ca-bundle is invalid: %w", err)
+			klog.Fatalf("-ca-bundle is invalid: %s", err.Error())
 		}
 	}
 

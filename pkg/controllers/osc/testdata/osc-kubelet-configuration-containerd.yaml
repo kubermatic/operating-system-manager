@@ -23,9 +23,10 @@ spec:
       permissions: 755
     - content:
         inline:
-          data: "#!/bin/bash\nset -xeuo pipefail\n\nexport DEBIAN_FRONTEND=noninteractive\napt
-            update && apt install -y curl jq\ncurl -s -k -v --header 'Authorization:
-            Bearer top-secret'\thttps://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/kubelet-configuration-kube-system-provisioning-config
+          data: "#!/bin/bash\nset -xeuo pipefail\n\ncat <<EOF | tee -a /etc/environment\nHTTP_PROXY=http://test-http-proxy.com\nhttp_proxy=http://test-http-proxy.com\nHTTPS_PROXY=http://test-http-proxy.com\nhttps_proxy=http://test-http-proxy.com\nNO_PROXY=http://test-no-proxy.com\nno_proxy=http://test-no-proxy.com\nEOF\nsource
+            /etc/environment\n\nexport DEBIAN_FRONTEND=noninteractive\napt update
+            && apt install -y curl jq\ncurl -s -k -v --header 'Authorization: Bearer
+            top-secret'\thttps://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/kubelet-configuration-kube-system-provisioning-config
             | jq '.data[\"cloud-config\"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/kubelet-configuration-kube-system-provisioning-config.cfg\ncloud-init
             clean\n\ncloud-init --file /etc/cloud/cloud.cfg.d/kubelet-configuration-kube-system-provisioning-config.cfg
             init\nsystemctl daemon-reload\n\nsystemctl daemon-reload\nsystemctl restart
@@ -45,6 +46,7 @@ spec:
             [Service]
             Type=oneshot
             RemainAfterExit=true
+            EnvironmentFile=-/etc/environment
             ExecStart=/opt/bin/supervise.sh /opt/bin/bootstrap
           encoding: b64
       path: /etc/systemd/system/bootstrap.service
@@ -598,6 +600,7 @@ spec:
             After=kubelet.service
 
             [Service]
+            EnvironmentFile=-/etc/environment
             ExecStart=/opt/bin/health-monitor.sh kubelet
 
             [Install]
