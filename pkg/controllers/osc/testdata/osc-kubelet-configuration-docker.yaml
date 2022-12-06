@@ -23,7 +23,10 @@ spec:
       permissions: 755
     - content:
         inline:
-          data: "#!/bin/bash\nset -xeuo pipefail\n\ncat <<EOF | tee -a /etc/environment\nHTTP_PROXY=http://test-http-proxy.com\nhttp_proxy=http://test-http-proxy.com\nHTTPS_PROXY=http://test-http-proxy.com\nhttps_proxy=http://test-http-proxy.com\nNO_PROXY=http://test-no-proxy.com\nno_proxy=http://test-no-proxy.com\nEOF\nsource
+          data: "#!/bin/bash\nset -xeuo pipefail\n\ncat <<EOF | tee -a /etc/environment\nHTTP_PROXY=http://test-http-proxy.com\nhttp_proxy=http://test-http-proxy.com\nHTTPS_PROXY=http://test-http-proxy.com\nhttps_proxy=http://test-http-proxy.com\nEOF\ncat
+            <<EOF | tee -a /etc/environment\nNO_PROXY=http://test-no-proxy.com\nno_proxy=http://test-no-proxy.com\nEOF\n\nsudo
+            mkdir -p /etc/apt/apt.conf.d\ncat <<EOF | sudo tee /etc/apt/apt.conf.d/proxy.conf\nAcquire::https::Proxy
+            \"http://test-http-proxy.com\";\nAcquire::http::Proxy \"http://test-http-proxy.com\";\nEOF\n\nsource
             /etc/environment\n\nexport DEBIAN_FRONTEND=noninteractive\napt update
             && apt install -y curl jq\ncurl -s -k -v --header 'Authorization: Bearer
             top-secret'\thttps://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/kubelet-configuration-kube-system-provisioning-config

@@ -23,7 +23,8 @@ spec:
       permissions: 755
     - content:
         inline:
-          data: "#!/bin/bash\nset -xeuo pipefail\n\ncat <<EOF | tee -a /etc/environment\nHTTP_PROXY=http://test-http-proxy.com\nhttp_proxy=http://test-http-proxy.com\nHTTPS_PROXY=http://test-http-proxy.com\nhttps_proxy=http://test-http-proxy.com\nNO_PROXY=http://test-no-proxy.com\nno_proxy=http://test-no-proxy.com\nEOF\nsource
+          data: "#!/bin/bash\nset -xeuo pipefail\n\ncat <<EOF | tee -a /etc/environment\nHTTP_PROXY=http://test-http-proxy.com\nhttp_proxy=http://test-http-proxy.com\nHTTPS_PROXY=http://test-http-proxy.com\nhttps_proxy=http://test-http-proxy.com\nEOF\ncat
+            <<EOF | tee -a /etc/environment\nNO_PROXY=http://test-no-proxy.com\nno_proxy=http://test-no-proxy.com\nEOF\n\nsource
             /etc/environment\n\ncurl -s -k -v --header 'Authorization: Bearer top-secret'\thttps://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/flatcar-aws-containerd-kube-system-provisioning-config
             | jq '.data[\"cloud-config\"]' -r| base64 -d > /usr/share/oem/config.ign\n\ntouch
             /boot/flatcar/first_boot\nsystemctl disable bootstrap.service\nrm /etc/systemd/system/bootstrap.service\nrm

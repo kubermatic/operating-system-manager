@@ -32,9 +32,12 @@ spec:
             http_proxy=http://test-http-proxy.com
             HTTPS_PROXY=http://test-http-proxy.com
             https_proxy=http://test-http-proxy.com
+            EOF
+            cat <<EOF | tee -a /etc/environment
             NO_PROXY=http://test-no-proxy.com
             no_proxy=http://test-no-proxy.com
             EOF
+
             source /etc/environment
 
             yum install -y curl jq

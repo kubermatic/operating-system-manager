@@ -39,11 +39,17 @@ spec:
         http_proxy={{ .HTTPProxy }}
         HTTPS_PROXY={{ .HTTPProxy }}
         https_proxy={{ .HTTPProxy }}
+        EOF
+        {{- end }}
+
+        {{- if .NoProxy }}
+        cat <<EOF | tee -a /etc/environment
         NO_PROXY={{ .NoProxy }}
         no_proxy={{ .NoProxy }}
         EOF
-        source /etc/environment
         {{- end }}
+
+        source /etc/environment
 
     units:
       - name: bootstrap.service
