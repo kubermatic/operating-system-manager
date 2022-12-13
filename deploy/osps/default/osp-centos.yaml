@@ -34,6 +34,26 @@ spec:
     - name: "vsphere"
 
   bootstrapConfig:
+    templates:
+      configureProxyScript: |-
+        {{- if .HTTPProxy }}
+        cat <<EOF | tee -a /etc/environment
+        HTTP_PROXY={{ .HTTPProxy }}
+        http_proxy={{ .HTTPProxy }}
+        HTTPS_PROXY={{ .HTTPProxy }}
+        https_proxy={{ .HTTPProxy }}
+        EOF
+        {{- end }}
+
+        {{- if .NoProxy }}
+        cat <<EOF | tee -a /etc/environment
+        NO_PROXY={{ .NoProxy }}
+        no_proxy={{ .NoProxy }}
+        EOF
+        {{- end }}
+
+        source /etc/environment
+
     files:
       - path: /opt/bin/supervise.sh
         permissions: 755
@@ -55,6 +75,10 @@ spec:
             data: |
               #!/bin/bash
               set -xeuo pipefail
+
+              {{- /* Configure proxy as the first step to ensure that all the phases of provisioning respect the proxy environment. */}}
+              {{- template "configureProxyScript" }}
+
               source /etc/os-release
               if [ "$ID" == "centos" ] && [ "$VERSION_ID" == "8" ]; then
                 sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
@@ -86,6 +110,7 @@ spec:
               [Service]
               Type=oneshot
               RemainAfterExit=true
+              EnvironmentFile=-/etc/environment
               ExecStart=/opt/bin/supervise.sh /opt/bin/bootstrap
 
     modules:
@@ -285,18 +310,6 @@ spec:
             {{- /* link kube binaries from verioned dir to $opt_bin */}}
             ln -sf "$kube_dir/$bin" "$opt_bin"/$bin
         done
-
-      configureProxyScript: |-
-        {{- if .HTTPProxy }}
-        cat <<EOF | tee -a /etc/environment
-        HTTP_PROXY={{ .HTTPProxy }}
-        http_proxy={{ .HTTPProxy }}
-        HTTPS_PROXY={{ .HTTPProxy }}
-        https_proxy={{ .HTTPProxy }}
-        NO_PROXY={{ .NoProxy }}
-        no_proxy={{ .NoProxy }}
-        EOF
-        {{- end }}
 
     files:
       - path: /opt/bin/health-monitor.sh
@@ -531,8 +544,6 @@ spec:
               {{- template "containerRuntimeInstallation" }}
 
               {{- template "safeDownloadBinariesScript" }}
-
-              {{- template "configureProxyScript" }}
 
               mkdir -p /etc/systemd/system/kubelet.service.d/
               # set kubelet nodeip environment variable
@@ -856,6 +867,7 @@ spec:
               After=kubelet.service
 
               [Service]
+              EnvironmentFile=-/etc/environment
               ExecStart=/opt/bin/health-monitor.sh kubelet
 
               [Install]

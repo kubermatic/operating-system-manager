@@ -898,5 +898,7 @@ func buildReconciler(fakeClient client.Client, config testConfig) Reconciler {
 		clusterDNSIPs:        config.clusterDNSIPs,
 		kubeletFeatureGates:  map[string]bool{"GracefulNodeShutdown": true, "IdentifyPodOS": false},
 		bootstrappingManager: bootstrappingManager,
+		nodeHTTPProxy:        "http://test-http-proxy.com",
+		nodeNoProxy:          "http://test-no-proxy.com",
 	}
 }

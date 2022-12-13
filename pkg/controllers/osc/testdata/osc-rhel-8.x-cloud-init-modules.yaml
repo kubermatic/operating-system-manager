@@ -339,6 +339,15 @@ spec:
                 ln -sf "$kube_dir/$bin" "$opt_bin"/$bin
             done
 
+            cat <<EOF | tee -a /etc/environment
+            HTTP_PROXY=http://test-http-proxy.com
+            http_proxy=http://test-http-proxy.com
+            HTTPS_PROXY=http://test-http-proxy.com
+            https_proxy=http://test-http-proxy.com
+            NO_PROXY=http://test-no-proxy.com
+            no_proxy=http://test-no-proxy.com
+            EOF
+
             DEFAULT_IFC_NAME=$(ip -o route get 1  | grep -oP "dev \K\S+")
 
             # enable DHCPv6 on the default interface

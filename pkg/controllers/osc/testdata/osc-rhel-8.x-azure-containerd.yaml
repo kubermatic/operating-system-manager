@@ -27,6 +27,19 @@ spec:
             #!/bin/bash
             set -xeuo pipefail
 
+            cat <<EOF | tee -a /etc/environment
+            HTTP_PROXY=http://test-http-proxy.com
+            http_proxy=http://test-http-proxy.com
+            HTTPS_PROXY=http://test-http-proxy.com
+            https_proxy=http://test-http-proxy.com
+            EOF
+            cat <<EOF | tee -a /etc/environment
+            NO_PROXY=http://test-no-proxy.com
+            no_proxy=http://test-no-proxy.com
+            EOF
+
+            source /etc/environment
+
             yum install -y curl jq
 
             curl -s -k -v --header 'Authorization: Bearer top-secret' https://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/osp-rhel-azure-kube-system-provisioning-config | jq '.data["cloud-config"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/osp-rhel-azure-kube-system-provisioning-config.cfg
@@ -51,6 +64,7 @@ spec:
             [Service]
             Type=oneshot
             RemainAfterExit=true
+            EnvironmentFile=-/etc/environment
             ExecStart=/opt/bin/supervise.sh /opt/bin/bootstrap
           encoding: b64
       path: /etc/systemd/system/bootstrap.service
@@ -616,6 +630,7 @@ spec:
             After=kubelet.service
 
             [Service]
+            EnvironmentFile=-/etc/environment
             ExecStart=/opt/bin/health-monitor.sh kubelet
 
             [Install]
