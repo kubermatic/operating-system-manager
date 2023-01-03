@@ -79,16 +79,11 @@ presubmits:
       preset-goproxy: "true"
     spec:
       containers:
-        - image: quay.io/kubermatic/wwhrd:0.2.1-1
+        - image: quay.io/kubermatic/build:go-1.19-node-18-kind-0.17-5
           command:
-            - make
-          args:
-            - verify-licence
+            - ./hack/verify-licenses.sh
           resources:
             requests:
-              memory: 1Gi
-              cpu: 1
-            limits:
               memory: 2Gi
               cpu: 2
 
