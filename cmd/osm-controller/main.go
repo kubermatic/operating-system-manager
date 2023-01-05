@@ -144,8 +144,8 @@ func main() {
 		klog.Fatal("-namespace is required")
 	}
 
-	if !(opt.containerRuntime == "docker" || opt.containerRuntime == "containerd") {
-		klog.Fatalf("%s not supported; containerd, docker are the supported container runtimes", opt.containerRuntime)
+	if opt.containerRuntime != "containerd" {
+		klog.Fatalf("%s not supported; containerd is the only supported container runtimes", opt.containerRuntime)
 	}
 
 	var (

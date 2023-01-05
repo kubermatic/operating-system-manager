@@ -293,7 +293,6 @@ spec:
             usr_local_bin=/usr/local/bin
             cni_bin_dir=/opt/cni/bin
             mkdir -p /etc/cni/net.d /etc/kubernetes/manifests "$opt_bin" "$cni_bin_dir"
-            mkdir -p /etc/kubernetes/dynamic-config-dir
             arch=${HOST_ARCH-}
             if [ -z "$arch" ]
             then
@@ -388,12 +387,9 @@ spec:
               --bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf \
               --kubeconfig=/var/lib/kubelet/kubeconfig \
               --config=/etc/kubernetes/kubelet.conf \
-              --network-plugin=cni \
               --cert-dir=/etc/kubernetes/pki \
               --cloud-provider=aws \
               --cloud-config=/etc/kubernetes/cloud-config \
-              --dynamic-config-dir=/etc/kubernetes/dynamic-config-dir \
-              --feature-gates=DynamicKubeletConfig=true \
               --exit-on-lock-contention \
               --lock-file=/tmp/kubelet.lock \
               --container-runtime=remote \
