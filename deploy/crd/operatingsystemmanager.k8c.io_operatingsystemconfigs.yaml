@@ -210,7 +210,6 @@ spec:
                 - rhel
                 - centos
                 - ubuntu
-                - sles
                 - amzn2
                 - rockylinux
                 type: string

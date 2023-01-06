@@ -40,7 +40,6 @@ import (
 	"k8c.io/operating-system-manager/pkg/providerconfig/flatcar"
 	"k8c.io/operating-system-manager/pkg/providerconfig/rhel"
 	"k8c.io/operating-system-manager/pkg/providerconfig/rockylinux"
-	"k8c.io/operating-system-manager/pkg/providerconfig/sles"
 	"k8c.io/operating-system-manager/pkg/providerconfig/ubuntu"
 	jsonutil "k8c.io/operating-system-manager/pkg/util/json"
 	kubeconfigutil "k8c.io/operating-system-manager/pkg/util/kubeconfig"
@@ -300,7 +299,6 @@ type operatingSystemConfig struct {
 	CentOSConfig      centos.Config
 	FlatcarConfig     flatcar.Config
 	RhelConfig        rhel.Config
-	SlesConfig        sles.Config
 	UbuntuConfig      ubuntu.Config
 	RockyLinuxConfig  rockylinux.Config
 }
@@ -450,13 +448,6 @@ func setOperatingSystemConfig(os providerconfigtypes.OperatingSystem, operatingS
 			return err
 		}
 		data.RhelConfig = *config
-		return nil
-	case providerconfigtypes.OperatingSystemSLES:
-		config, err := sles.LoadConfig(operatingSystemSpec)
-		if err != nil {
-			return err
-		}
-		data.SlesConfig = *config
 		return nil
 	case providerconfigtypes.OperatingSystemUbuntu:
 		config, err := ubuntu.LoadConfig(operatingSystemSpec)

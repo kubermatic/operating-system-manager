@@ -19,8 +19,11 @@ set -euo pipefail
 cd $(dirname $0)/..
 source hack/lib.sh
 
-#CONTAINERIZE_IMAGE=golang:1.19.4 containerize ./hack/update-codegen.sh
+CONTAINERIZE_IMAGE=golang:1.19.4 containerize ./hack/update-codegen.sh
 SCRIPT_ROOT=$(dirname "${BASH_SOURCE}")
+
+sed="sed"
+[ "$(command -v gsed)" ] && sed="gsed"
 
 echodate "Creating vendor directory"
 go mod vendor
@@ -38,4 +41,4 @@ reconcileHelpers=pkg/resources/reconciling/zz_generated_reconcile.go
 go run k8c.io/reconciler/cmd/reconciler-gen --config hack/reconciling.yaml > $reconcileHelpers
 
 currentYear=$(date +%Y)
-sed -i "s/Copyright YEAR/Copyright $currentYear/g" $reconcileHelpers
+$sed -i "s/Copyright YEAR/Copyright $currentYear/g" $reconcileHelpers
