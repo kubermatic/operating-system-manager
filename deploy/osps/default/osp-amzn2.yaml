@@ -129,9 +129,8 @@ spec:
                   {{ .ContainerRuntimeConfig }}
         templates:
           containerRuntimeInstallation: |-
-            {{- /* Amazon Linux 2 does not have containerd 1.5 support */}}
             yum install -y \
-              containerd-1.4* \
+              containerd-1.6* \
               yum-plugin-versionlock
             yum versionlock add containerd
 
