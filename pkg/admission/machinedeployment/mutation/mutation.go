@@ -109,7 +109,6 @@ func MutateMachineDeployment(md *clusterv1alpha1.MachineDeployment) error {
 			providerconfigtypes.OperatingSystemFlatcar,
 			providerconfigtypes.OperatingSystemAmazonLinux2,
 			providerconfigtypes.OperatingSystemRockyLinux,
-			providerconfigtypes.OperatingSystemSLES,
 			providerconfigtypes.OperatingSystemRHEL:
 
 			md.Annotations[resources.MachineDeploymentOSPAnnotation] = fmt.Sprintf(ospNamePattern, providerConfig.OperatingSystem)
