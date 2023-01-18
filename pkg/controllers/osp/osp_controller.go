@@ -28,6 +28,7 @@ import (
 	"k8c.io/operating-system-manager/deploy/osps"
 	"k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/resources/reconciling"
+	predicateutil "k8c.io/operating-system-manager/pkg/util/predicate"
 
 	appsv1 "k8s.io/api/apps/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -93,6 +94,7 @@ func Add(mgr manager.Manager, log *zap.SugaredLogger, namespace string, workerCo
 		&source.Kind{Type: &appsv1.Deployment{}},
 		&handler.EnqueueRequestForObject{},
 		filterDeploymentPredicate(),
+		predicateutil.ByNamespace(namespace),
 	); err != nil {
 		return fmt.Errorf("failed to create watch for deployments: %w", err)
 	}
