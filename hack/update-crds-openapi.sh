@@ -31,3 +31,7 @@ go run sigs.k8s.io/controller-tools/cmd/controller-gen \
   object:headerFile="hack/header.txt" \
   paths=./pkg/crd/... \
   output:crd:artifacts:config=./deploy/crd
+
+echodate "Generating CustomOperatingSystemProfile CRD"
+CUSTOM_OSP=./hack/kkp/operatingsystemmanager.k8c.io_customoperatingsystemprofiles.yaml
+yq -e -i '.spec.versions = load("./deploy/crd/operatingsystemmanager.k8c.io_operatingsystemprofiles.yaml").spec.versions' $CUSTOM_OSP
