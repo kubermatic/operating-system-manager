@@ -86,15 +86,15 @@ func Add(mgr manager.Manager, log *zap.SugaredLogger, namespace string, workerCo
 		return err
 	}
 
-	// Since the osp controller cares about only creating the default osp resources, we need to watch for the creation
-	// of any random resource in the underlying namespace where osm is deployed. machine controller deployment was picked
-	// up among those resources. Due to the relation between machine-controller and OSM, it makes sense to watch its deployment
-	// since OSM is connected with machine-controller for the provisioning process.
-	if err := c.Watch(&source.Kind{Type: &appsv1.Deployment{}}, &handler.EnqueueRequestForObject{},
-		predicate.NewPredicateFuncs(func(o client.Object) bool {
-			return o.GetNamespace() == namespace && o.GetName() == "machine-controller"
-		}), filterMachineControllerPredicate()); err != nil {
-		return err
+	// Since the osp controller cares about only creating the default OSP resources, we need to watch for the creation
+	// of any random resource in the underlying namespace where osm is deployed. We picked deployments for this and added additional
+	// event filtering to avoid redundant reconciliation/requeues.
+	if err := c.Watch(
+		&source.Kind{Type: &appsv1.Deployment{}},
+		&handler.EnqueueRequestForObject{},
+		filterDeploymentPredicate(),
+	); err != nil {
+		return fmt.Errorf("failed to create watch for deployments: %w", err)
 	}
 
 	return nil
@@ -126,11 +126,14 @@ func (r *Reconciler) reconcile(ctx context.Context) error {
 			return fmt.Errorf("failed to retrieve existing OperatingSystemProfile: %w", err)
 		}
 
-		// OSP already exists
-		osp.SetResourceVersion(existingOSP.GetResourceVersion())
-		osp.SetGeneration(existingOSP.GetGeneration())
+		// Since OSPs are immutable, we only want to reconcile resources when the version is different.
+		if osp.Spec.Version != existingOSP.Spec.Version {
+			// OSP already exists
+			osp.SetResourceVersion(existingOSP.GetResourceVersion())
+			osp.SetGeneration(existingOSP.GetGeneration())
 
-		ospReconcilers = append(ospReconcilers, ospReconciler(name, osp))
+			ospReconcilers = append(ospReconcilers, ospReconciler(name, osp))
+		}
 	}
 
 	if err := reconciling.ReconcileOperatingSystemProfiles(ctx,
@@ -159,8 +162,8 @@ func parseYAMLToObject(ospByte []byte) (*v1alpha1.OperatingSystemProfile, error)
 	return osp, nil
 }
 
-// filterMachineControllerPredicate filters out all machine controller deployment events except the creation one.
-func filterMachineControllerPredicate() predicate.Predicate {
+// filterDeploymentPredicate filters out all deployment events except the creation one.
+func filterDeploymentPredicate() predicate.Predicate {
 	return predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
 			return true
