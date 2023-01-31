@@ -20,7 +20,7 @@ metadata:
 spec:
   osName: sles
   osVersion: "15-SP-1"
-  version: "v0.1.3"
+  version: "v0.1.4"
   supportedCloudProviders:
     - name: aws
   supportedContainerRuntimes:
@@ -88,7 +88,7 @@ spec:
       fi
 
       {{- /* # CNI variables */}}
-      CNI_VERSION="${CNI_VERSION:-v0.8.7}"
+      CNI_VERSION="${CNI_VERSION:-v1.2.0}"
       cni_base_url="https://github.com/containernetworking/plugins/releases/download/$CNI_VERSION"
       cni_filename="cni-plugins-linux-$arch-$CNI_VERSION.tgz"
 
@@ -108,7 +108,7 @@ spec:
       cd -
 
       {{- /* # cri-tools variables */}}
-      CRI_TOOLS_RELEASE="${CRI_TOOLS_RELEASE:-v1.22.0}"
+      CRI_TOOLS_RELEASE="${CRI_TOOLS_RELEASE:-v1.26.0}"
       cri_tools_base_url="https://github.com/kubernetes-sigs/cri-tools/releases/download/${CRI_TOOLS_RELEASE}"
       cri_tools_filename="crictl-${CRI_TOOLS_RELEASE}-linux-${arch}.tar.gz"
 
@@ -116,8 +116,9 @@ spec:
       curl -Lfo "$opt_bin/$cri_tools_filename" "$cri_tools_base_url/$cri_tools_filename"
 
       {{- /* download cri-tools checksum */}}
-      {{- /* the cri-tools checksum file has a filename prefix that breaks sha256sum so we need to drop it with sed */}}
-      cri_tools_sum=$(curl -Lf "$cri_tools_base_url/$cri_tools_filename.sha256" | sed 's/\*\///')
+      {{- /* the cri-tools checksum file provides only the checksum without the file name, so we need to handle it specially */}}
+      cri_tools_sum_value=$(curl -Lf "$cri_tools_base_url/$cri_tools_filename.sha256")
+      cri_tools_sum="$cri_tools_sum_value $cri_tools_filename"
       cd "$opt_bin"
 
       {{- /* verify cri-tools checksum */}}
