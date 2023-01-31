@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright 2021 The Operating System Manager contributors.
+# Copyright 2022 The Operating System Manager contributors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +20,21 @@
 # the cleanup trap gets executed when a script
 # receives a SIGINT
 set -o monitor
+
+# Get the operating system
+# Possible values are:
+#		* linux for linux
+#		* darwin for macOS
+#
+# usage:
+# if [ "${OS}" == "darwin" ]; then
+#   # do macos stuff
+# fi
+OS="$(echo $(uname) | tr '[:upper:]' '[:lower:]')"
+
+worker_name() {
+  echo "${KUBERMATIC_WORKERNAME:-$(uname -n)}" | tr -cd '[:alnum:]' | tr '[:upper:]' '[:lower:]'
+}
 
 retry() {
   # Works only with bash but doesn't fail on other shells
@@ -55,6 +70,11 @@ actual_retry() {
   return 0
 }
 
+echodate() {
+  # do not use -Is to keep this compatible with macOS
+  echo "[$(date +%Y-%m-%dT%H:%M:%S%:z)]" "$@"
+}
+
 write_junit() {
   # Doesn't make any sense if we don't know a testname
   if [ -z "${TEST_NAME:-}" ]; then return; fi
@@ -69,42 +89,52 @@ write_junit() {
     errors=1
     failure='<failure type="Failure">Step failed</failure>'
   fi
-  TEST_NAME="[Kubermatic] ${TEST_NAME#\[Kubermatic\] }"
-  cat << EOF > ${ARTIFACTS}/junit.$(echo $TEST_NAME | sed 's/ /_/g').xml
+  TEST_CLASS="${TEST_CLASS:-Kubermatic}"
+  cat << EOF > ${ARTIFACTS}/junit.$(echo $TEST_NAME | sed 's/ /_/g' | tr '[:upper:]' '[:lower:]').xml
 <?xml version="1.0" ?>
 <testsuites>
-    <testsuite errors="$errors" failures="$errors" name="$TEST_NAME" tests="1">
-        <testcase classname="$TEST_NAME" name="$TEST_NAME" time="$duration">
-          $failure
-        </testcase>
-    </testsuite>
+  <testsuite errors="$errors" failures="$errors" name="$TEST_CLASS" tests="1">
+    <testcase classname="$TEST_CLASS" name="$TEST_NAME" time="$duration">
+      $failure
+    </testcase>
+  </testsuite>
 </testsuites>
 EOF
 }
 
-echodate() {
-  # do not use -Is to keep this compatible with macOS
-  echo "[$(date +%Y-%m-%dT%H:%M:%S%:z)]" "$@"
+is_containerized() {
+  # we're inside a Kubernetes pod/container or inside a container launched by containerize()
+  [ -n "${KUBERNETES_SERVICE_HOST:-}" ] || [ -n "${CONTAINERIZED:-}" ]
 }
 
 containerize() {
   local cmd="$1"
-  local image="${CONTAINERIZE_IMAGE:-quay.io/kubermatic/util:1.4.1}"
+  local image="${CONTAINERIZE_IMAGE:-quay.io/kubermatic/util:2.0.0}"
   local gocache="${CONTAINERIZE_GOCACHE:-/tmp/.gocache}"
+  local gomodcache="${CONTAINERIZE_GOMODCACHE:-/tmp/.gomodcache}"
+  local skip="${NO_CONTAINERIZE:-}"
 
-  if ! [ -f /.dockerenv ]; then
+  # short-circuit containerize when in some cases it needs to be avoided
+  [ -n "$skip" ] && return
+
+  if ! is_containerized; then
     echodate "Running $cmd in a Docker container using $image..."
+    mkdir -p "$gocache"
+    mkdir -p "$gomodcache"
 
     exec docker run \
-      -v $PWD:/go/src/k8c.io/operating-system-manager \
-      -w /go/src/k8c.io/operating-system-manager \
+      -v "$PWD":/go/src/k8c.io/kubermatic \
+      -v "$gocache":"$gocache" \
+      -v "$gomodcache":"$gomodcache" \
+      -w /go/src/k8c.io/kubermatic \
       -e "GOCACHE=$gocache" \
+      -e "GOMODCACHE=$gomodcache" \
       -u "$(id -u):$(id -g)" \
+      --entrypoint="$cmd" \
       --rm \
       -it \
-      $image $cmd $@
+      $image $@
 
     exit $?
   fi
 }
-
