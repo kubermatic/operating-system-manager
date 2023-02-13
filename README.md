@@ -12,7 +12,7 @@ Configurations for worker nodes comprise of set of scripts used to prepare the n
 
 [Machine-Controller](https://github.com/kubermatic/machine-controller) is used to manage the worker nodes in KubeOne clusters. It depends on user-data plugins to generate the required configurations for worker nodes. Each operating system requires its own user-data plugin. These configs are then injected into the worker nodes using provisioning utilities such as [cloud-init](https://cloud-init.io) or [ignition](https://coreos.github.io/ignition). Eventually the nodes are bootstrapped.
 
-This has been the norm in KubeOne till KubeOne v1.4 and it works as expected. Although over time, it has been observed that this workflow has certain limitations.
+Over time, it has been observed that this workflow has certain limitations.
 
 #### Machine Controller Limitations
 
@@ -54,7 +54,19 @@ For each MachineDeployment we have two types of configurations, which are stored
 1. **Bootstrap**: Configuration used for initially setting up the machine and fetching the provisioning configuration.
 2. **Provisioning**: Configuration with the actual `cloud-config` that is used to provision the worker machine.
 
-![Architecture](./docs/images/architecture-osm.png)
+## Single vs management/worker cluster mode
+
+Conventionally OSM operates within a single cluster and expects all of the required resources like machine controller, MachineDeployments etc. to exist within the same cluster.
+
+![Single Tenant](./docs/images/architecture-osm.png)
+
+Along with that, OSM also supports environments where workloads are divided into management and worker clusters. This is useful since it helps with completely abstracting away OSM from the users of worker cluster; OSM will be running in the management cluster.
+
+To use management/worker cluster mode, simply pass on the kubeconfig for management cluster using `kubeconfig` and worker cluster using the `worker-cluster-kubeconfig` flags at OSM level. With this topology the OSP and OSC exist within the management cluster while only the bootstrap and provisioning secrets are created in the worker clusters.
+
+![Management/worker mode](./docs/images/architecture-osm-management-worker.png)
+
+
 
 ### Air-gapped Environment
 
