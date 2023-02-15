@@ -8,7 +8,7 @@ require (
 	github.com/flatcar-linux/container-linux-config-transpiler v0.9.3
 	github.com/go-logr/logr v1.2.3
 	github.com/go-test/deep v1.1.0
-	github.com/kubermatic/machine-controller v1.55.1-0.20230116112513-48a013651278
+	github.com/kubermatic/machine-controller v1.56.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/pmezard/go-difflib v1.0.0
 	go.uber.org/zap v1.24.0
@@ -19,8 +19,8 @@ require (
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/code-generator v0.26.1
 	k8s.io/klog v1.0.0
-	k8s.io/utils v0.0.0-20230115233650-391b47cb4029
-	sigs.k8s.io/controller-runtime v0.14.2
+	k8s.io/utils v0.0.0-20230209194617-a36077c30491
+	sigs.k8s.io/controller-runtime v0.14.4
 	sigs.k8s.io/controller-tools v0.9.2
 	sigs.k8s.io/yaml v1.3.0
 )
@@ -28,7 +28,7 @@ require (
 require (
 	github.com/BurntSushi/toml v1.2.1 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
-	github.com/ajeddeloh/go-json v0.0.0-20230131223807-18775e0fb4fb // indirect
+	github.com/ajeddeloh/go-json v0.0.0-20230208213736-66dc7bb0d143 // indirect
 	github.com/ajeddeloh/yaml v0.0.0-20170912190910-6b94386aeefd // indirect
 	github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -85,13 +85,13 @@ require (
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
 	go4.org v0.0.0-20201209231011-d4a079459e60 // indirect
-	golang.org/x/crypto v0.5.0 // indirect
+	golang.org/x/crypto v0.6.0 // indirect
 	golang.org/x/mod v0.7.0 // indirect
-	golang.org/x/net v0.5.0 // indirect
-	golang.org/x/oauth2 v0.4.0 // indirect
-	golang.org/x/sys v0.4.0 // indirect
-	golang.org/x/term v0.4.0 // indirect
-	golang.org/x/text v0.6.0 // indirect
+	golang.org/x/net v0.7.0 // indirect
+	golang.org/x/oauth2 v0.5.0 // indirect
+	golang.org/x/sys v0.5.0 // indirect
+	golang.org/x/term v0.5.0 // indirect
+	golang.org/x/text v0.7.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.4.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
@@ -104,7 +104,7 @@ require (
 	k8s.io/component-base v0.26.1 // indirect
 	k8s.io/gengo v0.0.0-20220902162205-c0856e24416d // indirect
 	k8s.io/klog/v2 v2.90.0 // indirect
-	k8s.io/kube-openapi v0.0.0-20230131224050-76d406abb92a // indirect
+	k8s.io/kube-openapi v0.0.0-20230210211930-4b0756abdef5 // indirect
 	k8s.io/kubelet v0.26.1 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
