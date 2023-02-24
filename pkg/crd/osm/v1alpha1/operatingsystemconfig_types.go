@@ -53,6 +53,9 @@ type OperatingSystemConfigSpec struct {
 	BootstrapConfig OSCConfig `json:"bootstrapConfig"`
 	// ProvisioningConfig is used for provisioning the worker node.
 	ProvisioningConfig OSCConfig `json:"provisioningConfig"`
+	// ProvisioningConfig is used for configurating the worker node. Defaults to cloud-init.
+	// +kubebuilder:default=cloud-init
+	ProvisioningUtility ProvisioningUtility `json:"provisioningUtility,omitempty"`
 }
 
 type OSCConfig struct {

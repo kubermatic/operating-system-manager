@@ -67,6 +67,15 @@ const (
 	ContainerRuntimeContainerd ContainerRuntime = "containerd"
 )
 
+// ProvisioningUtility used to provision the machines
+// +kubebuilder:validation:Enum=cloud-init;ignition
+type ProvisioningUtility string
+
+const (
+	ProvisioningUtilityCloudInit ProvisioningUtility = "cloud-init"
+	ProvisioningUtilityIgnition  ProvisioningUtility = "ignition"
+)
+
 // CloudProviderSpec contains the os/image reference for a specific supported cloud provider
 type CloudProviderSpec struct {
 	// Name represents the name of the supported cloud provider

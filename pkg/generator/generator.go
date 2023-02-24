@@ -38,7 +38,7 @@ const (
 
 // CloudConfigGenerator generates the machine bootstrapping and provisioning configurations for the corresponding operating system config
 type CloudConfigGenerator interface {
-	Generate(config *osmv1alpha1.OSCConfig, operatingSystem v1alpha1.OperatingSystem, cloudProvider v1alpha1.CloudProvider, md clusterv1alpha1.MachineDeployment, secretType mcbootstrap.CloudConfigSecret) ([]byte, error)
+	Generate(config *osmv1alpha1.OSCConfig, provisioningUtility osmv1alpha1.ProvisioningUtility, operatingSystem v1alpha1.OperatingSystem, cloudProvider v1alpha1.CloudProvider, md clusterv1alpha1.MachineDeployment, secretType mcbootstrap.CloudConfigSecret) ([]byte, error)
 }
 
 // DefaultCloudConfigGenerator represents the default generator of the machine provisioning configurations
@@ -57,17 +57,21 @@ func NewDefaultCloudConfigGenerator(unitsPath string) CloudConfigGenerator {
 	}
 }
 
-func (d *DefaultCloudConfigGenerator) Generate(config *osmv1alpha1.OSCConfig, operatingSystem v1alpha1.OperatingSystem, cloudProvider v1alpha1.CloudProvider, md clusterv1alpha1.MachineDeployment, secretType mcbootstrap.CloudConfigSecret) ([]byte, error) {
-	provisioningUtility, err := GetProvisioningUtility(operatingSystem, md)
+func (d *DefaultCloudConfigGenerator) Generate(config *osmv1alpha1.OSCConfig, provisioningUtility osmv1alpha1.ProvisioningUtility, operatingSystem v1alpha1.OperatingSystem, cloudProvider v1alpha1.CloudProvider, md clusterv1alpha1.MachineDeployment, secretType mcbootstrap.CloudConfigSecret) ([]byte, error) {
+	provisioner, err := GetProvisioningUtility(operatingSystem, md)
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine provisioning utility: %w", err)
+	}
+
+	if provisioningUtility != "" && provisioner != provisioningUtility {
+		return nil, fmt.Errorf("Specified provisioning utility is not supported by the OperatingSystemConfig: %w", err)
 	}
 
 	var files []*fileSpec
 	for _, file := range config.Files {
 		content := file.Content.Inline.Data
 		// Ignition doesn't support base64 encoding
-		if file.Content.Inline.Encoding == base64Encoding && provisioningUtility == CloudInit {
+		if file.Content.Inline.Encoding == base64Encoding && provisioner == osmv1alpha1.ProvisioningUtilityCloudInit {
 			content = base64.StdEncoding.EncodeToString([]byte(file.Content.Inline.Data))
 		}
 
@@ -125,7 +129,7 @@ func (d *DefaultCloudConfigGenerator) Generate(config *osmv1alpha1.OSCConfig, op
 	}
 
 	// Fetch user data template based on the provisioning utility
-	userDataTemplate := getUserDataTemplate(provisioningUtility)
+	userDataTemplate := getUserDataTemplate(provisioner)
 	tmpl, err := template.New("user-data").Funcs(TxtFuncMap()).Parse(userDataTemplate)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse user-data template: %w", err)
@@ -154,15 +158,15 @@ func (d *DefaultCloudConfigGenerator) Generate(config *osmv1alpha1.OSCConfig, op
 		return nil, err
 	}
 
-	if provisioningUtility == CloudInit {
+	if provisioner == osmv1alpha1.ProvisioningUtilityCloudInit {
 		return buf.Bytes(), nil
 	}
 
 	return toIgnition(buf.String())
 }
 
-func getUserDataTemplate(p ProvisioningUtility) string {
-	if p == Ignition {
+func getUserDataTemplate(p osmv1alpha1.ProvisioningUtility) string {
+	if p == osmv1alpha1.ProvisioningUtilityIgnition {
 		return ignitionTemplate
 	}
 	return cloudInitTemplate

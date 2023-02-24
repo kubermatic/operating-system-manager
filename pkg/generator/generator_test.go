@@ -83,6 +83,7 @@ func TestDefaultCloudConfigGenerator_Generate(t *testing.T) {
 							RunCMD:         []string{"systemctl restart test.service", "systemctl restart setup.service", "systemctl daemon-reload"},
 						},
 					},
+					ProvisioningUtility: osmv1alpha1.ProvisioningUtilityCloudInit,
 				},
 			},
 			operatingSystemSpec: &distUpgradeOnBootEnabled,
@@ -168,6 +169,7 @@ rh_subscription:
 							RunCMD:         []string{"systemctl restart test.service", "systemctl restart setup.service", "systemctl daemon-reload"},
 						},
 					},
+					ProvisioningUtility: osmv1alpha1.ProvisioningUtilityCloudInit,
 				},
 			},
 			expectedCloudConfig: []byte(`#cloud-config
@@ -241,6 +243,7 @@ rh_subscription:
 							RunCMD: []string{"systemctl daemon-reload"},
 						},
 					},
+					ProvisioningUtility: osmv1alpha1.ProvisioningUtilityCloudInit,
 				},
 			},
 			expectedCloudConfig: []byte(`#cloud-config
@@ -300,6 +303,7 @@ runcmd:
 							RunCMD: []string{"systemctl daemon-reload"},
 						},
 					},
+					ProvisioningUtility: osmv1alpha1.ProvisioningUtilityCloudInit,
 				},
 			},
 			operatingSystemSpec: &distUpgradeOnBootEnabled,
@@ -362,6 +366,7 @@ runcmd:
 							RunCMD: []string{"systemctl daemon-reload"},
 						},
 					},
+					ProvisioningUtility: osmv1alpha1.ProvisioningUtilityCloudInit,
 				},
 			},
 			operatingSystemSpec: &distUpgradeOnBootEnabled,
@@ -418,6 +423,7 @@ runcmd:
 							RunCMD: []string{"systemctl daemon-reload"},
 						},
 					},
+					ProvisioningUtility: osmv1alpha1.ProvisioningUtilityCloudInit,
 				},
 			},
 			operatingSystemSpec: &distUpgradeOnBootEnabled,
@@ -479,6 +485,7 @@ runcmd:
 							RunCMD: []string{"systemctl daemon-reload"},
 						},
 					},
+					ProvisioningUtility: osmv1alpha1.ProvisioningUtilityCloudInit,
 				},
 			},
 			expectedCloudConfig: []byte(`#cloud-config
@@ -527,6 +534,7 @@ runcmd:
 							RunCMD: []string{"systemctl daemon-reload"},
 						},
 					},
+					ProvisioningUtility: osmv1alpha1.ProvisioningUtilityCloudInit,
 				},
 			},
 			operatingSystemSpec: &distUpgradeOnBootEnabled,
@@ -586,6 +594,7 @@ runcmd:
 							"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4",
 						},
 					},
+					ProvisioningUtility: osmv1alpha1.ProvisioningUtilityIgnition,
 				},
 			},
 			expectedCloudConfig: []byte(`{"ignition":{"config":{},"security":{"tls":{}},"timeouts":{},"version":"2.3.0"},"networkd":{},"passwd":{"users":[{"name":"core","sshAuthorizedKeys":["ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3","ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4"]}]},"storage":{"files":[{"filesystem":"root","path":"/opt/bin/test.service","contents":{"source":"data:,%23!%2Fbin%2Fbash%0Aset%20-xeuo%20pipefail%0Acloud-init%20clean%0Acloud-init%20init%0Asystemctl%20start%20provision.service%0A","verification":{}},"mode":448},{"filesystem":"root","path":"/opt/bin/setup.service","contents":{"source":"data:,%23!%2Fbin%2Fbash%0Aset%20-xeuo%20pipefail%0Acloud-init%20clean%0Acloud-init%20init%0Asystemctl%20start%20provision.service%0A","verification":{}},"mode":448}]},"systemd":{}}`),
@@ -625,6 +634,7 @@ runcmd:
 							"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4",
 						},
 					},
+					ProvisioningUtility: osmv1alpha1.ProvisioningUtilityIgnition,
 				},
 			},
 			expectedCloudConfig: []byte(`{"ignition":{"config":{},"security":{"tls":{}},"timeouts":{},"version":"2.3.0"},"networkd":{},"passwd":{"users":[{"name":"core","sshAuthorizedKeys":["ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3","ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4"]}]},"storage":{"files":[{"filesystem":"root","path":"/opt/bin/test.service","contents":{"source":"data:,%23!%2Fbin%2Fbash%0Aset%20-xeuo%20pipefail%0Acloud-init%20clean%0Acloud-init%20init%0Asystemctl%20start%20provision.service%0A","verification":{}},"mode":448},{"filesystem":"root","path":"/opt/bin/setup.service","contents":{"source":"data:,%23!%2Fbin%2Fbash%0Aset%20-xeuo%20pipefail%0Acloud-init%20clean%0Acloud-init%20init%0Asystemctl%20start%20provision.service%0A","verification":{}},"mode":448}]},"systemd":{}}`),
@@ -665,6 +675,7 @@ runcmd:
 							"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4",
 						},
 					},
+					ProvisioningUtility: osmv1alpha1.ProvisioningUtilityIgnition,
 				},
 			},
 			expectedCloudConfig: []byte(`{"ignition":{"config":{},"security":{"tls":{}},"timeouts":{},"version":"2.3.0"},"networkd":{},"passwd":{"users":[{"name":"core","sshAuthorizedKeys":["ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR3","ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR4"]}]},"storage":{"files":[{"filesystem":"root","path":"/etc/machine-name","contents":{"source":"data:,%3CMACHINE_NAME%3E","verification":{}},"mode":384},{"filesystem":"root","path":"/opt/bin/test.service","contents":{"source":"data:,%23!%2Fbin%2Fbash%0Aset%20-xeuo%20pipefail%0Acloud-init%20clean%0Acloud-init%20init%0Asystemctl%20start%20provision.service%0A","verification":{}},"mode":448},{"filesystem":"root","path":"/opt/bin/setup.service","contents":{"source":"data:,%23!%2Fbin%2Fbash%0Aset%20-xeuo%20pipefail%0Acloud-init%20clean%0Acloud-init%20init%0Asystemctl%20start%20provision.service%0A","verification":{}},"mode":448}]},"systemd":{}}`),
@@ -708,6 +719,7 @@ runcmd:
 							YumRepos:       map[string]map[string]string{"cloud-init-daily": {"name": "@cloud-init", "baseurl": "https://k8c.io", "type": "rpm-md"}},
 						},
 					},
+					ProvisioningUtility: osmv1alpha1.ProvisioningUtilityCloudInit,
 				},
 			},
 			expectedCloudConfig: []byte(`#cloud-config
@@ -775,7 +787,7 @@ yum_repo_dir: /store/custom/yum.repos.d`),
 			}
 
 			md := generateMachineDeployment(t, providerconfigtypes.OperatingSystem(testCase.osc.Spec.OSName), "aws", &osSpec)
-			userData, err := generator.Generate(&testCase.osc.Spec.ProvisioningConfig, testCase.osc.Spec.OSName, testCase.osc.Spec.CloudProvider.Name, md, secretType)
+			userData, err := generator.Generate(&testCase.osc.Spec.ProvisioningConfig, testCase.osc.Spec.ProvisioningUtility, testCase.osc.Spec.OSName, testCase.osc.Spec.CloudProvider.Name, md, secretType)
 			if err != nil {
 				t.Fatalf("failed to generate cloud config: %v", err)
 			}

@@ -1,4 +1,4 @@
-# Copyright 2021 The Operating System Manager contributors.
+# Copyright 2023 The Operating System Manager contributors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,14 +15,16 @@
 apiVersion: operatingsystemmanager.k8c.io/v1alpha1
 kind: OperatingSystemProfile
 metadata:
-  name: osp-amzn2
+  name: osp-flatcar-cloud-init
   namespace: kube-system
 spec:
-  osName: "amzn2"
-  osVersion: "2.0"
-  version: "v1.2.0"
+  osName: flatcar
+  ## Flatcar Stable (09/11/2021)
+  osVersion: "2983.2.0"
+  version: "v1.0.0"
   provisioningUtility: "cloud-init"
   supportedCloudProviders:
+    - name: "anexia"
     - name: "aws"
 
   bootstrapConfig:
@@ -46,99 +48,6 @@ spec:
 
         source /etc/environment
 
-    files:
-      - path: /opt/bin/supervise.sh
-        permissions: 755
-        content:
-          inline:
-            encoding: b64
-            data: |
-              #!/bin/bash
-              set -xeuo pipefail
-              while ! "$@"; do
-                sleep 1
-              done
-
-      - path: /opt/bin/bootstrap
-        permissions: 755
-        content:
-          inline:
-            encoding: b64
-            data: |
-              #!/bin/bash
-              set -xeuo pipefail
-
-              {{- /* Configure proxy as the first step to ensure that all the phases of provisioning respect the proxy environment. */}}
-              {{- template "configureProxyScript" }}
-
-              yum install -y curl jq
-
-              curl -s -k -v --header 'Authorization: Bearer {{ .Token }}' {{ .ServerURL }}/api/v1/namespaces/cloud-init-settings/secrets/{{ .SecretName }} | jq '.data["cloud-config"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/{{ .SecretName }}.cfg
-              cloud-init clean
-              cloud-init --file /etc/cloud/cloud.cfg.d/{{ .SecretName }}.cfg init
-              systemctl daemon-reload
-              systemctl restart setup.service
-              systemctl disable bootstrap.service
-
-      - path: /etc/systemd/system/bootstrap.service
-        permissions: 644
-        content:
-          inline:
-            encoding: b64
-            data: |
-              [Install]
-              WantedBy=multi-user.target
-
-              [Unit]
-              Requires=network-online.target
-              After=network-online.target
-              [Service]
-              Type=oneshot
-              RemainAfterExit=true
-              EnvironmentFile=-/etc/environment
-              ExecStart=/opt/bin/supervise.sh /opt/bin/bootstrap
-
-    modules:
-      runcmd:
-        - systemctl restart bootstrap.service
-        - systemctl daemon-reload
-
-  provisioningConfig:
-    supportedContainerRuntimes:
-      - name: containerd
-        files:
-          - path: /etc/systemd/system/containerd.service.d/environment.conf
-            content:
-              inline:
-                data: |
-                  [Service]
-                  Restart=always
-                  EnvironmentFile=-/etc/environment
-
-          - path: /etc/crictl.yaml
-            content:
-              inline:
-                data: |
-                  runtime-endpoint: unix:///run/containerd/containerd.sock
-
-          - path: /etc/containerd/config.toml
-            permissions: 600
-            content:
-              inline:
-                encoding: b64
-                data: |
-                  {{ .ContainerRuntimeConfig }}
-        templates:
-          containerRuntimeInstallation: |-
-            yum install -y \
-              containerd-1.6* \
-              yum-plugin-versionlock
-            yum versionlock add containerd
-
-            systemctl daemon-reload
-            systemctl enable --now containerd
-
-    templates:
       safeDownloadBinariesScript: |-
         {{- /* setup some common directories */}}
         opt_bin=/opt/bin
@@ -238,12 +147,128 @@ spec:
             ln -sf "$kube_dir/$bin" "$opt_bin"/$bin
         done
 
+    supportedContainerRuntimes:
+      - name: containerd
+        files:
+          - path: /etc/systemd/system/containerd.service.d/environment.conf
+            content:
+              inline:
+                data: |
+                  [Service]
+                  Restart=always
+                  EnvironmentFile=-/etc/environment
+
+          - path: /etc/crictl.yaml
+            content:
+              inline:
+                data: |
+                  runtime-endpoint: unix:///run/containerd/containerd.sock
+
+          - path: /etc/containerd/config.toml
+            permissions: 600
+            content:
+              inline:
+                data: |
+                  {{ .ContainerRuntimeConfig }}
+
+          - path: /etc/systemd/system/containerd.service.d/10-custom.conf
+            content:
+              inline:
+                data: |
+                  [Service]
+                  EnvironmentFile=/run/metadata/torcx
+                  Environment=CONTAINERD_CONFIG=/etc/containerd/config.toml
+                  ExecStart=
+                  ExecStart=/usr/bin/env PATH=${TORCX_BINDIR}:${PATH} ${TORCX_BINDIR}/containerd --config ${CONTAINERD_CONFIG}
+
     files:
-      - path: /opt/bin/health-monitor.sh
+      - path: /opt/bin/supervise.sh
         permissions: 755
         content:
           inline:
             encoding: b64
+            data: |
+              #!/bin/bash
+              set -xeuo pipefail
+              while ! "$@"; do
+                sleep 1
+              done
+
+      - path: /opt/bin/setup
+        permissions: 755
+        content:
+          inline:
+            data: |
+              #!/bin/bash
+              set -xeuo pipefail
+
+              {{- /* Configure proxy as the first step to ensure that all the phases of provisioning respect the proxy environment. */}}
+              {{- template "configureProxyScript" }}
+
+              {{- if not .FlatcarConfig.DisableAutoUpdate }}
+              cat << EOF | tee /etc/polkit-1/rules.d/60-noreboot_norestart.rules
+              polkit.addRule(function(action, subject) {
+                if (action.id == "org.freedesktop.login1.reboot" ||
+                    action.id == "org.freedesktop.login1.reboot-multiple-sessions") {
+                    if (subject.user == "core") {
+                        return polkit.Result.YES;
+                    } else {
+                        return polkit.Result.AUTH_ADMIN;
+                    }
+                }
+              });
+              EOF
+              {{- end }}
+
+              {{- if or .FlatcarConfig.DisableUpdateEngine .FlatcarConfig.DisableAutoUpdate }}
+              systemctl stop update-engine.service
+              systemctl mask update-engine.service
+              {{ else if .HTTPProxy }}
+              mkdir -p /etc/systemd/system/update-engine.service.d/
+              cat <<EOF | tee -a /etc/systemd/system/update-engine.service.d/50-proxy.conf
+              [Service]
+              Environment=ALL_PROXY={{ .HTTPProxy }}
+              EOF
+              systemctl daemon-reload
+              systemctl restart update-engine.service
+              {{- end }}
+
+              {{- if or .FlatcarConfig.DisableLocksmithD .FlatcarConfig.DisableAutoUpdate }}
+              systemctl stop locksmithd.service
+              systemctl mask locksmithd.service
+              {{- end }}
+
+              systemctl daemon-reload
+
+              {{- /* Since both container runtimes are enabled/started by default in flatcar, disable the one that is not required */}}
+              {{- if eq .ContainerRuntime "containerd" }}
+              systemctl stop docker
+              systemctl disable docker
+              systemctl restart containerd
+              {{- end }}
+
+              # Override hostname if /etc/machine-name exists
+              if [ -x "$(command -v hostnamectl)" ] && [ -s /etc/machine-name ]; then
+                machine_name=$(cat /etc/machine-name)
+                hostnamectl set-hostname ${machine_name}
+              fi
+
+              {{- template "safeDownloadBinariesScript" }}
+
+              # set kubelet nodeip environment variable
+              /opt/bin/setup_net_env.sh
+
+              {{- /* fetch kubelet bootstrapping kubeconfig */}}
+              curl -s -k -v --header 'Authorization: Bearer {{ .Token }}' {{ .ServerURL }}/api/v1/namespaces/cloud-init-settings/secrets/{{ .BootstrapKubeconfigSecretName }} | jq '.data["kubeconfig"]' -r| base64 -d > /etc/kubernetes/bootstrap-kubelet.conf
+
+              systemctl enable --now kubelet
+              systemctl enable --now --no-block kubelet-healthcheck.service
+              systemctl disable setup.service
+
+      - path: /opt/bin/health-monitor.sh
+        permissions: 755
+        content:
+          inline:
             data: |
               #!/usr/bin/env bash
 
@@ -365,7 +390,6 @@ spec:
       - path: /etc/systemd/journald.conf.d/max_disk_use.conf
         content:
           inline:
-            encoding: b64
             data: |
               [Journal]
               SystemMaxUse=5G
@@ -374,7 +398,6 @@ spec:
         permissions: 755
         content:
           inline:
-            encoding: b64
             data: |
               #!/usr/bin/env bash
               set -euo pipefail
@@ -393,7 +416,6 @@ spec:
       - path: /etc/sysctl.d/k8s.conf
         content:
           inline:
-            encoding: b64
             data: |
               net.bridge.bridge-nf-call-ip6tables = 1
               net.bridge.bridge-nf-call-iptables = 1
@@ -404,75 +426,106 @@ spec:
               fs.inotify.max_user_watches = 1048576
               fs.inotify.max_user_instances = 8192
 
-      - path: /etc/selinux/config
-        content:
-          inline:
-            encoding: b64
-            data: |
-              # This file controls the state of SELinux on the system.
-              # SELINUX= can take one of these three values:
-              #     enforcing - SELinux security policy is enforced.
-              #     permissive - SELinux prints warnings instead of enforcing.
-              #     disabled - No SELinux policy is loaded.
-              SELINUX=permissive
-              # SELINUXTYPE= can take one of three two values:
-              #     targeted - Targeted processes are protected,
-              #     minimum - Modification of targeted policy. Only selected processes are protected.
-              #     mls - Multi Level Security protection.
-              SELINUXTYPE=targeted
-
-      - path: /opt/bin/setup
+      - path: /opt/bin/setup_net_env.sh
         permissions: 755
         content:
           inline:
+            data: |
+              #!/usr/bin/env bash
+              echodate() {
+                echo "[$(date -Is)]" "$@"
+              }
+
+              # get the default interface IP address
+              {{- if eq .NetworkIPFamily "IPv6" }}
+              DEFAULT_IFC_IP=$(ip -o -6 route get  1:: | grep -oP "src \K\S+")
+              {{- else if eq .NetworkIPFamily "IPv4+IPv6" }}
+              DEFAULT_IFC_IPv4=$(ip -o route get  1 | grep -oP "src \K\S+")
+              DEFAULT_IFC_IPv6=$(ip -o -6 route get  1:: | grep -oP "src \K\S+")
+
+              if [ -z "${DEFAULT_IFC_IPv6}" ]
+              then
+                echodate "Failed to get IPv6 address for the default route interface"
+                exit 1
+              fi
+              DEFAULT_IFC_IP=$DEFAULT_IFC_IPv4,$DEFAULT_IFC_IPv6
+              {{- else if eq .NetworkIPFamily "IPv6+IPv4" }}
+              DEFAULT_IFC_IPv4=$(ip -o route get  1 | grep -oP "src \K\S+")
+              DEFAULT_IFC_IPv6=$(ip -o -6 route get  1:: | grep -oP "src \K\S+")
+
+              if [ -z "${DEFAULT_IFC_IPv6}" ]
+              then
+                echodate "Failed to get IPv6 address for the default route interface"
+                exit 1
+              fi
+
+              DEFAULT_IFC_IP=$DEFAULT_IFC_IPv6,$DEFAULT_IFC_IPv4
+              {{- else }}
+              DEFAULT_IFC_IP=$(ip -o  route get 1 | grep -oP "src \K\S+")
+              {{- end }}
+
+              if [ -z "${DEFAULT_IFC_IP}" ]
+              then
+                echodate "Failed to get IP address for the default route interface"
+                exit 1
+              fi
+
+              # get the full hostname
+              FULL_HOSTNAME=$(hostname -f)
+              # if /etc/machine-name is not empty then use the hostname from there
+              if [ -s /etc/machine-name ]; then
+                  FULL_HOSTNAME=$(cat /etc/machine-name)
+              fi
+
+              # write the nodeip_env file
+              # we need the line below because flatcar has the same string "coreos" in that file
+              if grep -q coreos /etc/os-release
+              then
+                echo -e "KUBELET_NODE_IP=${DEFAULT_IFC_IP}\nKUBELET_HOSTNAME=${FULL_HOSTNAME}" > /etc/kubernetes/nodeip.conf
+              elif [ ! -d /etc/systemd/system/kubelet.service.d ]
+              then
+                echodate "Can't find kubelet service extras directory"
+                exit 1
+              else
+                echo -e "[Service]\nEnvironment=\"KUBELET_NODE_IP=${DEFAULT_IFC_IP}\"\nEnvironment=\"KUBELET_HOSTNAME=${FULL_HOSTNAME}\"" > /etc/systemd/system/kubelet.service.d/nodeip.conf
+              fi
+
+      - path: /etc/systemd/network/zz-default.network.d/ipv6-fix.conf
+        permissions: 755
+        content:
+          inline:
+            data: |
+              [Network]
+              IPv6AcceptRA=true
+
+      - path: /etc/kubernetes/pki/ca.crt
+        content:
+          inline:
+            data: |
+              {{ .KubernetesCACert }}
+
+      - path: /etc/systemd/system/setup.service
+        permissions: 644
+        content:
+          inline:
             encoding: b64
             data: |
-              #!/bin/bash
-              set -xeuo pipefail
+              [Install]
+              WantedBy=multi-user.target
 
-              setenforce 0 || true
+              [Unit]
+              Requires=network-online.target
+              After=network-online.target
 
-              {{- /* As we added some modules and don't want to reboot, restart the service */}}
-              systemctl restart systemd-modules-load.service
-              sysctl --system
-
-              yum install -y \
-                device-mapper-persistent-data \
-                lvm2 \
-                ebtables \
-                ethtool \
-                nfs-utils \
-                bash-completion \
-                sudo \
-                socat \
-                wget \
-                curl \
-                {{- if or (eq .CloudProviderName "vsphere") (eq .CloudProviderName "vmware-cloud-director") }}
-                open-vm-tools \
-                {{- end }}
-                ipvsadm
-
-              systemctl disable --now firewalld || true
-
-              {{- template "containerRuntimeInstallation" }}
-
-              {{- template "safeDownloadBinariesScript" }}
-
-              mkdir -p /etc/systemd/system/kubelet.service.d/
-              # set kubelet nodeip environment variable
-              /opt/bin/setup_net_env.sh
-
-              {{- /* fetch kubelet bootstrapping kubeconfig */}}
-              curl -s -k -v --header 'Authorization: Bearer {{ .Token }}' {{ .ServerURL }}/api/v1/namespaces/cloud-init-settings/secrets/{{ .BootstrapKubeconfigSecretName }} | jq '.data["kubeconfig"]' -r| base64 -d > /etc/kubernetes/bootstrap-kubelet.conf
-
-              systemctl enable --now kubelet
-              systemctl enable --now --no-block kubelet-healthcheck.service
-              systemctl disable setup.service
+              [Service]
+              Type=oneshot
+              RemainAfterExit=true
+              EnvironmentFile=-/etc/environment
+              ExecStart=/opt/bin/supervise.sh /opt/bin/setup
 
       - path: /etc/systemd/system/kubelet.service
         content:
           inline:
-            encoding: b64
             data: |
               [Unit]
               After={{ .ContainerRuntime }}.service
@@ -491,8 +544,8 @@ spec:
 
               Environment="PATH=/opt/bin:/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin/"
               EnvironmentFile=-/etc/environment
+              EnvironmentFile=/etc/kubernetes/nodeip.conf
 
-              ExecStartPre=/bin/bash /opt/disable-swap.sh
               ExecStartPre=/bin/bash /opt/load-kernel-modules.sh
               ExecStartPre=/bin/bash /opt/bin/setup_net_env.sh
               ExecStart=/opt/bin/kubelet $KUBELET_EXTRA_ARGS \
@@ -531,6 +584,13 @@ spec:
               [Install]
               WantedBy=multi-user.target
 
+      - path: /etc/systemd/system/kubelet.service.d/extras.conf
+        content:
+          inline:
+            data: |
+              [Service]
+              Environment="KUBELET_EXTRA_ARGS=--resolv-conf=/run/systemd/resolve/resolv.conf"
+
       - path: /etc/kubernetes/cloud-config
         permissions: 600
         content:
@@ -539,110 +599,9 @@ spec:
             data: |
               {{ .CloudConfig }}
 
-      - path: /opt/bin/setup_net_env.sh
-        permissions: 755
-        content:
-          inline:
-            encoding: b64
-            data: |
-              #!/usr/bin/env bash
-              echodate() {
-                echo "[$(date -Is)]" "$@"
-              }
-
-              # get the default interface IP address
-              {{- if eq .NetworkIPFamily "IPv6" }}
-              DEFAULT_IFC_IP=$(ip -o -6 route get  1:: | grep -oP "src \K\S+")
-              {{- else if eq .NetworkIPFamily "IPv4+IPv6" }}
-              DEFAULT_IFC_IPv4=$(ip -o route get  1 | grep -oP "src \K\S+")
-              DEFAULT_IFC_IPv6=$(ip -o -6 route get  1:: | grep -oP "src \K\S+")
-
-              if [ -z "${DEFAULT_IFC_IPv6}" ]
-              then
-                echodate "Failed to get IPv6 address for the default route interface"
-                exit 1
-              fi
-
-              DEFAULT_IFC_IP=$DEFAULT_IFC_IPv4,$DEFAULT_IFC_IPv6
-              {{- else if eq .NetworkIPFamily "IPv6+IPv4" }}
-              DEFAULT_IFC_IPv4=$(ip -o route get  1 | grep -oP "src \K\S+")
-              DEFAULT_IFC_IPv6=$(ip -o -6 route get  1:: | grep -oP "src \K\S+")
-
-              if [ -z "${DEFAULT_IFC_IPv6}" ]
-              then
-                echodate "Failed to get IPv6 address for the default route interface"
-                exit 1
-              fi
-
-              DEFAULT_IFC_IP=$DEFAULT_IFC_IPv6,$DEFAULT_IFC_IPv4
-              {{- else }}
-              DEFAULT_IFC_IP=$(ip -o  route get 1 | grep -oP "src \K\S+")
-              {{- end }}
-
-              if [ -z "${DEFAULT_IFC_IP}" ]
-              then
-                echodate "Failed to get IP address for the default route interface"
-                exit 1
-              fi
-
-              # get the full hostname
-              FULL_HOSTNAME=$(hostname -f)
-              # if /etc/machine-name is not empty then use the hostname from there
-              if [ -s /etc/machine-name ]; then
-                FULL_HOSTNAME=$(cat /etc/machine-name)
-              fi
-
-              # write the nodeip_env file
-              # we need the line below because flatcar has the same string "coreos" in that file
-              if grep -q coreos /etc/os-release
-              then
-                echo "KUBELET_NODE_IP=${DEFAULT_IFC_IP}\nKUBELET_HOSTNAME=${FULL_HOSTNAME}" > /etc/kubernetes/nodeip.conf
-              elif [ ! -d /etc/systemd/system/kubelet.service.d ]
-              then
-                echodate "Can't find kubelet service extras directory"
-                exit 1
-              else
-                echo -e "[Service]\nEnvironment=\"KUBELET_NODE_IP=${DEFAULT_IFC_IP}\"\nEnvironment=\"KUBELET_HOSTNAME=${FULL_HOSTNAME}\"" > /etc/systemd/system/kubelet.service.d/nodeip.conf
-              fi
-
-      - path: /etc/kubernetes/pki/ca.crt
-        content:
-          inline:
-            encoding: b64
-            data: |
-              {{ .KubernetesCACert }}
-
-      - path: /etc/systemd/system/setup.service
-        permissions: 644
-        content:
-          inline:
-            encoding: b64
-            data: |
-              [Install]
-              WantedBy=multi-user.target
-
-              [Unit]
-              Requires=network-online.target
-              After=network-online.target
-
-              [Service]
-              Type=oneshot
-              RemainAfterExit=true
-              EnvironmentFile=-/etc/environment
-              ExecStart=/opt/bin/supervise.sh /opt/bin/setup
-
-      - path: /etc/profile.d/opt-bin-path.sh
-        permissions: 644
-        content:
-          inline:
-            encoding: b64
-            data: |
-              export PATH="/opt/bin:$PATH"
-
       - path: /etc/kubernetes/kubelet.conf
         content:
           inline:
-            encoding: b64
             data: |
               apiVersion: kubelet.config.k8s.io/v1beta1
               kind: KubeletConfiguration
@@ -756,29 +715,79 @@ spec:
         permissions: 644
         content:
           inline:
-            encoding: b64
             data: |
               [Unit]
               Requires=kubelet.service
               After=kubelet.service
 
               [Service]
-              ExecStart=/opt/bin/health-monitor.sh kubelet
               EnvironmentFile=-/etc/environment
+              ExecStart=/opt/bin/health-monitor.sh kubelet
 
               [Install]
               WantedBy=multi-user.target
 
-      - path: /opt/disable-swap.sh
-        permissions: 755
+      ## Flatcar specific configuration
+      - path: /proc/sys/kernel/panic_on_oops
+        permissions: 644
         content:
           inline:
-            encoding: b64
             data: |
-              #!/usr/bin/env bash
-              set -euo pipefail
+              1
 
-              # Make sure we always disable swap - Otherwise the kubelet won't start as for some cloud
-              # providers swap gets enabled on reboot or after the setup script has finished executing.
-              sed -i.orig '/.*swap.*/d' /etc/fstab
-              swapoff -a
+      - path: /proc/sys/kernel/panic
+        permissions: 644
+        content:
+          inline:
+            data: |
+              10
+
+      - path: /proc/sys/vm/overcommit_memory
+        permissions: 644
+        content:
+          inline:
+            data: |
+              1
+
+      - path: /etc/ssh/sshd_config
+        permissions: 600
+        content:
+          inline:
+            data: |
+              # Use most defaults for sshd configuration.
+              Subsystem sftp internal-sftp
+              ClientAliveInterval 180
+              UseDNS no
+              UsePAM yes
+              PrintLastLog no # handled by PAM
+              PrintMotd no # handled by PAM
+              PasswordAuthentication no
+              ChallengeResponseAuthentication no
+
+      - path: /etc/systemd/system/systemd-networkd.service.d/10-static-network.conf
+        content:
+          inline:
+            data: |
+              {{- if and (.NetworkConfig) (or (.NetworkConfig.CIDR) (.NetworkConfig.Gateway) (.NetworkConfig.DNS.Servers)) }}
+              [Match]
+              # Because of difficulty predicting specific NIC names on different cloud providers,
+              # we only support static addressing on VSphere. There should be a single NIC attached
+              # that we will match by name prefix 'en' which denotes ethernet devices.
+              Name=en*
+
+              [Network]
+              DHCP=no
+              Address={{ .NetworkConfig.CIDR }}
+              Gateway={{ .NetworkConfig.Gateway }}
+              {{ range .NetworkConfig.DNS.Servers }}DNS={{ . }}
+              {{ end }}
+              {{- end }}
+
+    modules:
+      runcmd:
+        - systemctl restart setup.service
+        - systemctl daemon-reload
+
+  # We can't use provisioning configuration here since Anexia doesn't support second `cloud-init` init. Hence all the
+  # required configurations have been moved to the bootstrap phase instead.
+  provisioningConfig: {}
