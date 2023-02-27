@@ -313,7 +313,7 @@ func (r *Reconciler) ensureCloudConfigSecret(ctx context.Context, config osmv1al
 
 	provisionData, err := r.generator.Generate(&config, provisioningUtility, operatingSystem, cloudProvider, *md, secretType)
 	if err != nil {
-		return fmt.Errorf("failed to generate %s data with error: %s", secretType, err)
+		return fmt.Errorf("failed to generate %s data with error: %w", secretType, err)
 	}
 
 	// Generate secret for cloud-config
