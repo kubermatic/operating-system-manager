@@ -25,7 +25,6 @@ spec:
   provisioningUtility: "cloud-init"
   supportedCloudProviders:
     - name: "anexia"
-    - name: "aws"
 
   bootstrapConfig:
     templates:
@@ -237,6 +236,10 @@ spec:
               systemctl stop locksmithd.service
               systemctl mask locksmithd.service
               {{- end }}
+
+              {{- if eq .CloudProviderName "anexia" }}
+              systemctl enable --now rpc-statd
+              {{ end }}
 
               systemctl daemon-reload
 
