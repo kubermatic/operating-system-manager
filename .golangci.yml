@@ -22,6 +22,7 @@ run:
 
 linters:
   enable:
+    - asasalint
     - asciicheck
     - bidichk
     - bodyclose
@@ -40,7 +41,9 @@ linters:
     - govet
     - importas
     - ineffassign
+    - loggercheck
     - misspell
+    - nakedret
     - noctx
     - nolintlint
     - nosprintfhostport
@@ -50,6 +53,7 @@ linters:
     - staticcheck
     - structcheck
     - tenv
+    - typecheck
     - unconvert
     - unused
     - varcheck
