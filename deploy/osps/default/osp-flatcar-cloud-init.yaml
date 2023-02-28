@@ -237,10 +237,6 @@ spec:
               systemctl mask locksmithd.service
               {{- end }}
 
-              {{- if eq .CloudProviderName "anexia" }}
-              systemctl enable --now rpc-statd
-              {{ end }}
-
               systemctl daemon-reload
 
               {{- /* Since both container runtimes are enabled/started by default in flatcar, disable the one that is not required */}}
@@ -532,7 +528,11 @@ spec:
             data: |
               [Unit]
               After={{ .ContainerRuntime }}.service
+              {{- if eq .CloudProviderName "anexia" }}
+              Requires={{ .ContainerRuntime }}.service rpc-statd.service
+              {{- else }}
               Requires={{ .ContainerRuntime }}.service
+              {{- end }}
 
               Description=kubelet: The Kubernetes Node Agent
               Documentation=https://kubernetes.io/docs/home/
