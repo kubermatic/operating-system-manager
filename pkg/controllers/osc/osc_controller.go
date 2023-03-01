@@ -225,6 +225,15 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 		return fmt.Errorf("failed to get OperatingSystemProfile %q from namespace %q: %w", ospName, ospNamespace, err)
 	}
 
+	provisioner, err := generator.GetProvisioningUtility(osp.Spec.OSName, *md)
+	if err != nil {
+		return fmt.Errorf("failed to determine provisioning utility: %w", err)
+	}
+
+	if osp.Spec.ProvisioningUtility != "" && provisioner != osp.Spec.ProvisioningUtility {
+		return fmt.Errorf("Specified provisioning utility is not supported by the OperatingSystemProfile: %w", err)
+	}
+
 	if r.nodeRegistryCredentialsSecret != "" {
 		registryCredentials, err := containerruntime.GetContainerdAuthConfig(ctx, r.Client, r.nodeRegistryCredentialsSecret)
 		if err != nil {
@@ -281,18 +290,18 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.M
 		return fmt.Errorf("failed to get OperatingSystemConfigs %q from namespace %q: %w", oscName, r.namespace, err)
 	}
 
-	if err := r.ensureCloudConfigSecret(ctx, osc.Spec.ProvisioningConfig, resources.ProvisioningCloudConfig, osc.Spec.OSName, osc.Spec.CloudProvider.Name, md); err != nil {
+	if err := r.ensureCloudConfigSecret(ctx, osc.Spec.ProvisioningConfig, osc.Spec.ProvisioningUtility, resources.ProvisioningCloudConfig, osc.Spec.OSName, osc.Spec.CloudProvider.Name, md); err != nil {
 		return fmt.Errorf("failed to reconcile provisioning config secret: %w", err)
 	}
 
-	if err := r.ensureCloudConfigSecret(ctx, osc.Spec.BootstrapConfig, mcbootstrap.BootstrapCloudConfig, osc.Spec.OSName, osc.Spec.CloudProvider.Name, md); err != nil {
+	if err := r.ensureCloudConfigSecret(ctx, osc.Spec.BootstrapConfig, osc.Spec.ProvisioningUtility, mcbootstrap.BootstrapCloudConfig, osc.Spec.OSName, osc.Spec.CloudProvider.Name, md); err != nil {
 		return fmt.Errorf("failed to reconcile bootstrapping config secret: %w", err)
 	}
 
 	return nil
 }
 
-func (r *Reconciler) ensureCloudConfigSecret(ctx context.Context, config osmv1alpha1.OSCConfig, secretType mcbootstrap.CloudConfigSecret, operatingSystem osmv1alpha1.OperatingSystem, cloudProvider osmv1alpha1.CloudProvider, md *clusterv1alpha1.MachineDeployment) error {
+func (r *Reconciler) ensureCloudConfigSecret(ctx context.Context, config osmv1alpha1.OSCConfig, provisioningUtility osmv1alpha1.ProvisioningUtility, secretType mcbootstrap.CloudConfigSecret, operatingSystem osmv1alpha1.OperatingSystem, cloudProvider osmv1alpha1.CloudProvider, md *clusterv1alpha1.MachineDeployment) error {
 	secretName := fmt.Sprintf(mcbootstrap.CloudConfigSecretNamePattern, md.Name, md.Namespace, secretType)
 
 	// Check if secret already exists, in that case we don't need to do anything since secrets are immutable
@@ -302,9 +311,9 @@ func (r *Reconciler) ensureCloudConfigSecret(ctx context.Context, config osmv1al
 		return nil
 	}
 
-	provisionData, err := r.generator.Generate(&config, operatingSystem, cloudProvider, *md, secretType)
+	provisionData, err := r.generator.Generate(&config, provisioningUtility, operatingSystem, cloudProvider, *md, secretType)
 	if err != nil {
-		return fmt.Errorf("failed to generate %s data", secretType)
+		return fmt.Errorf("failed to generate %s data with error: %w", secretType, err)
 	}
 
 	// Generate secret for cloud-config
