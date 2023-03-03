@@ -27,6 +27,8 @@ import (
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
 	"k8c.io/operating-system-manager/pkg/controllers/osc/resources"
+	"k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
+	"k8c.io/operating-system-manager/pkg/generator"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -101,6 +103,15 @@ func MutateMachineDeployment(md *clusterv1alpha1.MachineDeployment) error {
 	if val, ok := md.Annotations[resources.MachineDeploymentOSPAnnotation]; !ok || val == "" {
 		if md.Annotations == nil {
 			md.Annotations = make(map[string]string)
+		}
+
+		if providerConfig.CloudProvider == providerconfigtypes.CloudProviderAnexia && providerConfig.OperatingSystem == providerconfigtypes.OperatingSystemFlatcar {
+			prov, err := generator.GetProvisioningUtility(v1alpha1.OperatingSystem(providerConfig.OperatingSystem), *md)
+			// We are intentionally ignoring any errors here since in that case the standard workflow should be used to determine the OSP.
+			if err == nil && prov == v1alpha1.ProvisioningUtilityCloudInit {
+				md.Annotations[resources.MachineDeploymentOSPAnnotation] = "osp-flatcar-cloud-init"
+				return nil
+			}
 		}
 
 		switch providerConfig.OperatingSystem {
