@@ -730,28 +730,6 @@ spec:
               [Install]
               WantedBy=multi-user.target
 
-      ## Flatcar specific configuration
-      - path: /proc/sys/kernel/panic_on_oops
-        permissions: 644
-        content:
-          inline:
-            data: |
-              1
-
-      - path: /proc/sys/kernel/panic
-        permissions: 644
-        content:
-          inline:
-            data: |
-              10
-
-      - path: /proc/sys/vm/overcommit_memory
-        permissions: 644
-        content:
-          inline:
-            data: |
-              1
-
       - path: /etc/ssh/sshd_config
         permissions: 600
         content:
