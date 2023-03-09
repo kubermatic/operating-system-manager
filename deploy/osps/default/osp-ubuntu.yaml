@@ -97,7 +97,7 @@ spec:
 
               {{- /* The default cloud-init configurations files have a bug on Digital Ocean that causes the machine to be in-accessible on the 2nd cloud-init and in case of Hetzner, ipv6 addresses are missing. Hence we disable network configuration. */}}
               {{- if (or (eq .CloudProviderName "digitalocean") (eq .CloudProviderName "hetzner")) }}
-              rm /etc/netplan/50-cloud-init.yaml
+              rm -f /etc/netplan/50-cloud-init.yaml
               echo "network: {config: disabled}" > /etc/cloud/cloud.cfg.d/99-custom-networking.cfg
               {{- end }}
 
@@ -254,7 +254,21 @@ spec:
         mkdir -p "$kube_dir"
         : >"$kube_sum_file"
 
-        for bin in kubelet kubeadm kubectl; do
+        {{- /* check for installed versions of binaries */}}
+        [[ -x "$(command -v kubelet)" ]] && KUBELET_VERSION=$(kubelet --version | awk '{print $2}') || KUBELET_VERSION="na"
+        [[ -x "$(command -v kubeadm)" ]] && KUBEADM_VERSION=$(kubeadm version -o short) || KUBEADM_VERSION="notinstalled"
+        [[ -x "$(command -v kubectl)" ]] && KUBECTL_VERSION=$(kubectl version --output=json --client=true | jq -r .clientVersion.gitVersion) || KUBECTL_VERSION="notinstalled"
+
+        {{- /* generate a list of binaries to be updated/installed */}}
+        WANTUPD=("")
+        if [ "$KUBELET_VERSION" != "$KUBE_VERSION" ]; then WANTUPD+=("kubelet"); fi
+        if [ "$KUBEADM_VERSION" != "$KUBE_VERSION" ]; then WANTUPD+=("kubeadm"); fi
+        if [ "$KUBECTL_VERSION" != "$KUBE_VERSION" ]; then WANTUPD+=("kubectl"); fi
+
+        for bin in ${WANTUPD[@]}; do
+            {{- /* stop the kubelet service to release binary file lock */}}
+            systemctl stop kubelet
+
             {{- /* download kube binary */}}
             curl -Lfo "$kube_dir/$bin" "$kube_base_url/$bin"
             chmod +x "$kube_dir/$bin"
@@ -269,7 +283,7 @@ spec:
         {{- /* check kube binaries checksum */}}
         sha256sum -c "$kube_sum_file"
 
-        for bin in kubelet kubeadm kubectl; do
+        for bin in ${WANTUPD[@]}; do
             {{- /* link kube binaries from verioned dir to $opt_bin */}}
             ln -sf "$kube_dir/$bin" "$opt_bin"/$bin
         done
