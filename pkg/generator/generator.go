@@ -238,6 +238,31 @@ write_files:
 {{ end }}
 {{- end -}}
 
+{{- if .Units -}}
+coreos:
+  units:
+{{- range $_, $unit := .Units }}
+  - name: "{{ $unit.Name }}"
+    enable: {{or $unit.Enable false}}
+    {{ if $unit.Enable -}}
+	command: start
+	{{- end }}
+    mask: {{or $unit.Mask false}}
+{{ if $unit.Content }}
+    content: |
+{{ $unit.Content | indent 6 }}
+{{- end }}
+{{ if $unit.Content }}
+    drop-ins:
+{{- range $_, $dropIn := $unit.DropIns }}
+      - name: "{{ $dropIn.Name }}"
+        content: |
+{{ $dropIn.Content | indent 10 }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+
 {{- if .CloudInitModules -}}
 {{ if .CloudInitModules.BootCMD }}
 bootcmd:
