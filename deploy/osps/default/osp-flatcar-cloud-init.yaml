@@ -503,25 +503,6 @@ spec:
             data: |
               {{ .KubernetesCACert }}
 
-      - path: /etc/systemd/system/setup.service
-        permissions: 644
-        content:
-          inline:
-            encoding: b64
-            data: |
-              [Install]
-              WantedBy=multi-user.target
-
-              [Unit]
-              Requires=network-online.target
-              After=network-online.target
-
-              [Service]
-              Type=oneshot
-              RemainAfterExit=true
-              EnvironmentFile=-/etc/environment
-              ExecStart=/opt/bin/supervise.sh /opt/bin/setup
-
       - path: /etc/systemd/system/kubelet.service
         content:
           inline:
@@ -764,10 +745,22 @@ spec:
               {{ end }}
               {{- end }}
 
-    modules:
-      runcmd:
-        - systemctl restart setup.service
-        - systemctl daemon-reload
+    units:
+    - name: setup.service
+      enable: true
+      content: |
+        [Install]
+        WantedBy=multi-user.target
+
+        [Unit]
+        Requires=network-online.target
+        After=network-online.target
+
+        [Service]
+        Type=oneshot
+        RemainAfterExit=true
+        EnvironmentFile=-/etc/environment
+        ExecStart=/opt/bin/supervise.sh /opt/bin/setup
 
   # We can't use provisioning configuration here since Anexia doesn't support second `cloud-init` init. Hence all the
   # required configurations have been moved to the bootstrap phase instead.
