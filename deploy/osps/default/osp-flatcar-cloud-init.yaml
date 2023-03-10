@@ -575,6 +575,15 @@ spec:
               [Service]
               Environment="KUBELET_EXTRA_ARGS=--resolv-conf=/run/systemd/resolve/resolv.conf"
 
+      - path: /etc/systemd/system/kubelet.service.d/flatcar-system-config.conf
+        content:
+          inline:
+            data: |
+              [Service]
+              ExecStartPre=/bin/echo 1  > /proc/sys/kernel/panic_on_oops
+              ExecStartPre=/bin/echo 10 > /proc/sys/kernel/panic
+              ExecStartPre=/bin/echo 1  > /proc/sys/vm/overcommit_memory
+
       - path: /etc/kubernetes/cloud-config
         permissions: 600
         content:
