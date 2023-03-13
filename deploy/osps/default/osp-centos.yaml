@@ -77,6 +77,12 @@ spec:
               #!/bin/bash
               set -xeuo pipefail
 
+              # Check if bootstrap phase has already completed. This is required when we run `cloud-init init` again since it tries to re-run
+              # the bootstrap cloud-config as well, from the userdata.
+              if [ -f /etc/bootstrap-complete ]; then
+                exit 0
+              fi
+
               {{- /* Configure proxy as the first step to ensure that all the phases of provisioning respect the proxy environment. */}}
               {{- template "configureProxyScript" }}
 
@@ -93,8 +99,17 @@ spec:
               cloud-init --file /etc/cloud/cloud.cfg.d/{{ .SecretName }}.cfg init
 
               systemctl daemon-reload
-              systemctl restart setup.service
+
+              # cloud-init should only run on the first boot. From this point forward we don't need cloud-init anymore.
+              systemctl stop cloud-init
+              systemctl mask cloud-init
+
+              # Bootstrap phase for the machine is complete.
+              touch /etc/bootstrap-complete
               systemctl disable bootstrap.service
+
+              # Start provisioning phase for the machine.
+              systemctl restart setup.service
 
       - path: /etc/systemd/system/bootstrap.service
         permissions: 644
