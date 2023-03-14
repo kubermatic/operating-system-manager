@@ -38,7 +38,7 @@ spec:
             clean\n\ncloud-init --file /etc/cloud/cloud.cfg.d/kubelet-configuration-kube-system-provisioning-config.cfg
             init\nsystemctl daemon-reload\n\nsystemctl daemon-reload\n\n# cloud-init
             should only run on the first boot. From this point forward we don't need
-            cloud-init anymore.\nsystemctl stop cloud-init\nsystemctl mask cloud-init\n\n#
+            cloud-init anymore.\nsystemctl disable cloud-init\ntouch /etc/cloud/cloud-init.disabled\n\n#
             Bootstrap phase for the machine is complete.\ntouch /etc/bootstrap-complete\nsystemctl
             disable bootstrap.service\n\n# Start provisioning phase for the machine.\nsystemctl
             restart setup.service\n"

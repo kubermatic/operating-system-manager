@@ -118,8 +118,8 @@ spec:
               systemctl daemon-reload
 
               # cloud-init should only run on the first boot. From this point forward we don't need cloud-init anymore.
-              systemctl stop cloud-init
-              systemctl mask cloud-init
+              systemctl disable cloud-init
+              touch /etc/cloud/cloud-init.disabled
 
               # Bootstrap phase for the machine is complete.
               touch /etc/bootstrap-complete
