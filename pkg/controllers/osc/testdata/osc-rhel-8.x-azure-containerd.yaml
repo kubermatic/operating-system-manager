@@ -27,6 +27,12 @@ spec:
             #!/bin/bash
             set -xeuo pipefail
 
+            # Check if bootstrap phase has already completed. This is required when we run `cloud-init init` again since it tries to re-run
+            # the bootstrap cloud-config as well, from the userdata.
+            if [ -f /etc/bootstrap-complete ]; then
+              exit 0
+            fi
+
             cat <<EOF | tee -a /etc/environment
             HTTP_PROXY=http://test-http-proxy.com
             http_proxy=http://test-http-proxy.com
@@ -47,8 +53,15 @@ spec:
             cloud-init --file /etc/cloud/cloud.cfg.d/osp-rhel-azure-kube-system-provisioning-config.cfg init
 
             systemctl daemon-reload
-            systemctl restart setup.service
+
+            # cloud-init should only run on the first boot. From this point forward we don't need cloud-init anymore.
+            systemctl disable cloud-init
+            touch /etc/cloud/cloud-init.disabled
+            # Bootstrap phase for the machine is complete.
+            touch /etc/bootstrap-complete
             systemctl disable bootstrap.service
+            # Start provisioning phase for the machine.
+            systemctl restart setup.service
           encoding: b64
       path: /opt/bin/bootstrap
       permissions: 755
