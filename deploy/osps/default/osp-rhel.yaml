@@ -20,7 +20,7 @@ metadata:
 spec:
   osName: "rhel"
   osVersion: "8.5"
-  version: "v1.0.3"
+  version: "v1.0.4"
   supportedCloudProviders:
     - name: "aws"
     - name: "azure"
@@ -51,6 +51,12 @@ spec:
               #!/bin/bash
               set -xeuo pipefail
 
+              # Check if bootstrap phase has already completed. This is required when we run `cloud-init init` again since it tries to re-run
+              # the bootstrap cloud-config as well, from the userdata.
+              if [ -f /etc/bootstrap-complete ]; then
+                exit 0
+              fi
+
               yum install -y curl jq
 
               curl -s -k -v --header 'Authorization: Bearer {{ .Token }}' {{ .ServerURL }}/api/v1/namespaces/cloud-init-settings/secrets/{{ .SecretName }} | jq '.data["cloud-config"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/{{ .SecretName }}.cfg
@@ -58,8 +64,15 @@ spec:
               cloud-init --file /etc/cloud/cloud.cfg.d/{{ .SecretName }}.cfg init
 
               systemctl daemon-reload
-              systemctl restart setup.service
+
+              # cloud-init should only run on the first boot. From this point forward we don't need cloud-init anymore.
+              systemctl disable cloud-init
+              touch /etc/cloud/cloud-init.disabled
+              # Bootstrap phase for the machine is complete.
+              touch /etc/bootstrap-complete
               systemctl disable bootstrap.service
+              # Start provisioning phase for the machine.
+              systemctl restart setup.service
 
       - path: /etc/systemd/system/bootstrap.service
         permissions: 644
