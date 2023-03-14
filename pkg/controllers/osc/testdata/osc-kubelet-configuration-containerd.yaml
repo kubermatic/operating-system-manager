@@ -23,7 +23,11 @@ spec:
       permissions: 755
     - content:
         inline:
-          data: "#!/bin/bash\nset -xeuo pipefail\n\ncat <<EOF | tee -a /etc/environment\nHTTP_PROXY=http://test-http-proxy.com\nhttp_proxy=http://test-http-proxy.com\nHTTPS_PROXY=http://test-http-proxy.com\nhttps_proxy=http://test-http-proxy.com\nEOF\ncat
+          data: "#!/bin/bash\nset -xeuo pipefail\n\n# Check if bootstrap phase has
+            already completed. This is required when we run `cloud-init init` again
+            since it tries to re-run\n# the bootstrap cloud-config as well, from the
+            userdata.\nif [ -f /etc/bootstrap-complete ]; then\n  exit 0\nfi\n\ncat
+            <<EOF | tee -a /etc/environment\nHTTP_PROXY=http://test-http-proxy.com\nhttp_proxy=http://test-http-proxy.com\nHTTPS_PROXY=http://test-http-proxy.com\nhttps_proxy=http://test-http-proxy.com\nEOF\ncat
             <<EOF | tee -a /etc/environment\nNO_PROXY=http://test-no-proxy.com\nno_proxy=http://test-no-proxy.com\nEOF\n\nsudo
             mkdir -p /etc/apt/apt.conf.d\ncat <<EOF | sudo tee /etc/apt/apt.conf.d/proxy.conf\nAcquire::https::Proxy
             \"http://test-http-proxy.com\";\nAcquire::http::Proxy \"http://test-http-proxy.com\";\nEOF\n\nsource
@@ -32,8 +36,12 @@ spec:
             top-secret'\thttps://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/kubelet-configuration-kube-system-provisioning-config
             | jq '.data[\"cloud-config\"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/kubelet-configuration-kube-system-provisioning-config.cfg\ncloud-init
             clean\n\ncloud-init --file /etc/cloud/cloud.cfg.d/kubelet-configuration-kube-system-provisioning-config.cfg
-            init\nsystemctl daemon-reload\n\nsystemctl daemon-reload\nsystemctl restart
-            setup.service\nsystemctl disable bootstrap.service\n"
+            init\nsystemctl daemon-reload\n\nsystemctl daemon-reload\n\n# cloud-init
+            should only run on the first boot. From this point forward we don't need
+            cloud-init anymore.\nsystemctl disable cloud-init\ntouch /etc/cloud/cloud-init.disabled\n#
+            Bootstrap phase for the machine is complete.\ntouch /etc/bootstrap-complete\nsystemctl
+            disable bootstrap.service\n# Start provisioning phase for the machine.\nsystemctl
+            restart setup.service\n"
           encoding: b64
       path: /opt/bin/bootstrap
       permissions: 755
