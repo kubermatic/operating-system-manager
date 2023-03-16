@@ -716,3 +716,4 @@ spec:
         username: ""
     userSSHKeys:
     - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c
+  provisioningUtility: cloud-init

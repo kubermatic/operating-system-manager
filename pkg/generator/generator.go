@@ -64,7 +64,7 @@ func (d *DefaultCloudConfigGenerator) Generate(config *osmv1alpha1.OSCConfig, pr
 	}
 
 	if provisioningUtility != "" && provisioner != provisioningUtility {
-		return nil, fmt.Errorf("Specified provisioning utility is not supported by the OperatingSystemConfig: %w", err)
+		return nil, fmt.Errorf("Specified provisioning utility %q is not supported by the OperatingSystemConfig", provisioningUtility)
 	}
 
 	var files []*fileSpec

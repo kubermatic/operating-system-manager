@@ -681,3 +681,4 @@ spec:
       name: setup.service
     userSSHKeys:
     - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c
+  provisioningUtility: ignition
