@@ -231,7 +231,7 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 	}
 
 	if osp.Spec.ProvisioningUtility != "" && provisioner != osp.Spec.ProvisioningUtility {
-		return fmt.Errorf("Specified provisioning utility is not supported by the OperatingSystemProfile: %w", err)
+		return fmt.Errorf("Specified provisioning utility %q is not supported by the OperatingSystemProfile", osp.Spec.ProvisioningUtility)
 	}
 
 	if r.nodeRegistryCredentialsSecret != "" {
@@ -274,6 +274,12 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 	// Add machine deployment revision to OSC
 	revision := md.Annotations[machinecontrollerutil.RevisionAnnotation]
 	osc.Annotations = addMachineDeploymentRevision(revision, osc.Annotations)
+	osc.Spec.ProvisioningUtility = osp.Spec.ProvisioningUtility
+
+	// Defaults to cloud-init although we should never hit this condition i.e ProvisioningUtility in OSP to be empty.
+	if osc.Spec.ProvisioningUtility == "" {
+		osc.Spec.ProvisioningUtility = osmv1alpha1.ProvisioningUtilityCloudInit
+	}
 
 	// Create resource in cluster
 	if err := r.Create(ctx, osc); err != nil {

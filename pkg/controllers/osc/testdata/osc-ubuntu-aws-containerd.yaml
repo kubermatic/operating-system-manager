@@ -681,3 +681,4 @@ spec:
       permissions: 600
     userSSHKeys:
     - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c
+  provisioningUtility: cloud-init
