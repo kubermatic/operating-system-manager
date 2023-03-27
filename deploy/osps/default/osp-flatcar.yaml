@@ -536,6 +536,12 @@ spec:
               systemctl restart containerd
               {{- end }}
 
+              {{- /* Creates iscsi InitiatorName on Nutanix machines for CSI driver to attach volumes */}}
+              {{- if eq .CloudProviderName "nutanix" }}
+              systemctl start iscsi-init.service
+              systemctl enable --now iscsid.service
+              {{- end }}
+
               # Override hostname if /etc/machine-name exists
               if [ -x "$(command -v hostnamectl)" ] && [ -s /etc/machine-name ]; then
                 machine_name=$(cat /etc/machine-name)
