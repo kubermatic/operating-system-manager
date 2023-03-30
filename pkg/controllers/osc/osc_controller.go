@@ -231,7 +231,7 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 	}
 
 	if osp.Spec.ProvisioningUtility != "" && provisioner != osp.Spec.ProvisioningUtility {
-		return fmt.Errorf("Specified provisioning utility %q is not supported by the OperatingSystemProfile", osp.Spec.ProvisioningUtility)
+		return fmt.Errorf("specified provisioning utility %q is not supported by the OperatingSystemProfile", osp.Spec.ProvisioningUtility)
 	}
 
 	if r.nodeRegistryCredentialsSecret != "" {

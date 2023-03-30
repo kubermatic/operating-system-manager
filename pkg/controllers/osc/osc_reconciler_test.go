@@ -46,7 +46,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	controllerruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	fakectrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/yaml"
@@ -820,7 +819,7 @@ func loadFile(obj runtime.Object, name string) error {
 	return nil
 }
 
-func buildReconciler(fakeClient client.Client, config testConfig) Reconciler {
+func buildReconciler(fakeClient controllerruntimeclient.Client, config testConfig) Reconciler {
 	kubeconfigProvider := clusterinfo.New(fakeClient, "foobar")
 	bootstrappingManager := bootstrap.New(fakeClient, kubeconfigProvider, nil, "")
 
