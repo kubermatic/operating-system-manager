@@ -36,7 +36,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes/scheme"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -65,10 +64,10 @@ type Bootstrap struct {
 	overrideBootstrapKubeletAPIServer string
 
 	kubeconfigProvider KubeconfigProvider
-	client             client.Client
+	client             ctrlruntimeclient.Client
 }
 
-func New(client client.Client, kubeconfigProvider KubeconfigProvider, bootstrapTokenServiceAccountName *types.NamespacedName, overrideBootstrapKubeletAPIServer string) Bootstrap {
+func New(client ctrlruntimeclient.Client, kubeconfigProvider KubeconfigProvider, bootstrapTokenServiceAccountName *types.NamespacedName, overrideBootstrapKubeletAPIServer string) Bootstrap {
 	return Bootstrap{
 		client:                            client,
 		kubeconfigProvider:                kubeconfigProvider,
