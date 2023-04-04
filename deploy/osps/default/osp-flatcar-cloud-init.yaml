@@ -21,7 +21,7 @@ spec:
   osName: flatcar
   ## Flatcar Stable (09/11/2021)
   osVersion: "2983.2.0"
-  version: "v1.0.0"
+  version: "v1.0.1"
   provisioningUtility: "cloud-init"
   supportedCloudProviders:
     - name: "anexia"
@@ -503,25 +503,6 @@ spec:
             data: |
               {{ .KubernetesCACert }}
 
-      - path: /etc/systemd/system/setup.service
-        permissions: 644
-        content:
-          inline:
-            encoding: b64
-            data: |
-              [Install]
-              WantedBy=multi-user.target
-
-              [Unit]
-              Requires=network-online.target
-              After=network-online.target
-
-              [Service]
-              Type=oneshot
-              RemainAfterExit=true
-              EnvironmentFile=-/etc/environment
-              ExecStart=/opt/bin/supervise.sh /opt/bin/setup
-
       - path: /etc/systemd/system/kubelet.service
         content:
           inline:
@@ -593,6 +574,15 @@ spec:
             data: |
               [Service]
               Environment="KUBELET_EXTRA_ARGS=--resolv-conf=/run/systemd/resolve/resolv.conf"
+
+      - path: /etc/systemd/system/kubelet.service.d/flatcar-system-config.conf
+        content:
+          inline:
+            data: |
+              [Service]
+              ExecStartPre=/bin/echo 1  > /proc/sys/kernel/panic_on_oops
+              ExecStartPre=/bin/echo 10 > /proc/sys/kernel/panic
+              ExecStartPre=/bin/echo 1  > /proc/sys/vm/overcommit_memory
 
       - path: /etc/kubernetes/cloud-config
         permissions: 600
@@ -764,10 +754,22 @@ spec:
               {{ end }}
               {{- end }}
 
-    modules:
-      runcmd:
-        - systemctl restart setup.service
-        - systemctl daemon-reload
+    units:
+    - name: setup.service
+      enable: true
+      content: |
+        [Install]
+        WantedBy=multi-user.target
+
+        [Unit]
+        Requires=network-online.target
+        After=network-online.target
+
+        [Service]
+        Type=oneshot
+        RemainAfterExit=true
+        EnvironmentFile=-/etc/environment
+        ExecStart=/opt/bin/supervise.sh /opt/bin/setup
 
   # We can't use provisioning configuration here since Anexia doesn't support second `cloud-init` init. Hence all the
   # required configurations have been moved to the bootstrap phase instead.
