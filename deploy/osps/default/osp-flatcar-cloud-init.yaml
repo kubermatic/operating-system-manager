@@ -21,7 +21,7 @@ spec:
   osName: flatcar
   ## Flatcar Stable (09/11/2021)
   osVersion: "2983.2.0"
-  version: "v1.0.1"
+  version: "v1.0.2"
   provisioningUtility: "cloud-init"
   supportedCloudProviders:
     - name: "anexia"
@@ -575,14 +575,22 @@ spec:
               [Service]
               Environment="KUBELET_EXTRA_ARGS=--resolv-conf=/run/systemd/resolve/resolv.conf"
 
+      - path: /opt/bin/setup_kernel_for_kubelet.sh
+        permissions: 755
+        content:
+          inline:
+            data: |
+              #!/bin/sh
+              echo 1  > /proc/sys/kernel/panic_on_oops
+              echo 10 > /proc/sys/kernel/panic
+              echo 1  > /proc/sys/vm/overcommit_memory
+
       - path: /etc/systemd/system/kubelet.service.d/flatcar-system-config.conf
         content:
           inline:
             data: |
               [Service]
-              ExecStartPre=/bin/echo 1  > /proc/sys/kernel/panic_on_oops
-              ExecStartPre=/bin/echo 10 > /proc/sys/kernel/panic
-              ExecStartPre=/bin/echo 1  > /proc/sys/vm/overcommit_memory
+              ExecStartPre=/opt/bin/setup_kernel_for_kubelet.sh
 
       - path: /etc/kubernetes/cloud-config
         permissions: 600
