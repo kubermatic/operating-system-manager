@@ -84,7 +84,7 @@ func (h *AdmissionHandler) Handle(ctx context.Context, req webhook.AdmissionRequ
 		}
 
 	case admissionv1.Delete:
-		// NOP we always allow create, delete operarions at the moment
+		// NOP we always allow delete operarions at the moment
 
 	default:
 		return admission.Errored(http.StatusBadRequest, fmt.Errorf("%s not supported on osp resources", req.Operation))
