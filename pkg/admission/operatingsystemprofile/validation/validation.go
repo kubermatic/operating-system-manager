@@ -74,7 +74,16 @@ func (h *AdmissionHandler) Handle(ctx context.Context, req webhook.AdmissionRequ
 			return webhook.Denied(fmt.Sprintf("operatingSystemProfile validation request %s denied: %v", req.UID, err))
 		}
 
-	case admissionv1.Create, admissionv1.Delete:
+	case admissionv1.Create:
+		if err := h.decoder.Decode(req, osp); err != nil {
+			return admission.Errored(http.StatusBadRequest, fmt.Errorf("error occurred while decoding osp: %w", err))
+		}
+		err := h.validateOperatingSystemProfile(osp)
+		if err != nil {
+			return webhook.Denied(fmt.Sprintf("operatingSystemProfile validation request %s denied: %v", req.UID, err))
+		}
+
+	case admissionv1.Delete:
 		// NOP we always allow create, delete operarions at the moment
 
 	default:
@@ -84,7 +93,25 @@ func (h *AdmissionHandler) Handle(ctx context.Context, req webhook.AdmissionRequ
 	return webhook.Allowed(fmt.Sprintf("operatingSystemProfile validation request %s allowed", req.UID))
 }
 
+func (h *AdmissionHandler) validateOperatingSystemProfile(osp *osmv1alpha1.OperatingSystemProfile) error {
+	// Validate that Operating Systems other than Flatcar are not declaring units.
+	if osp.Spec.OSName == osmv1alpha1.OperatingSystemFlatcar {
+		return nil
+	}
+
+	if len(osp.Spec.BootstrapConfig.Units) > 0 || len(osp.Spec.ProvisioningConfig.Units) > 0 {
+		return fmt.Errorf("OperatingSystemProfile for %s does not support units", osp.Spec.OSName)
+	}
+
+	return nil
+}
+
 func (h *AdmissionHandler) validateUpdate(osp, oldOSP *osmv1alpha1.OperatingSystemProfile) error {
+	err := h.validateOperatingSystemProfile(osp)
+	if err != nil {
+		return err
+	}
+
 	if equal := apiequality.Semantic.DeepEqual(oldOSP.Spec, osp.Spec); equal {
 		// There is no change in spec so no validation is required
 		return nil
