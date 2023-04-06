@@ -58,7 +58,7 @@ presubmits:
       preset-goproxy: "true"
     spec:
       containers:
-        - image: quay.io/kubermatic/build:go-1.20-node-18-1
+        - image: quay.io/kubermatic/build:go-1.20-node-18-4
           command:
             - make
           args:
@@ -79,7 +79,7 @@ presubmits:
       preset-goproxy: "true"
     spec:
       containers:
-        - image: quay.io/kubermatic/build:go-1.20-node-18-kind-0.17-1
+        - image: quay.io/kubermatic/build:go-1.20-node-18-kind-0.17-4
           command:
             - ./hack/verify-licenses.sh
           resources:
@@ -182,7 +182,7 @@ presubmits:
       preset-goproxy: "true"
     spec:
       containers:
-        - image: quay.io/kubermatic/build:go-1.20-node-18-kind-0.17-1
+        - image: quay.io/kubermatic/build:go-1.20-node-18-kind-0.17-4
           command:
             - "./hack/ci/run-e2e-tests.sh"
           resources:
