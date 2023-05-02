@@ -94,7 +94,7 @@ spec:
         cd -
 
         {{- /* # cri-tools variables */}}
-        CRI_TOOLS_RELEASE="${CRI_TOOLS_RELEASE:-v1.26.0}"
+        CRI_TOOLS_RELEASE="${CRI_TOOLS_RELEASE:-v1.27.0}"
         cri_tools_base_url="https://github.com/kubernetes-sigs/cri-tools/releases/download/${CRI_TOOLS_RELEASE}"
         cri_tools_filename="crictl-${CRI_TOOLS_RELEASE}-linux-${arch}.tar.gz"
 
@@ -557,7 +557,6 @@ spec:
                 --register-with-taints={{- .InitialTaints }} \
                 {{- end }}
                 {{- if eq .ContainerRuntime "containerd" }}
-                --container-runtime=remote \
                 --container-runtime-endpoint=unix:///run/containerd/containerd.sock \
                 {{- end }}
                 {{- /* If external or in-tree CCM is in use we don't need to set --node-ip as the cloud provider will know what IPs to return.  */}}
