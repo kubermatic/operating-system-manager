@@ -50,7 +50,8 @@ func GetCloudConfig(pconfig providerconfigtypes.Config, kubeletVersion string) (
 	// cloud-config is not required for these cloud providers
 	case osmv1alpha1.CloudProviderAlibaba, osmv1alpha1.CloudProviderAnexia, osmv1alpha1.CloudProviderDigitalocean,
 		osmv1alpha1.CloudProviderHetzner, osmv1alpha1.CloudProviderLinode, osmv1alpha1.CloudProviderEquinixMetal,
-		osmv1alpha1.CloudProviderScaleway, osmv1alpha1.CloudProviderNutanix, osmv1alpha1.CloudProviderVMwareCloudDirector:
+		osmv1alpha1.CloudProviderScaleway, osmv1alpha1.CloudProviderNutanix, osmv1alpha1.CloudProviderVMwareCloudDirector,
+		osmv1alpha1.CloudProviderOpenNebula:
 		return "", nil
 	}
 
