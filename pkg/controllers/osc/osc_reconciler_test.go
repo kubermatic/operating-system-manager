@@ -719,10 +719,6 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 				secret); err != nil {
 				t.Fatalf("failed to get provisioning secret: %v", err)
 			}
-
-			// Add deletionTimestamp to Machinedeployment to queue it up for deletion
-			md.ObjectMeta.DeletionTimestamp = &metav1.Time{Time: time.Now()}
-
 			// Reconcile to trigger delete workflow
 			_, err := reconciler.handleMachineDeploymentCleanup(ctx, md)
 			if err != nil {
