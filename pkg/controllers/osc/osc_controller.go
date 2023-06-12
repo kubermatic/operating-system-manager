@@ -125,7 +125,7 @@ func Add(
 		return err
 	}
 
-	if err := c.Watch(&source.Kind{Type: &clusterv1alpha1.MachineDeployment{}}, &handler.EnqueueRequestForObject{}, filterMachineDeploymentPredicate()); err != nil {
+	if err := c.Watch(source.Kind(mgr.GetCache(), &clusterv1alpha1.MachineDeployment{}), &handler.EnqueueRequestForObject{}, filterMachineDeploymentPredicate()); err != nil {
 		return fmt.Errorf("failed to watch MachineDeployments: %w", err)
 	}
 
