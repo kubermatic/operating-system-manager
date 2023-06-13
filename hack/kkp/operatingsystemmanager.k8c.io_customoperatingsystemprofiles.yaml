@@ -421,7 +421,6 @@ spec:
                           - baremetal
                           - external
                           - vmware-cloud-director
-                          - opennebula
                         type: string
                       spec:
                         description: Spec represents the os/image reference in the supported cloud provider

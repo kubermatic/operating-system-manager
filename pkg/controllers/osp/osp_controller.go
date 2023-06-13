@@ -91,7 +91,7 @@ func Add(mgr manager.Manager, log *zap.SugaredLogger, namespace string, workerCo
 	// of any random resource in the underlying namespace where osm is deployed. We picked deployments for this and added additional
 	// event filtering to avoid redundant reconciliation/requeues.
 	if err := c.Watch(
-		source.Kind(mgr.GetCache(), &appsv1.Deployment{}),
+		&source.Kind{Type: &appsv1.Deployment{}},
 		&handler.EnqueueRequestForObject{},
 		filterDeploymentPredicate(),
 		predicateutil.ByNamespace(namespace),

@@ -126,7 +126,10 @@ func TestHandle(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			d := admission.NewDecoder(testScheme)
+			d, err := admission.NewDecoder(testScheme)
+			if err != nil {
+				t.Fatalf("error occurred while creating decoder: %v", err)
+			}
 
 			handler := AdmissionHandler{
 				log:     logr.Discard(),
