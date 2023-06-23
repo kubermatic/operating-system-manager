@@ -8,7 +8,7 @@ require (
 	github.com/flatcar-linux/container-linux-config-transpiler v0.9.3
 	github.com/go-logr/logr v1.2.4
 	github.com/go-test/deep v1.1.0
-	github.com/kubermatic/machine-controller v1.56.2
+	github.com/kubermatic/machine-controller v1.57.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/pmezard/go-difflib v1.0.0
 	go.uber.org/zap v1.24.0
@@ -29,21 +29,20 @@ require (
 	github.com/BurntSushi/toml v1.2.1 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/ajeddeloh/go-json v0.0.0-20230327231231-3d460e132080 // indirect
-	github.com/ajeddeloh/yaml v0.0.0-20170912190910-6b94386aeefd // indirect
 	github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
-	github.com/coreos/container-linux-config-transpiler v0.9.0 // indirect
 	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf // indirect
-	github.com/coreos/ignition v0.35.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.10.2 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/flatcar-linux/ignition v0.36.1 // indirect
+	github.com/flatcar/container-linux-config-transpiler v0.9.4 // indirect
+	github.com/flatcar/ignition v0.36.2 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/go-logr/zapr v1.2.3 // indirect
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
