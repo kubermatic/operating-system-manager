@@ -21,7 +21,7 @@ spec:
   osName: flatcar
   ## Flatcar Stable (09/11/2021)
   osVersion: "2983.2.0"
-  version: "v1.3.0"
+  version: "v1.3.1"
   provisioningUtility: "cloud-init"
   supportedCloudProviders:
     - name: "anexia"
@@ -421,6 +421,13 @@ spec:
               kernel.panic_on_oops = 1
               kernel.panic = 10
               net.ipv4.ip_forward = 1
+              {{- if or (eq .NetworkIPFamily "IPv4+IPv6") (eq .NetworkIPFamily "IPv6+IPv4") (eq .NetworkIPFamily "IPv6") }}
+              net.ipv6.conf.all.forwarding = 1
+              # Configure Linux to accept router advertisements to ensure the default
+              # IPv6 route is not removed from the routing table when the Docker service starts.
+              # For more information: https://github.com/docker/for-linux/issues/844
+              net.ipv6.conf.all.accept_ra		= 2
+              {{- end }}
               vm.overcommit_memory = 1
               fs.inotify.max_user_watches = 1048576
               fs.inotify.max_user_instances = 8192
