@@ -123,7 +123,8 @@ spec:
                     type: object
                   supportedContainerRuntimes:
                     description: SupportedContainerRuntimes represents the container
-                      runtimes supported by the given OS
+                      runtimes supported by the given OS. Docker has been deprecated
+                      and is no-op.
                     items:
                       description: ContainerRuntimeSpec aggregates information about
                         a specific container runtime
@@ -333,7 +334,8 @@ spec:
                     type: object
                   supportedContainerRuntimes:
                     description: SupportedContainerRuntimes represents the container
-                      runtimes supported by the given OS
+                      runtimes supported by the given OS. Docker has been deprecated
+                      and is no-op.
                     items:
                       description: ContainerRuntimeSpec aggregates information about
                         a specific container runtime

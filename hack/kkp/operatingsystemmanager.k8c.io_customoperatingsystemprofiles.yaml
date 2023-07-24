@@ -114,7 +114,7 @@ spec:
                           type: object
                       type: object
                     supportedContainerRuntimes:
-                      description: SupportedContainerRuntimes represents the container runtimes supported by the given OS
+                      description: SupportedContainerRuntimes represents the container runtimes supported by the given OS. Docker has been deprecated and is no-op.
                       items:
                         description: ContainerRuntimeSpec aggregates information about a specific container runtime
                         properties:
@@ -291,7 +291,7 @@ spec:
                           type: object
                       type: object
                     supportedContainerRuntimes:
-                      description: SupportedContainerRuntimes represents the container runtimes supported by the given OS
+                      description: SupportedContainerRuntimes represents the container runtimes supported by the given OS. Docker has been deprecated and is no-op.
                       items:
                         description: ContainerRuntimeSpec aggregates information about a specific container runtime
                         properties:
@@ -421,6 +421,7 @@ spec:
                           - baremetal
                           - external
                           - vmware-cloud-director
+                          - opennebula
                         type: string
                       spec:
                         description: Spec represents the os/image reference in the supported cloud provider

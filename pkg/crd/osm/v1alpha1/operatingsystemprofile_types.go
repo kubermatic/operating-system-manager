@@ -62,7 +62,8 @@ type OperatingSystemProfileSpec struct {
 }
 
 type OSPConfig struct {
-	// SupportedContainerRuntimes represents the container runtimes supported by the given OS
+	// SupportedContainerRuntimes represents the container runtimes supported by the given OS.
+	// Docker has been deprecated and is no-op.
 	SupportedContainerRuntimes []ContainerRuntimeSpec `json:"supportedContainerRuntimes,omitempty"`
 	// Templates to be included in units and files
 	Templates map[string]string `json:"templates,omitempty"`
