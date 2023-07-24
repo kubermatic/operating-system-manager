@@ -141,7 +141,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 			operatingSystem:        providerconfigtypes.OperatingSystemUbuntu,
 			oscFile:                "osc-ubuntu-aws-containerd.yaml",
 			mdName:                 "ubuntu-aws",
-			kubeletVersion:         "1.24.2",
+			kubeletVersion:         "1.26.7",
 			provisioningSecretFile: "secret-ubuntu-aws-containerd-provisioning.yaml",
 			bootstrapSecretFile:    "secret-ubuntu-aws-containerd-bootstrap.yaml",
 			config: testConfig{
@@ -160,7 +160,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 			oscFile:                "osc-ubuntu-aws-dualstack.yaml",
 			mdName:                 "ubuntu-aws",
 			ipFamily:               cloudproviderutil.IPFamilyIPv4IPv6,
-			kubeletVersion:         "1.24.2",
+			kubeletVersion:         "1.26.7",
 			provisioningSecretFile: "secret-ubuntu-aws-dualstack-provisioning.yaml",
 			bootstrapSecretFile:    "secret-ubuntu-aws-dualstack-bootstrap.yaml",
 			config: testConfig{
@@ -179,7 +179,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 			oscFile:                "osc-ubuntu-aws-dualstack-IPv6+IPv4.yaml",
 			mdName:                 "ubuntu-aws",
 			ipFamily:               cloudproviderutil.IPFamilyIPv6IPv4,
-			kubeletVersion:         "1.24.2",
+			kubeletVersion:         "1.26.7",
 			provisioningSecretFile: "secret-ubuntu-aws-dualstack-IPv6+IPv4-provisioning.yaml",
 			bootstrapSecretFile:    "secret-ubuntu-aws-dualstack-IPv6+IPv4-bootstrap.yaml",
 			config: testConfig{
