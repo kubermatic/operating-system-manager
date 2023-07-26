@@ -29,7 +29,8 @@ type RawConfig struct {
 	Folder         types.ConfigVarString `json:"folder"`
 
 	// Either Datastore or DatastoreCluster have to be provided.
-	Datastore types.ConfigVarString `json:"datastore"`
+	DatastoreCluster types.ConfigVarString `json:"datastoreCluster"`
+	Datastore        types.ConfigVarString `json:"datastore"`
 
 	AllowInsecure types.ConfigVarBool `json:"allowInsecure"`
 }
