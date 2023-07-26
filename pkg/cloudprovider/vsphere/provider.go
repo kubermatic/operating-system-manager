@@ -97,6 +97,16 @@ func getConfig(pconfig providerconfigtypes.Config) (*types.CloudConfig, error) {
 		return nil, err
 	}
 
+	datastoreCluster, err := config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.DatastoreCluster)
+	if err != nil {
+		return nil, err
+	}
+
+	defaultDatastore := datastore
+	if len(defaultDatastore) == 0 {
+		defaultDatastore = datastoreCluster
+	}
+
 	workingDir := folder
 	// Default to basedir
 	if workingDir == "" {
@@ -111,7 +121,7 @@ func getConfig(pconfig providerconfigtypes.Config) (*types.CloudConfig, error) {
 		Workspace: types.WorkspaceOpts{
 			Datacenter:       datacenter,
 			VCenterIP:        vsphereURL.Hostname(),
-			DefaultDatastore: datastore,
+			DefaultDatastore: defaultDatastore,
 			Folder:           workingDir,
 		},
 		VirtualCenter: map[string]*types.VirtualCenterConfig{
