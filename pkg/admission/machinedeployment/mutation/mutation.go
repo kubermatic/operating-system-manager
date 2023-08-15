@@ -63,7 +63,7 @@ func (h *AdmissionHandler) InjectDecoder(d *admission.Decoder) error {
 	return nil
 }
 
-func (h *AdmissionHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
+func (h *AdmissionHandler) Handle(_ context.Context, req admission.Request) admission.Response {
 	md := &clusterv1alpha1.MachineDeployment{}
 
 	switch req.Operation {

@@ -57,7 +57,7 @@ func (h *AdmissionHandler) InjectDecoder(d *admission.Decoder) error {
 	return nil
 }
 
-func (h *AdmissionHandler) Handle(ctx context.Context, req webhook.AdmissionRequest) webhook.AdmissionResponse {
+func (h *AdmissionHandler) Handle(_ context.Context, req webhook.AdmissionRequest) webhook.AdmissionResponse {
 	osc := &osmv1alpha1.OperatingSystemConfig{}
 	oldOSC := &osmv1alpha1.OperatingSystemConfig{}
 

@@ -69,3 +69,8 @@ linters-settings:
       rules:
         json: goCamel
         yaml: goCamel
+  depguard:
+    rules:
+      main:
+        deny:
+          - { pkg: io/ioutil, desc: https://go.dev/doc/go1.16#ioutil }
