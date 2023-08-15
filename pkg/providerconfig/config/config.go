@@ -30,7 +30,7 @@ var (
 )
 
 // SetConfigVarResolver will instantiate the global ConfigVarResolver Instance
-func SetConfigVarResolver(ctx context.Context, client ctrlruntimeclient.Client, namespace string) {
+func SetConfigVarResolver(ctx context.Context, client ctrlruntimeclient.Client, _ string) {
 	instance = *providerconfig.NewConfigVarResolver(ctx, client)
 }
 

@@ -445,10 +445,7 @@ func (r *Reconciler) handleOSCAndSecretsRotation(ctx context.Context, md *cluste
 	}
 
 	// Delete the existing secrets and let the controller re-create them.
-	if err := r.deleteGeneratedSecrets(ctx, md); err != nil {
-		return err
-	}
-	return nil
+	return r.deleteGeneratedSecrets(ctx, md)
 }
 
 func (r *Reconciler) checkOSP(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {

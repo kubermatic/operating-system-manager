@@ -102,7 +102,7 @@ func Add(mgr manager.Manager, log *zap.SugaredLogger, namespace string, workerCo
 	return nil
 }
 
-func (r *Reconciler) Reconcile(ctx context.Context, req ctrlruntime.Request) (reconcile.Result, error) {
+func (r *Reconciler) Reconcile(ctx context.Context, _ ctrlruntime.Request) (reconcile.Result, error) {
 	r.log.Info("Reconciling default OSP resource..")
 
 	if err := r.reconcile(ctx); err != nil {
