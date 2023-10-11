@@ -573,25 +573,6 @@ spec:
             data: |
               {{ .KubernetesCACert }}
 
-      - path: /etc/systemd/system/setup.service
-        permissions: 644
-        content:
-          inline:
-            encoding: b64
-            data: |
-              [Install]
-              WantedBy=multi-user.target
-
-              [Unit]
-              Requires=network-online.target
-              After=network-online.target
-
-              [Service]
-              Type=oneshot
-              RemainAfterExit=true
-              EnvironmentFile=-/etc/environment
-              ExecStart=/opt/bin/supervise.sh /opt/bin/setup
-
       - path: /etc/systemd/system/kubelet.service
         content:
           inline:
