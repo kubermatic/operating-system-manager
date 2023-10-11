@@ -392,24 +392,6 @@ spec:
     - content:
         inline:
           data: |
-            [Install]
-            WantedBy=multi-user.target
-
-            [Unit]
-            Requires=network-online.target
-            After=network-online.target
-
-            [Service]
-            Type=oneshot
-            RemainAfterExit=true
-            EnvironmentFile=-/etc/environment
-            ExecStart=/opt/bin/supervise.sh /opt/bin/setup
-          encoding: b64
-      path: /etc/systemd/system/setup.service
-      permissions: 644
-    - content:
-        inline:
-          data: |
             [Unit]
             After=containerd.service
             Requires=containerd.service
