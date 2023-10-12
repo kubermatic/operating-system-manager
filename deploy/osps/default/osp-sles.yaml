@@ -20,7 +20,7 @@ metadata:
 spec:
   osName: sles
   osVersion: "15-SP-1"
-  version: "v1.0.4"
+  version: "v1.1.4"
   supportedCloudProviders:
     - name: "aws"
 
