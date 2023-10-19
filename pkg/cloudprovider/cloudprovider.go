@@ -60,8 +60,7 @@ func GetCloudConfig(pconfig providerconfigtypes.Config, kubeletVersion string) (
 
 func KubeletCloudProviderConfig(cloudProvider providerconfigtypes.CloudProvider, external bool) (inTreeCCM bool, outOfTree bool, err error) {
 	switch osmv1alpha1.CloudProvider(cloudProvider) {
-	case osmv1alpha1.CloudProviderAWS, osmv1alpha1.CloudProviderAzure,
-		osmv1alpha1.CloudProviderOpenstack, osmv1alpha1.CloudProviderVsphere:
+	case osmv1alpha1.CloudProviderAWS, osmv1alpha1.CloudProviderAzure, osmv1alpha1.CloudProviderVsphere:
 		if external {
 			return false, true, nil
 		}
