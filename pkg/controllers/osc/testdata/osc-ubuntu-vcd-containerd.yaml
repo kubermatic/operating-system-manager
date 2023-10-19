@@ -4,7 +4,7 @@ metadata:
   annotations:
     k8c.io/machine-deployment-revision: "1"
   creationTimestamp: null
-  name: ubuntu-aws-kube-system-config
+  name: ubuntu-vcd-kube-system-config
   namespace: kube-system
   resourceVersion: "1"
 spec:
@@ -33,9 +33,9 @@ spec:
             \"http://test-http-proxy.com\";\nAcquire::http::Proxy \"http://test-http-proxy.com\";\nEOF\n\nsource
             /etc/environment\n\nexport DEBIAN_FRONTEND=noninteractive\napt update
             && apt install -y curl jq\ncurl -s -k -v --header 'Authorization: Bearer
-            top-secret'\thttps://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/ubuntu-aws-kube-system-provisioning-config
-            | jq '.data[\"cloud-config\"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/ubuntu-aws-kube-system-provisioning-config.cfg\ncloud-init
-            clean\n\ncloud-init --file /etc/cloud/cloud.cfg.d/ubuntu-aws-kube-system-provisioning-config.cfg
+            top-secret'\thttps://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/ubuntu-vcd-kube-system-provisioning-config
+            | jq '.data[\"cloud-config\"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/ubuntu-vcd-kube-system-provisioning-config.cfg\ncloud-init
+            clean\n\ncloud-init --file /etc/cloud/cloud.cfg.d/ubuntu-vcd-kube-system-provisioning-config.cfg
             init\nsystemctl daemon-reload\n\nsystemctl daemon-reload\n\n# cloud-init
             should only run on the first boot. From this point forward we don't need
             cloud-init anymore.\nsystemctl disable cloud-init\ntouch /etc/cloud/cloud-init.disabled\n\n#
@@ -69,11 +69,8 @@ spec:
     userSSHKeys:
     - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c
   cloudProvider:
-    name: aws
-    spec:
-      availabilityZone: eu-central-1b
-      subnetID: test-subnet
-      vpcId: e-123f
+    name: vmware-cloud-director
+    spec: null
   osName: ubuntu
   osVersion: "20.04"
   provisioningConfig:
@@ -229,14 +226,15 @@ spec:
       permissions: 755
     - content:
         inline:
-          data: "net.bridge.bridge-nf-call-ip6tables = 1\nnet.bridge.bridge-nf-call-iptables
-            = 1\nkernel.panic_on_oops = 1\nkernel.panic = 10\nnet.ipv4.ip_forward
-            = 1\nnet.ipv6.conf.all.forwarding = 1\n# Configure Linux to accept router
-            advertisements to ensure the default\n# IPv6 route is not removed from
-            the routing table when the Docker service starts.\n# For more information:
-            https://github.com/docker/for-linux/issues/844\nnet.ipv6.conf.all.accept_ra\t\t=
-            2\nvm.overcommit_memory = 1\nfs.inotify.max_user_watches = 1048576\nfs.inotify.max_user_instances
-            = 8192\n"
+          data: |
+            net.bridge.bridge-nf-call-ip6tables = 1
+            net.bridge.bridge-nf-call-iptables = 1
+            kernel.panic_on_oops = 1
+            kernel.panic = 10
+            net.ipv4.ip_forward = 1
+            vm.overcommit_memory = 1
+            fs.inotify.max_user_watches = 1048576
+            fs.inotify.max_user_instances = 8192
           encoding: b64
       path: /etc/sysctl.d/k8s.conf
       permissions: 644
@@ -284,6 +282,7 @@ spec:
               nfs-common \
               socat \
               util-linux \
+              open-vm-tools \
               ipvsadm
             apt-get update
             apt-get install -y apt-transport-https ca-certificates curl software-properties-common lsb-release
@@ -359,7 +358,7 @@ spec:
 
             # set kubelet nodeip environment variable
             /opt/bin/setup_net_env.sh
-            curl -s -k -v --header 'Authorization: Bearer top-secret' https://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/kube-system-ubuntu-aws-kubelet-bootstrap-config | jq '.data["kubeconfig"]' -r| base64 -d > /etc/kubernetes/bootstrap-kubelet.conf
+            curl -s -k -v --header 'Authorization: Bearer top-secret' https://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/kube-system-ubuntu-vcd-kubelet-bootstrap-config | jq '.data["kubeconfig"]' -r| base64 -d > /etc/kubernetes/bootstrap-kubelet.conf
 
             systemctl enable --now kubelet
             systemctl enable --now --no-block kubelet-healthcheck.service
@@ -396,11 +395,12 @@ spec:
               --kubeconfig=/var/lib/kubelet/kubeconfig \
               --config=/etc/kubernetes/kubelet.conf \
               --cert-dir=/etc/kubernetes/pki \
-              --cloud-provider=external \
+              --provider-id=kubermatic://<MACHINE_ID> \
               --hostname-override=${KUBELET_HOSTNAME} \
               --exit-on-lock-contention \
               --lock-file=/tmp/kubelet.lock \
               --container-runtime-endpoint=unix:///run/containerd/containerd.sock \
+              --node-ip ${KUBELET_NODE_IP}
 
             [Install]
             WantedBy=multi-user.target
@@ -417,11 +417,7 @@ spec:
       permissions: 644
     - content:
         inline:
-          data: |+
-            [global]
-            Zone="eu-central-1b"
-            VPC="e-123f"
-            SubnetID="test-subnet"
+          data: |2+
 
           encoding: b64
       path: /etc/kubernetes/cloud-config
@@ -435,16 +431,7 @@ spec:
             }
 
             # get the default interface IP address
-            DEFAULT_IFC_IPv4=$(ip -o route get  1 | grep -oP "src \K\S+")
-            DEFAULT_IFC_IPv6=$(ip -o -6 route get  1:: | grep -oP "src \K\S+")
-
-            if [ -z "${DEFAULT_IFC_IPv6}" ]
-            then
-              echodate "Failed to get IPv6 address for the default route interface"
-              exit 1
-            fi
-
-            DEFAULT_IFC_IP=$DEFAULT_IFC_IPv6,$DEFAULT_IFC_IPv4
+            DEFAULT_IFC_IP=$(ip -o  route get 1 | grep -oP "src \K\S+")
 
             if [ -z "${DEFAULT_IFC_IP}" ]
             then

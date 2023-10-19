@@ -112,9 +112,10 @@ func init() {
 }
 
 type testConfig struct {
-	namespace        string
-	containerRuntime string
-	clusterDNSIPs    []net.IP
+	namespace             string
+	containerRuntime      string
+	externalCloudProvider bool
+	clusterDNSIPs         []net.IP
 }
 
 func TestReconciler_Reconcile(t *testing.T) {
@@ -145,9 +146,10 @@ func TestReconciler_Reconcile(t *testing.T) {
 			provisioningSecretFile: "secret-ubuntu-aws-containerd-provisioning.yaml",
 			bootstrapSecretFile:    "secret-ubuntu-aws-containerd-bootstrap.yaml",
 			config: testConfig{
-				namespace:        "kube-system",
-				containerRuntime: "containerd",
-				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
+				namespace:             "kube-system",
+				containerRuntime:      "containerd",
+				clusterDNSIPs:         []net.IP{net.IPv4(10, 0, 0, 0)},
+				externalCloudProvider: true,
 			},
 			cloudProvider:     "aws",
 			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
@@ -164,9 +166,10 @@ func TestReconciler_Reconcile(t *testing.T) {
 			provisioningSecretFile: "secret-ubuntu-aws-dualstack-provisioning.yaml",
 			bootstrapSecretFile:    "secret-ubuntu-aws-dualstack-bootstrap.yaml",
 			config: testConfig{
-				namespace:        "kube-system",
-				containerRuntime: "containerd",
-				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
+				namespace:             "kube-system",
+				containerRuntime:      "containerd",
+				clusterDNSIPs:         []net.IP{net.IPv4(10, 0, 0, 0)},
+				externalCloudProvider: true,
 			},
 			cloudProvider:     "aws",
 			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
@@ -183,9 +186,10 @@ func TestReconciler_Reconcile(t *testing.T) {
 			provisioningSecretFile: "secret-ubuntu-aws-dualstack-IPv6+IPv4-provisioning.yaml",
 			bootstrapSecretFile:    "secret-ubuntu-aws-dualstack-IPv6+IPv4-bootstrap.yaml",
 			config: testConfig{
-				namespace:        "kube-system",
-				containerRuntime: "containerd",
-				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
+				namespace:             "kube-system",
+				containerRuntime:      "containerd",
+				clusterDNSIPs:         []net.IP{net.IPv4(10, 0, 0, 0)},
+				externalCloudProvider: true,
 			},
 			cloudProvider:     "aws",
 			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
@@ -201,9 +205,10 @@ func TestReconciler_Reconcile(t *testing.T) {
 			provisioningSecretFile: "secret-flatcar-aws-containerd-provisioning.yaml",
 			bootstrapSecretFile:    "secret-flatcar-aws-containerd-bootstrap.yaml",
 			config: testConfig{
-				namespace:        "kube-system",
-				containerRuntime: "containerd",
-				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
+				namespace:             "kube-system",
+				containerRuntime:      "containerd",
+				clusterDNSIPs:         []net.IP{net.IPv4(10, 0, 0, 0)},
+				externalCloudProvider: true,
 			},
 			cloudProvider:     "aws",
 			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
@@ -219,9 +224,10 @@ func TestReconciler_Reconcile(t *testing.T) {
 			mdName:                 "osp-rhel-aws",
 			kubeletVersion:         defaultKubeletVersion,
 			config: testConfig{
-				namespace:        "kube-system",
-				containerRuntime: "containerd",
-				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
+				namespace:             "kube-system",
+				containerRuntime:      "containerd",
+				clusterDNSIPs:         []net.IP{net.IPv4(10, 0, 0, 0)},
+				externalCloudProvider: true,
 			},
 			cloudProvider:     "aws",
 			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
@@ -269,6 +275,23 @@ func TestReconciler_Reconcile(t *testing.T) {
 				"v1.kubelet-config.machine-controller.kubermatic.io/KubeReserved":         "ephemeral-storage=30Gi,cpu=30m",
 				"v1.kubelet-config.machine-controller.kubermatic.io/EvictionHard":         "memory.available<30Mi",
 			},
+		},
+		{
+			name:                   "Ubuntu OS on VMware Cloud Director with Containerd",
+			ospFile:                defaultOSPPathPrefix + "osp-ubuntu.yaml",
+			ospName:                "osp-ubuntu",
+			operatingSystem:        providerconfigtypes.OperatingSystemUbuntu,
+			oscFile:                "osc-ubuntu-vcd-containerd.yaml",
+			mdName:                 "ubuntu-vcd",
+			kubeletVersion:         "1.26.7",
+			provisioningSecretFile: "secret-ubuntu-vcd-containerd-provisioning.yaml",
+			bootstrapSecretFile:    "secret-ubuntu-vcd-containerd-bootstrap.yaml",
+			config: testConfig{
+				namespace:        "kube-system",
+				containerRuntime: "containerd",
+				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
+			},
+			cloudProvider: "vmware-cloud-director",
 		},
 	}
 
@@ -827,15 +850,16 @@ func buildReconciler(fakeClient controllerruntimeclient.Client, config testConfi
 		Client:       fakeClient,
 		workerClient: fakeClient,
 
-		log:                  testUtil.DefaultLogger,
-		generator:            generator.NewDefaultCloudConfigGenerator(""),
-		namespace:            config.namespace,
-		caCert:               dummyCACert,
-		containerRuntime:     config.containerRuntime,
-		clusterDNSIPs:        config.clusterDNSIPs,
-		kubeletFeatureGates:  map[string]bool{"GracefulNodeShutdown": true, "IdentifyPodOS": false},
-		bootstrappingManager: bootstrappingManager,
-		nodeHTTPProxy:        "http://test-http-proxy.com",
-		nodeNoProxy:          "http://test-no-proxy.com",
+		log:                   testUtil.DefaultLogger,
+		generator:             generator.NewDefaultCloudConfigGenerator(""),
+		namespace:             config.namespace,
+		caCert:                dummyCACert,
+		containerRuntime:      config.containerRuntime,
+		externalCloudProvider: config.externalCloudProvider,
+		clusterDNSIPs:         config.clusterDNSIPs,
+		kubeletFeatureGates:   map[string]bool{"GracefulNodeShutdown": true, "IdentifyPodOS": false},
+		bootstrappingManager:  bootstrappingManager,
+		nodeHTTPProxy:         "http://test-http-proxy.com",
+		nodeNoProxy:           "http://test-no-proxy.com",
 	}
 }

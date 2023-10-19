@@ -550,6 +550,10 @@ spec:
                 --cloud-provider={{- .CloudProviderName }} \
                 --cloud-config=/etc/kubernetes/cloud-config \
                 {{- end }}
+                {{- /* If both external and internal CCM are not available. We set provider-id for the machine explicitly */}}
+                {{- if not (or .ExternalCloudProvider .InTreeCCMAvailable) }}
+                --provider-id=kubermatic://<MACHINE_ID> \
+                {{- end }}
                 {{- if ne .CloudProviderName "aws" }}
                 --hostname-override=${KUBELET_HOSTNAME} \
                 {{- else if and (eq .CloudProviderName "aws") (.ExternalCloudProvider) }}

@@ -409,8 +409,8 @@ spec:
               --kubeconfig=/var/lib/kubelet/kubeconfig \
               --config=/etc/kubernetes/kubelet.conf \
               --cert-dir=/etc/kubernetes/pki \
-              --cloud-provider=aws \
-              --cloud-config=/etc/kubernetes/cloud-config \
+              --cloud-provider=external \
+              --hostname-override=${KUBELET_HOSTNAME} \
               --dynamic-config-dir=/etc/kubernetes/dynamic-config-dir \
               --feature-gates=DynamicKubeletConfig=true \
               --exit-on-lock-contention \
