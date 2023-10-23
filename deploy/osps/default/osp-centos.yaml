@@ -28,7 +28,6 @@ spec:
     - name: "azure"
     - name: "digitalocean"
     - name: "equinixmetal"
-    - name: "hetzner"
     - name: "kubevirt"
     - name: "nutanix"
     - name: "openstack"
