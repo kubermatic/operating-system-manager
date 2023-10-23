@@ -26,7 +26,6 @@ linters:
     - asciicheck
     - bidichk
     - bodyclose
-    - deadcode
     - depguard
     - durationcheck
     - errcheck
@@ -51,12 +50,10 @@ linters:
     - promlinter
     - revive
     - staticcheck
-    - structcheck
     - tenv
     - typecheck
     - unconvert
     - unused
-    - varcheck
     - wastedassign
     - whitespace
   disable-all: true

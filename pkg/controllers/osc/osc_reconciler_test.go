@@ -81,6 +81,7 @@ kPe6XoSbiLm/kxk32T0=
 const (
 	defaultOSPPathPrefix  = "../../../../deploy/osps/default/"
 	defaultKubeletVersion = "1.22.2"
+	ospUbuntu             = "osp-ubuntu"
 )
 
 const (
@@ -136,8 +137,8 @@ func TestReconciler_Reconcile(t *testing.T) {
 	}{
 		{
 			name:                   "Ubuntu OS in AWS with Containerd",
-			ospFile:                defaultOSPPathPrefix + "osp-ubuntu.yaml",
-			ospName:                "osp-ubuntu",
+			ospFile:                defaultOSPPathPrefix + fmt.Sprintf("%s.yaml", ospUbuntu),
+			ospName:                ospUbuntu,
 			operatingSystem:        providerconfigtypes.OperatingSystemUbuntu,
 			oscFile:                "osc-ubuntu-aws-containerd.yaml",
 			mdName:                 "ubuntu-aws",
@@ -154,8 +155,8 @@ func TestReconciler_Reconcile(t *testing.T) {
 		},
 		{
 			name:                   "Ubuntu OS in AWS with Dualstack Networking",
-			ospFile:                defaultOSPPathPrefix + "osp-ubuntu.yaml",
-			ospName:                "osp-ubuntu",
+			ospFile:                defaultOSPPathPrefix + fmt.Sprintf("%s.yaml", ospUbuntu),
+			ospName:                ospUbuntu,
 			operatingSystem:        providerconfigtypes.OperatingSystemUbuntu,
 			oscFile:                "osc-ubuntu-aws-dualstack.yaml",
 			mdName:                 "ubuntu-aws",
@@ -173,8 +174,8 @@ func TestReconciler_Reconcile(t *testing.T) {
 		},
 		{
 			name:                   "Ubuntu OS in AWS with Dualstack IPv6+IPv4 Networking",
-			ospFile:                defaultOSPPathPrefix + "osp-ubuntu.yaml",
-			ospName:                "osp-ubuntu",
+			ospFile:                defaultOSPPathPrefix + fmt.Sprintf("%s.yaml", ospUbuntu),
+			ospName:                ospUbuntu,
 			operatingSystem:        providerconfigtypes.OperatingSystemUbuntu,
 			oscFile:                "osc-ubuntu-aws-dualstack-IPv6+IPv4.yaml",
 			mdName:                 "ubuntu-aws",
@@ -246,8 +247,8 @@ func TestReconciler_Reconcile(t *testing.T) {
 		},
 		{
 			name:                   "Kubelet configuration with containerd",
-			ospFile:                defaultOSPPathPrefix + "osp-ubuntu.yaml",
-			ospName:                "osp-ubuntu",
+			ospFile:                defaultOSPPathPrefix + fmt.Sprintf("%s.yaml", ospUbuntu),
+			ospName:                ospUbuntu,
 			operatingSystem:        providerconfigtypes.OperatingSystemUbuntu,
 			oscFile:                "osc-kubelet-configuration-containerd.yaml",
 			mdName:                 "kubelet-configuration",
@@ -421,8 +422,8 @@ func TestOSCAndSecretRotation(t *testing.T) {
 	}{
 		{
 			name:            "test updates of machineDeployment",
-			ospFile:         defaultOSPPathPrefix + "osp-ubuntu.yaml",
-			ospName:         "osp-ubuntu",
+			ospFile:         defaultOSPPathPrefix + fmt.Sprintf("%s.yaml", ospUbuntu),
+			ospName:         ospUbuntu,
 			operatingSystem: providerconfigtypes.OperatingSystemUbuntu,
 			oscFile:         "osc-ubuntu-aws-containerd.yaml",
 			mdName:          "ubuntu-aws",
@@ -617,8 +618,8 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 	}{
 		{
 			name:            "test the deletion of machineDeployment",
-			ospFile:         defaultOSPPathPrefix + "osp-ubuntu.yaml",
-			ospName:         "osp-ubuntu",
+			ospFile:         defaultOSPPathPrefix + fmt.Sprintf("%s.yaml", ospUbuntu),
+			ospName:         ospUbuntu,
 			operatingSystem: providerconfigtypes.OperatingSystemUbuntu,
 			oscFile:         "osc-ubuntu-aws-containerd.yaml",
 			mdName:          "ubuntu-aws",
