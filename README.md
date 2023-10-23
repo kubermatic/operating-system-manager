@@ -66,8 +66,6 @@ To use management/worker cluster mode, simply pass on the kubeconfig for managem
 
 ![Management/worker mode](./docs/images/architecture-osm-management-worker.png)
 
-
-
 ### Air-gapped Environment
 
 This controller was designed by keeping air-gapped environments in mind. Customers can use their own VM images by creating custom OSP profiles to provision nodes in a cluster that doesn't have outbound internet access.
@@ -119,7 +117,6 @@ Feedback and discussion are available on [the mailing list][5].
 
 - Please familiarize yourself with the [Code of Conduct][4] before contributing.
 - See [CONTRIBUTING.md][2] for instructions on the developer certificate of origin that we require.
-- Read how [we're using ZenHub][8] for project and roadmap planning
 
 ### Pull requests
 
@@ -136,4 +133,3 @@ See [the list of releases][3] to find out about feature changes.
 [5]: https://groups.google.com/forum/#!forum/kubermatic-dev
 [6]: https://kubermatic.slack.com/messages/kubermatic
 [7]: http://slack.kubermatic.io/
-[8]: https://github.com/kubermatic/operating-system-manager/blob/main/Zenhub.md
