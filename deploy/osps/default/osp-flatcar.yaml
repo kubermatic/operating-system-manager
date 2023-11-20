@@ -30,7 +30,7 @@ spec:
     - name: "kubevirt"
     - name: "openstack"
     - name: "vsphere"
-
+    - name: "vmware-cloud-director"
   bootstrapConfig:
     templates:
       configureProxyScript: |-
@@ -51,7 +51,56 @@ spec:
         {{- end }}
 
         source /etc/environment
-
+      configureVCloudNetwork: |-
+        function query_ovf () {
+          local QUERY=$1
+          echo $(/usr/share/oem/bin/vmtoolsd --cmd "info-get guestinfo.ovfEnv" | grep "${QUERY}" | sed -e 's/.*oe:value="//g' | sed 's/"\/>//g')
+        }
+        
+        mask2cdr () {
+          local mask=$1
+        
+          # In RFC 4632 netmasks there's no "255." after a non-255 byte in the mask
+          local left_stripped_mask=${mask##*255.}
+          local len_mask=${#mask}
+          local len_left_stripped_mask=${#left_stripped_mask}
+        
+          local conversion_table=0^^^128^192^224^240^248^252^254^
+          local number_of_bits_stripped=$(( ($len_mask - $len_left_stripped_mask)*2 ))
+          local signifacant_octet=${left_stripped_mask%%.*}
+        
+          local right_stripped_conversion_table=${conversion_table%%$signifacant_octet*}
+          local len_right_stripped_conversion_table=${#right_stripped_conversion_table}
+          local number_of_bits_from_conversion_table=$((len_right_stripped_conversion_table/4))
+          echo $(( $number_of_bits_stripped + $number_of_bits_from_conversion_table ))
+        }
+        
+        HOSTNAME=$(query_ovf "vCloud_computerName")
+        PRIMARY_NIC=$(query_ovf "vCloud_primaryNic")
+        IP_MODE=$(query_ovf "vCloud_bootproto_${PRIMARY_NIC}")
+        
+        if [ "$IP_MODE" = "static" ]; then
+        IP=$(query_ovf "vCloud_ip_${PRIMARY_NIC}")
+        GATEWAY=$(query_ovf "vCloud_gateway_${PRIMARY_NIC}")
+        DNS1=$(query_ovf "vCloud_dns1_${PRIMARY_NIC}")
+        DNS2=$(query_ovf "vCloud_dns2_${PRIMARY_NIC}")
+        NETMASK=$(query_ovf "vCloud_netmask_${PRIMARY_NIC}")
+        CIDR=$(mask2cdr "$NETMASK")
+        cat <<EOF > /etc/systemd/network/00-ens192.network
+        [Match]
+        Name=ens192
+        
+        [Network]
+        Address=$IP/$CIDR
+        Gateway=$GATEWAY
+        DNS=$DNS1 $DNS2
+        EOF
+        
+        fi
+        
+        hostnamectl set-hostname $HOSTNAME
+        
+        systemctl restart systemd-networkd
     units:
       - name: bootstrap.service
         enable: true
@@ -89,6 +138,12 @@ spec:
             data: |
               #!/bin/bash
               set -xeuo pipefail
+
+              {{- /* Need to configure networking manually when using VMWare Cloud director with static ip */}}
+              {{- if eq .CloudProviderName "vmware-cloud-director" }}
+              {{- template "configureVCloudNetwork" }}
+              {{- end }}
+
 
               {{- /* Configure proxy as the first step to ensure that all the phases of provisioning respect the proxy environment. */}}
               {{- template "configureProxyScript" }}
