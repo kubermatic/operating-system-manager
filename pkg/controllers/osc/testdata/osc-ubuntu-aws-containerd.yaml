@@ -392,7 +392,7 @@ spec:
             ExecStartPre=/bin/bash /opt/disable-swap.sh
             ExecStartPre=/bin/bash /opt/load-kernel-modules.sh
             ExecStartPre=/bin/bash /opt/bin/setup_net_env.sh
-            ExecStart=/opt/bin/kubelet $KUBELET_EXTRA_ARGS \
+            ExecStart=/opt/bin/kubelet \
               --bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf \
               --kubeconfig=/var/lib/kubelet/kubeconfig \
               --config=/etc/kubernetes/kubelet.conf \
@@ -408,14 +408,6 @@ spec:
             WantedBy=multi-user.target
           encoding: b64
       path: /etc/systemd/system/kubelet.service
-      permissions: 644
-    - content:
-        inline:
-          data: |
-            [Service]
-            Environment="KUBELET_EXTRA_ARGS=--resolv-conf=/run/systemd/resolve/resolv.conf"
-          encoding: b64
-      path: /etc/systemd/system/kubelet.service.d/extras.conf
       permissions: 644
     - content:
         inline:
@@ -457,11 +449,8 @@ spec:
             if grep -q coreos /etc/os-release
             then
               echo "KUBELET_NODE_IP=${DEFAULT_IFC_IP}\nKUBELET_HOSTNAME=${FULL_HOSTNAME}" > /etc/kubernetes/nodeip.conf
-            elif [ ! -d /etc/systemd/system/kubelet.service.d ]
-            then
-              echodate "Can't find kubelet service extras directory"
-              exit 1
             else
+              mkdir -p /etc/systemd/system/kubelet.service.d
               echo -e "[Service]\nEnvironment=\"KUBELET_NODE_IP=${DEFAULT_IFC_IP}\"\nEnvironment=\"KUBELET_HOSTNAME=${FULL_HOSTNAME}\"" > /etc/systemd/system/kubelet.service.d/nodeip.conf
             fi
           encoding: b64
@@ -600,6 +589,7 @@ spec:
             - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
             volumePluginDir: /var/lib/kubelet/volumeplugins
             volumeStatsAggPeriod: 0s
+            resolvConf: /run/systemd/resolve/resolv.conf
           encoding: b64
       path: /etc/kubernetes/kubelet.conf
       permissions: 644
