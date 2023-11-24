@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 
 	"go.uber.org/zap"
@@ -35,6 +36,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 type options struct {
@@ -61,7 +65,6 @@ func main() {
 	klog.InitFlags(nil)
 
 	opt := &options{}
-
 	flag.StringVar(&opt.metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&opt.probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&opt.enableLeaderElection, "leader-elect", false,
@@ -75,15 +78,20 @@ func main() {
 	if len(opt.namespace) == 0 {
 		klog.Fatal("-namespace is required")
 	}
-
+	ctx := signals.SetupSignalHandler()
 	mgr, err := manager.New(config.GetConfigOrDie(), manager.Options{
-		CertDir:                 opt.certDir,
+		BaseContext: func() context.Context {
+			return ctx
+		},
+		WebhookServer: webhook.NewServer(webhook.Options{
+			CertDir: opt.certDir,
+			Port:    9443,
+		}),
 		HealthProbeBindAddress:  opt.probeAddr,
 		LeaderElection:          opt.enableLeaderElection,
 		LeaderElectionNamespace: opt.namespace,
 		LeaderElectionID:        "operating-system-manager-leader-lock",
-		MetricsBindAddress:      opt.metricsAddr,
-		Port:                    9443,
+		Metrics:                 metricsserver.Options{BindAddress: opt.metricsAddr},
 		Scheme:                  scheme,
 	})
 	if err != nil {

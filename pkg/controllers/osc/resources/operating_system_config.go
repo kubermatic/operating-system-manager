@@ -136,7 +136,7 @@ func GenerateOperatingSystemConfig(
 		containerRuntimeConfig.ContainerLogMaxFiles = *kubeletConfigs.ContainerLogMaxFiles
 	}
 
-	crEngine := containerRuntimeConfig.Engine(kubeletVersion)
+	crEngine := containerRuntimeConfig.Engine()
 	crConfig, err := crEngine.Config()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate container runtime config: %w", err)

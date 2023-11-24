@@ -48,10 +48,12 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
 type options struct {
@@ -239,8 +241,7 @@ func main() {
 			// We use hard-coded namespace kube-system here since manager uses worker cluster config
 			LeaderElectionNamespace: "kube-system",
 			HealthProbeBindAddress:  opt.workerHealthProbeAddress,
-			MetricsBindAddress:      opt.workerMetricsAddress,
-			Port:                    9444,
+			Metrics:                 metricsserver.Options{BindAddress: opt.workerMetricsAddress},
 		})
 		if err != nil {
 			klog.Fatal(err)
@@ -314,12 +315,15 @@ func createManager(opt *options) (manager.Manager, error) {
 		LeaderElectionID:        "operating-system-manager",
 		LeaderElectionNamespace: opt.namespace,
 		HealthProbeBindAddress:  opt.healthProbeAddress,
-		MetricsBindAddress:      opt.metricsAddress,
-		Port:                    9443,
+		Metrics:                 metricsserver.Options{BindAddress: opt.metricsAddress},
 	}
 
 	if opt.workerClusterKubeconfig != "" {
-		options.Namespace = opt.namespace
+		options.Cache = cache.Options{
+			DefaultNamespaces: map[string]cache.Config{
+				opt.namespace: {},
+			},
+		}
 	}
 
 	mgr, err := manager.New(config.GetConfigOrDie(), options)
