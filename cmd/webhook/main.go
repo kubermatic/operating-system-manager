@@ -17,7 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"flag"
 	"log"
 
@@ -40,7 +39,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	ctrlruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
@@ -92,11 +90,7 @@ func main() {
 	if len(opt.namespace) == 0 {
 		log.Fatal("-namespace is required")
 	}
-	ctx := signals.SetupSignalHandler()
 	mgr, err := manager.New(config.GetConfigOrDie(), manager.Options{
-		BaseContext: func() context.Context {
-			return ctx
-		},
 		WebhookServer: webhook.NewServer(webhook.Options{
 			CertDir: opt.certDir,
 			Port:    9443,
