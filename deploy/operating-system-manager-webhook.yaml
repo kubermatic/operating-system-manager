@@ -50,8 +50,8 @@ spec:
           name: webhook
           command:
             - /usr/local/bin/webhook
-            - -logtostderr
-            - -v=6
+            - -log-debug=false
+            - -log-format=json # json or console
             - -namespace=kube-system
           volumeMounts:
             - name: operating-system-manager-admission-cert
