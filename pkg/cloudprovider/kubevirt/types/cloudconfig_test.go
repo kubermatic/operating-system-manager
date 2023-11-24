@@ -17,7 +17,6 @@ limitations under the License.
 package types
 
 import (
-	"fmt"
 	"testing"
 )
 
@@ -49,8 +48,6 @@ func TestCloudConfigToString(t *testing.T) {
 			}
 
 			if s != test.expected {
-				fmt.Printf("expected: %s\n", test.expected)
-				fmt.Printf("\noutput: %s\n", s)
 				t.Fatalf("output is not as expected")
 			}
 		})
