@@ -21,16 +21,15 @@ import (
 	"flag"
 	"log"
 
+	"github.com/go-logr/zapr"
 	"go.uber.org/zap"
 
-	"github.com/go-logr/zapr"
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	mdmutation "k8c.io/operating-system-manager/pkg/admission/machinedeployment/mutation"
 	oscvalidation "k8c.io/operating-system-manager/pkg/admission/operatingsystemconfig/validation"
 	ospvalidation "k8c.io/operating-system-manager/pkg/admission/operatingsystemprofile/validation"
 	"k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	osmlog "k8c.io/operating-system-manager/pkg/log"
-	ctrlruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -39,6 +38,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	ctrlruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"

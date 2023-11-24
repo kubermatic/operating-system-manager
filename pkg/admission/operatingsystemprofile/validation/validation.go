@@ -42,8 +42,8 @@ type AdmissionHandler struct {
 // NewAdmissionHandler returns a new validation AdmissionHandler.
 func NewAdmissionHandler(log *zap.SugaredLogger, scheme *runtime.Scheme) *AdmissionHandler {
 	return &AdmissionHandler{
-		log:          log,
-		decoder:      admission.NewDecoder(scheme),
+		log:     log,
+		decoder: admission.NewDecoder(scheme),
 	}
 }
 
