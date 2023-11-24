@@ -19,7 +19,7 @@ package resources
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 // GenerateCloudConfigSecret returns a secret that contains the cloud-init or ignition configurations.
@@ -31,7 +31,7 @@ func GenerateCloudConfigSecret(name, namespace string, data []byte) *corev1.Secr
 		},
 		Type: corev1.SecretTypeOpaque,
 		// Cloud config secret is immutable
-		Immutable: pointer.Bool(true),
+		Immutable: ptr.To(true),
 	}
 
 	if secret.Data == nil {
