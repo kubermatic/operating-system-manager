@@ -16,7 +16,7 @@ limitations under the License.
 
 package types
 
-import "sigs.k8s.io/yaml"
+import "gopkg.in/yaml.v3"
 
 // CloudConfig contains only the section global.
 type CloudConfig struct {

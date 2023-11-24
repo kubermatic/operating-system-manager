@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/go-logr/logr"
+	"go.uber.org/zap"
 
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
@@ -31,6 +31,7 @@ import (
 	"k8c.io/operating-system-manager/pkg/generator"
 
 	admissionv1 "k8s.io/api/admission/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -40,27 +41,20 @@ const ospNamePattern = "osp-%s"
 
 // AdmissionHandler for mutating MachineDeployment CRD.
 type AdmissionHandler struct {
-	log     logr.Logger
+	log     *zap.SugaredLogger
 	decoder *admission.Decoder
 }
 
-// NewAdmissionHandler returns a new mutation AdmissionHandler for MachineDeployments..
-func NewAdmissionHandler() *AdmissionHandler {
-	return &AdmissionHandler{}
+// NewAdmissionHandler returns a new validation AdmissionHandler.
+func NewAdmissionHandler(log *zap.SugaredLogger, scheme *runtime.Scheme) *AdmissionHandler {
+	return &AdmissionHandler{
+		log:          log,
+		decoder:      admission.NewDecoder(scheme),
+	}
 }
 
 func (h *AdmissionHandler) SetupWebhookWithManager(mgr ctrl.Manager) {
 	mgr.GetWebhookServer().Register("/mutate-v1alpha1-machinedeployment", &webhook.Admission{Handler: h})
-}
-
-func (h *AdmissionHandler) InjectLogger(l logr.Logger) error {
-	h.log = l.WithName("machine-deployment-mutation-handler")
-	return nil
-}
-
-func (h *AdmissionHandler) InjectDecoder(d *admission.Decoder) error {
-	h.decoder = d
-	return nil
 }
 
 func (h *AdmissionHandler) Handle(_ context.Context, req admission.Request) admission.Response {

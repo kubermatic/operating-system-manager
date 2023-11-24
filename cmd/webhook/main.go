@@ -19,14 +19,18 @@ package main
 import (
 	"context"
 	"flag"
+	"log"
 
 	"go.uber.org/zap"
 
+	"github.com/go-logr/zapr"
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	mdmutation "k8c.io/operating-system-manager/pkg/admission/machinedeployment/mutation"
 	oscvalidation "k8c.io/operating-system-manager/pkg/admission/operatingsystemconfig/validation"
 	ospvalidation "k8c.io/operating-system-manager/pkg/admission/operatingsystemprofile/validation"
 	"k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
+	osmlog "k8c.io/operating-system-manager/pkg/log"
+	ctrlruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -62,7 +66,8 @@ func init() {
 }
 
 func main() {
-	klog.InitFlags(nil)
+	logFlags := osmlog.NewDefaultOptions()
+	logFlags.AddFlags(flag.CommandLine)
 
 	opt := &options{}
 	flag.StringVar(&opt.metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
@@ -75,8 +80,17 @@ func main() {
 		"Directory that contains the server key(tls.key) and certificate(tls.crt).")
 	flag.Parse()
 
+	if err := logFlags.Validate(); err != nil {
+		log.Fatalf("Invalid options: %v", err)
+	}
+
+	rawLog := osmlog.New(logFlags.Debug, logFlags.Format)
+	log := rawLog.Sugar()
+	// set the logger used by controller-runtime
+	ctrlruntimelog.SetLogger(zapr.NewLogger(rawLog.WithOptions(zap.AddCallerSkip(1))))
+
 	if len(opt.namespace) == 0 {
-		klog.Fatal("-namespace is required")
+		log.Fatal("-namespace is required")
 	}
 	ctx := signals.SetupSignalHandler()
 	mgr, err := manager.New(config.GetConfigOrDie(), manager.Options{
@@ -95,24 +109,24 @@ func main() {
 		Scheme:                  scheme,
 	})
 	if err != nil {
-		klog.Fatal("failed to create the manager", zap.Error(err))
+		log.Fatal("failed to create the manager", zap.Error(err))
 	}
 
 	// Register webhooks
-	oscvalidation.NewAdmissionHandler().SetupWebhookWithManager(mgr)
-	ospvalidation.NewAdmissionHandler().SetupWebhookWithManager(mgr)
-	mdmutation.NewAdmissionHandler().SetupWebhookWithManager(mgr)
+	oscvalidation.NewAdmissionHandler(log, scheme).SetupWebhookWithManager(mgr)
+	ospvalidation.NewAdmissionHandler(log, scheme).SetupWebhookWithManager(mgr)
+	mdmutation.NewAdmissionHandler(log, scheme).SetupWebhookWithManager(mgr)
 
 	// Add health endpoints
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
-		klog.Fatalf("failed to add health check: %v", zap.Error(err))
+		log.Fatalf("failed to add health check: %v", zap.Error(err))
 	}
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
-		klog.Fatalf("failed to add readiness check: %v", zap.Error(err))
+		log.Fatalf("failed to add readiness check: %v", zap.Error(err))
 	}
 
 	klog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		klog.Fatalf("failed to start OSC controller: %v", zap.Error(err))
+		log.Fatalf("failed to start OSC controller: %v", zap.Error(err))
 	}
 }

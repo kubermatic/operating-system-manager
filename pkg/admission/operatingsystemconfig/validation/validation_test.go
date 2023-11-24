@@ -21,8 +21,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/go-logr/logr"
-
+	"go.uber.org/zap"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 
 	admissionv1 "k8s.io/api/admission/v1"
@@ -129,7 +128,7 @@ func TestHandle(t *testing.T) {
 			d := admission.NewDecoder(testScheme)
 
 			handler := AdmissionHandler{
-				log:     logr.Discard(),
+				log:     zap.NewNop().Sugar(),
 				decoder: d,
 			}
 
