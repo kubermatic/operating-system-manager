@@ -51,7 +51,7 @@ spec:
         {{- end }}
 
         source /etc/environment
-      configureVCloudNetwork: |-
+      configureVCloudNetworkStatic: |-
         function query_ovf () {
           local QUERY=$1
           echo $(/usr/share/oem/bin/vmtoolsd --cmd "info-get guestinfo.ovfEnv" | grep "${QUERY}" | sed -e 's/.*oe:value="//g' | sed 's/"\/>//g')
@@ -75,7 +75,6 @@ spec:
           echo $(( $number_of_bits_stripped + $number_of_bits_from_conversion_table ))
         }
         
-        HOSTNAME=$(query_ovf "vCloud_computerName")
         PRIMARY_NIC=$(query_ovf "vCloud_primaryNic")
         IP_MODE=$(query_ovf "vCloud_bootproto_${PRIMARY_NIC}")
         
@@ -96,11 +95,10 @@ spec:
         DNS=$DNS1 $DNS2
         EOF
         
-        fi
-        
-        hostnamectl set-hostname $HOSTNAME
-        
         systemctl restart systemd-networkd
+
+        fi
+
     units:
       - name: bootstrap.service
         enable: true
@@ -141,7 +139,7 @@ spec:
 
               {{- /* Need to configure networking manually when using VMWare Cloud director with static ip */}}
               {{- if eq .CloudProviderName "vmware-cloud-director" }}
-              {{- template "configureVCloudNetwork" }}
+              {{- template "configureVCloudNetworkStatic" }}
               {{- end }}
 
 

@@ -21,5 +21,5 @@ Currently supported K8S versions are:
 | KubeVirt | ✓ | ✓ | ✓ | x | ✓ | ✓ |
 | Nutanix | ✓ | ✓ | x | x | x | x |
 | Openstack | ✓ | ✓ | ✓ | x | ✓ | ✓ |
-| VMware Cloud Director | ✓ | x | x | x | x | x |
+| VMware Cloud Director | ✓ | x | ✓ | x | x | x |
 | VSphere | ✓ | ✓ | ✓ | x | ✓ | ✓ |
