@@ -18,7 +18,7 @@ WORKDIR /go/src/k8c.io/operating-system-manager
 COPY . .
 RUN make all
 
-FROM alpine:3.16
+FROM alpine:3.18
 
 RUN apk add --no-cache ca-certificates cdrkit
 
