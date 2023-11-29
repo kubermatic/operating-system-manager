@@ -27,6 +27,7 @@ spec:
     - name: "aws"
     - name: "azure"
     - name: "equinixmetal"
+    - name: "gce"
     - name: "kubevirt"
     - name: "openstack"
     - name: "vsphere"
