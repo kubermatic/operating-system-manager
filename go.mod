@@ -14,13 +14,13 @@ require (
 	github.com/spf13/pflag v1.0.6-0.20210604193023-d5e0c0615ace
 	go.uber.org/zap v1.26.0
 	gopkg.in/yaml.v3 v3.0.1
-	k8c.io/reconciler v0.4.0
+	k8c.io/reconciler v0.5.0
 	k8s.io/api v0.28.4
 	k8s.io/apimachinery v0.28.4
-	k8s.io/client-go v12.0.0+incompatible
+	k8s.io/client-go v0.28.4
 	k8s.io/code-generator v0.28.4
 	k8s.io/klog/v2 v2.110.1
-	k8s.io/utils v0.0.0-20231121161247-cf03d44ff3cf
+	k8s.io/utils v0.0.0-20231127182322-b307cd553661
 	sigs.k8s.io/controller-runtime v0.16.3
 	sigs.k8s.io/controller-tools v0.13.0
 	sigs.k8s.io/yaml v1.4.0
@@ -107,7 +107,5 @@ require (
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 )
-
-replace k8s.io/client-go => k8s.io/client-go v0.28.4
 
 replace github.com/ajeddeloh/go-json => github.com/coreos/go-json v0.0.0-20230131223807-18775e0fb4fb

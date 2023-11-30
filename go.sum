@@ -510,8 +510,8 @@ honnef.co/go/tools v0.0.0-20190106161140-3f1c8253044a/go.mod h1:rf3lG4BRIbNafJWh
 honnef.co/go/tools v0.0.0-20190418001031-e561f6794a2a/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 honnef.co/go/tools v0.0.1-2019.2.3/go.mod h1:a3bituU0lyd329TUQxRnasdCoJDkEUEAqEt0JzvZhAg=
-k8c.io/reconciler v0.4.0 h1:movw1R8Q0/JC8S+d6eq9si5PvLFbX3A0x8yaDlxuFn4=
-k8c.io/reconciler v0.4.0/go.mod h1:oQ9wCN6WyARwRn/8QWTSs3HlQg+7GxWjg45MISLsdD0=
+k8c.io/reconciler v0.5.0 h1:BHpelg1UfI/7oBFctqOq8sX6qzflXpl3SlvHe7e8wak=
+k8c.io/reconciler v0.5.0/go.mod h1:pT1+SVcVXJQeBJhpJBXQ5XW64QnKKeYTnVlQf0dGE0k=
 k8s.io/api v0.28.4 h1:8ZBrLjwosLl/NYgv1P7EQLqoO8MGQApnbgH8tu3BMzY=
 k8s.io/api v0.28.4/go.mod h1:axWTGrY88s/5YE+JSt4uUi6NMM+gur1en2REMR7IRj0=
 k8s.io/apiextensions-apiserver v0.28.4 h1:AZpKY/7wQ8n+ZYDtNHbAJBb+N4AXXJvyZx6ww6yAJvU=
@@ -535,8 +535,8 @@ k8s.io/kube-openapi v0.0.0-20231113174909-778a5567bc1e h1:snPmy96t93RredGRjKfMFt
 k8s.io/kube-openapi v0.0.0-20231113174909-778a5567bc1e/go.mod h1:AsvuZPBlUDVuCdzJ87iajxtXuR9oktsTctW/R9wwouA=
 k8s.io/kubelet v0.28.4 h1:Ypxy1jaFlSXFXbg/yVtFOU2ZxErBVRJfLu8+t4s7Dtw=
 k8s.io/kubelet v0.28.4/go.mod h1:w1wPI12liY/aeC70nqKYcNNkr6/nbyvdMB7P7wmww2o=
-k8s.io/utils v0.0.0-20231121161247-cf03d44ff3cf h1:iTzha1p7Fi83476ypNSz8nV9iR9932jIIs26F7gNLsU=
-k8s.io/utils v0.0.0-20231121161247-cf03d44ff3cf/go.mod h1:OLgZIPagt7ERELqWJFomSt595RzquPNLL48iOWgYOg0=
+k8s.io/utils v0.0.0-20231127182322-b307cd553661 h1:FepOBzJ0GXm8t0su67ln2wAZjbQ6RxQGZDnzuLcrUTI=
+k8s.io/utils v0.0.0-20231127182322-b307cd553661/go.mod h1:OLgZIPagt7ERELqWJFomSt595RzquPNLL48iOWgYOg0=
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
 rsc.io/quote/v3 v3.1.0/go.mod h1:yEA65RcK8LyAZtP9Kv3t0HmxON59tX3rD+tICJqUlj0=
 rsc.io/sampler v1.3.0/go.mod h1:T1hPZKmBbMNahiBKFy5HrXp6adAjACjK9JXDnKaTXpA=
