@@ -25,7 +25,7 @@ import (
 	"k8c.io/operating-system-manager/pkg/cloudprovider/openstack/types"
 	"k8c.io/operating-system-manager/pkg/providerconfig/config"
 
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 )
 
 func GetCloudConfig(pconfig providerconfigtypes.Config, kubeletVersion string) (string, error) {

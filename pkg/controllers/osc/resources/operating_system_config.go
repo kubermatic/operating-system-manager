@@ -47,7 +47,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 const (
@@ -136,7 +136,7 @@ func GenerateOperatingSystemConfig(
 		containerRuntimeConfig.ContainerLogMaxFiles = *kubeletConfigs.ContainerLogMaxFiles
 	}
 
-	crEngine := containerRuntimeConfig.Engine(kubeletVersion)
+	crEngine := containerRuntimeConfig.Engine()
 	crConfig, err := crEngine.Config()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate container runtime config: %w", err)
@@ -492,7 +492,7 @@ func getKubeletConfigs(annotations map[string]string) (kubeletConfig, error) {
 		if err != nil {
 			return kubeletConfig{}, fmt.Errorf("failed to parse maxPods")
 		}
-		cfg.MaxPods = pointer.Int32(int32(mp))
+		cfg.MaxPods = ptr.To(int32(mp))
 	}
 
 	if val, ok := kubeletConfigs[common.ContainerLogMaxSizeKubeletConfig]; ok {

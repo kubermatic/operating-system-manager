@@ -21,12 +21,13 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/go-logr/logr"
+	"go.uber.org/zap"
 
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/runtime"
 	ctrlruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -34,27 +35,20 @@ import (
 
 // AdmissionHandler for validating OperatingSystemProfile CRD.
 type AdmissionHandler struct {
-	log     logr.Logger
+	log     *zap.SugaredLogger
 	decoder *admission.Decoder
 }
 
 // NewAdmissionHandler returns a new validation AdmissionHandler.
-func NewAdmissionHandler() *AdmissionHandler {
-	return &AdmissionHandler{}
+func NewAdmissionHandler(log *zap.SugaredLogger, scheme *runtime.Scheme) *AdmissionHandler {
+	return &AdmissionHandler{
+		log:     log,
+		decoder: admission.NewDecoder(scheme),
+	}
 }
 
 func (h *AdmissionHandler) SetupWebhookWithManager(mgr ctrlruntime.Manager) {
 	mgr.GetWebhookServer().Register("/operatingsystemprofile", &webhook.Admission{Handler: h})
-}
-
-func (h *AdmissionHandler) InjectLogger(l logr.Logger) error {
-	h.log = l.WithName("operating-system-profile-validation-handler")
-	return nil
-}
-
-func (h *AdmissionHandler) InjectDecoder(d *admission.Decoder) error {
-	h.decoder = d
-	return nil
 }
 
 func (h *AdmissionHandler) Handle(_ context.Context, req webhook.AdmissionRequest) webhook.AdmissionResponse {

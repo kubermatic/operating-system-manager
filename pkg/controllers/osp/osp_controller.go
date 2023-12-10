@@ -90,8 +90,7 @@ func Add(mgr manager.Manager, log *zap.SugaredLogger, namespace string, workerCo
 	// Since the osp controller cares about only creating the default OSP resources, we need to watch for the creation
 	// of any random resource in the underlying namespace where osm is deployed. We picked deployments for this and added additional
 	// event filtering to avoid redundant reconciliation/requeues.
-	if err := c.Watch(
-		&source.Kind{Type: &appsv1.Deployment{}},
+	if err := c.Watch(source.Kind(mgr.GetCache(), &appsv1.Deployment{}),
 		&handler.EnqueueRequestForObject{},
 		filterDeploymentPredicate(),
 		predicateutil.ByNamespace(namespace),

@@ -21,7 +21,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/go-logr/logr"
+	"go.uber.org/zap"
 
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 
@@ -126,13 +126,10 @@ func TestHandle(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			d, err := admission.NewDecoder(testScheme)
-			if err != nil {
-				t.Fatalf("error occurred while creating decoder: %v", err)
-			}
+			d := admission.NewDecoder(testScheme)
 
 			handler := AdmissionHandler{
-				log:     logr.Discard(),
+				log:     zap.NewNop().Sugar(),
 				decoder: d,
 			}
 
