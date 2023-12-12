@@ -2,9 +2,12 @@
 
 approvers:
   - sig-osm
+  - sig-cluster-management
 
 reviewers:
   - sig-osm
+  - sig-cluster-management
 
 labels:
   - sig/osm
+  - sig/cluster-management
