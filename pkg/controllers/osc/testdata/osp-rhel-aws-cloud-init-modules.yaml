@@ -212,7 +212,7 @@ spec:
         cd -
 
         {{- /* # cri-tools variables */}}
-        CRI_TOOLS_RELEASE="${CRI_TOOLS_RELEASE:-v1.28.0}"
+        CRI_TOOLS_RELEASE="${CRI_TOOLS_RELEASE:-v1.29.0}"
         cri_tools_base_url="https://github.com/kubernetes-sigs/cri-tools/releases/download/${CRI_TOOLS_RELEASE}"
         cri_tools_filename="crictl-${CRI_TOOLS_RELEASE}-linux-${arch}.tar.gz"
 
@@ -571,11 +571,13 @@ spec:
                 --kubeconfig=/var/lib/kubelet/kubeconfig \
                 --config=/etc/kubernetes/kubelet.conf \
                 --cert-dir=/etc/kubernetes/pki \
+                {{- if or (semverCompare "<1.29" .KubeVersion) (.DisableCloudProvidersFeatureGateDisabled) }}
                 {{- if .ExternalCloudProvider }}
                 --cloud-provider=external \
                 {{- else if .InTreeCCMAvailable }}
                 --cloud-provider={{- .CloudProviderName }} \
                 --cloud-config=/etc/kubernetes/cloud-config \
+                {{- end }}
                 {{- end }}
                 {{- if ne .CloudProviderName "aws" }}
                 --hostname-override=${KUBELET_HOSTNAME} \

@@ -353,7 +353,7 @@ spec:
             tar xvf "$cni_filename"
             rm -f "$cni_filename"
             cd -
-            CRI_TOOLS_RELEASE="${CRI_TOOLS_RELEASE:-v1.28.0}"
+            CRI_TOOLS_RELEASE="${CRI_TOOLS_RELEASE:-v1.29.0}"
             cri_tools_base_url="https://github.com/kubernetes-sigs/cri-tools/releases/download/${CRI_TOOLS_RELEASE}"
             cri_tools_filename="crictl-${CRI_TOOLS_RELEASE}-linux-${arch}.tar.gz"
             curl -Lfo "$opt_bin/$cri_tools_filename" "$cri_tools_base_url/$cri_tools_filename"
@@ -365,7 +365,7 @@ spec:
             rm -f "$cri_tools_filename"
             ln -sf "$opt_bin/crictl" "$usr_local_bin"/crictl || echo "symbolic link is skipped"
             cd -
-            KUBE_VERSION="${KUBE_VERSION:-v1.22.2}"
+            KUBE_VERSION="${KUBE_VERSION:-v1.29.0}"
             kube_dir="$opt_bin/kubernetes-$KUBE_VERSION"
             kube_base_url="https://dl.k8s.io/$KUBE_VERSION/bin/linux/$arch"
             kube_sum_file="$kube_dir/sha256"
@@ -438,8 +438,6 @@ spec:
               --kubeconfig=/var/lib/kubelet/kubeconfig \
               --config=/etc/kubernetes/kubelet.conf \
               --cert-dir=/etc/kubernetes/pki \
-              --cloud-provider=azure \
-              --cloud-config=/etc/kubernetes/cloud-config \
               --hostname-override=${KUBELET_HOSTNAME} \
               --exit-on-lock-contention \
               --lock-file=/tmp/kubelet.lock \
