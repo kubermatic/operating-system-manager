@@ -58,6 +58,8 @@ const (
 	MachineDeploymentOSPNamespaceAnnotation = "k8c.io/operating-system-profile-namespace"
 
 	defaultFilePermissions = 644
+
+	disableCloudProviderFeatureGate = "DisableCloudProviders"
 )
 
 // GenerateOperatingSystemConfig return an OperatingSystemConfig generated against the input data
@@ -177,24 +179,30 @@ func GenerateOperatingSystemConfig(
 		cloudConfig = ""
 	}
 
+	disableCloudProvidersFeatureGateDisabled := false
+	if val, ok := kubeletFeatureGates[disableCloudProviderFeatureGate]; ok && !val {
+		disableCloudProvidersFeatureGateDisabled = true
+	}
+
 	data := filesData{
-		KubeVersion:                kubeletVersionStr,
-		ClusterDNSIPs:              clusterDNSIPs,
-		KubernetesCACert:           caCert,
-		InTreeCCMAvailable:         inTreeCCM,
-		CloudConfig:                cloudConfig,
-		ContainerRuntime:           containerRuntime,
-		CloudProviderName:          osmv1alpha1.CloudProvider(providerConfig.CloudProvider),
-		ExternalCloudProvider:      external,
-		PauseImage:                 pauseImage,
-		InitialTaints:              initialTaints,
-		ContainerRuntimeConfig:     crConfig,
-		ContainerRuntimeAuthConfig: crAuthConfig,
-		KubeletFeatureGates:        kubeletFeatureGates,
-		kubeletConfig:              kubeletConfigs,
-		BootstrapKubeconfig:        bootstrapKubeconfigString,
-		bootstrapConfig:            bc,
-		NetworkIPFamily:            string(networkIPFamily),
+		KubeVersion:                              kubeletVersionStr,
+		ClusterDNSIPs:                            clusterDNSIPs,
+		KubernetesCACert:                         caCert,
+		InTreeCCMAvailable:                       inTreeCCM,
+		CloudConfig:                              cloudConfig,
+		ContainerRuntime:                         containerRuntime,
+		CloudProviderName:                        osmv1alpha1.CloudProvider(providerConfig.CloudProvider),
+		ExternalCloudProvider:                    external,
+		PauseImage:                               pauseImage,
+		InitialTaints:                            initialTaints,
+		DisableCloudProvidersFeatureGateDisabled: disableCloudProvidersFeatureGateDisabled,
+		ContainerRuntimeConfig:                   crConfig,
+		ContainerRuntimeAuthConfig:               crAuthConfig,
+		KubeletFeatureGates:                      kubeletFeatureGates,
+		kubeletConfig:                            kubeletConfigs,
+		BootstrapKubeconfig:                      bootstrapKubeconfigString,
+		bootstrapConfig:                          bc,
+		NetworkIPFamily:                          string(networkIPFamily),
 	}
 
 	if len(nodeHTTPProxy) > 0 {
@@ -265,29 +273,30 @@ func GenerateOperatingSystemConfig(
 }
 
 type filesData struct {
-	KubeVersion                string
-	KubeletConfiguration       string
-	KubeletSystemdUnit         string
-	BootstrapKubeconfig        string
-	InTreeCCMAvailable         bool
-	CNIVersion                 string
-	ClusterDNSIPs              []net.IP
-	KubernetesCACert           string
-	ServerAddress              string
-	CloudConfig                string
-	ContainerRuntime           string
-	CloudProviderName          osmv1alpha1.CloudProvider
-	NetworkConfig              *providerconfigtypes.NetworkConfig
-	ExternalCloudProvider      bool
-	PauseImage                 string
-	InitialTaints              string
-	HTTPProxy                  *string
-	NoProxy                    *string
-	ContainerRuntimeConfig     string
-	ContainerRuntimeAuthConfig string
-	KubeletFeatureGates        map[string]bool
-	RHSubscription             map[string]string
-	NetworkIPFamily            string
+	KubeVersion                              string
+	KubeletConfiguration                     string
+	KubeletSystemdUnit                       string
+	BootstrapKubeconfig                      string
+	InTreeCCMAvailable                       bool
+	CNIVersion                               string
+	ClusterDNSIPs                            []net.IP
+	KubernetesCACert                         string
+	ServerAddress                            string
+	CloudConfig                              string
+	ContainerRuntime                         string
+	CloudProviderName                        osmv1alpha1.CloudProvider
+	NetworkConfig                            *providerconfigtypes.NetworkConfig
+	ExternalCloudProvider                    bool
+	PauseImage                               string
+	InitialTaints                            string
+	HTTPProxy                                *string
+	NoProxy                                  *string
+	ContainerRuntimeConfig                   string
+	ContainerRuntimeAuthConfig               string
+	KubeletFeatureGates                      map[string]bool
+	RHSubscription                           map[string]string
+	NetworkIPFamily                          string
+	DisableCloudProvidersFeatureGateDisabled bool
 
 	kubeletConfig
 	operatingSystemConfig

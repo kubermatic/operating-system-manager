@@ -4,7 +4,7 @@ metadata:
   annotations:
     k8c.io/machine-deployment-revision: "1"
   creationTimestamp: null
-  name: osp-rhel-aws-kube-system-config
+  name: ubuntu-aws-kube-system-config
   namespace: kube-system
   resourceVersion: "1"
 spec:
@@ -15,15 +15,33 @@ spec:
           data: |
             #!/bin/bash
             set -xeuo pipefail
-
-            yum install -y curl jq
-
-            curl -s -k -v --header 'Authorization: Bearer top-secret' https://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/osp-rhel-aws-kube-system-provisioning-config | jq '.data["cloud-config"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/osp-rhel-aws-kube-system-provisioning-config.cfg
-            cloud-init clean
-            cloud-init --file /etc/cloud/cloud.cfg.d/osp-rhel-aws-kube-system-provisioning-config.cfg init
-
-            systemctl daemon-reload
-            systemctl restart setup.service
+            while ! "$@"; do
+              sleep 1
+            done
+          encoding: b64
+      path: /opt/bin/supervise.sh
+      permissions: 755
+    - content:
+        inline:
+          data: "#!/bin/bash\nset -xeuo pipefail\n\n# Check if bootstrap phase has
+            already completed. This is required when we run `cloud-init init` again
+            since it tries to re-run\n# the bootstrap cloud-config as well, from the
+            userdata.\nif [ -f /etc/bootstrap-complete ]; then\n  exit 0\nfi\n\ncat
+            <<EOF | tee -a /etc/environment\nHTTP_PROXY=http://test-http-proxy.com\nhttp_proxy=http://test-http-proxy.com\nHTTPS_PROXY=http://test-http-proxy.com\nhttps_proxy=http://test-http-proxy.com\nEOF\ncat
+            <<EOF | tee -a /etc/environment\nNO_PROXY=http://test-no-proxy.com\nno_proxy=http://test-no-proxy.com\nEOF\n\nsudo
+            mkdir -p /etc/apt/apt.conf.d\ncat <<EOF | sudo tee /etc/apt/apt.conf.d/proxy.conf\nAcquire::https::Proxy
+            \"http://test-http-proxy.com\";\nAcquire::http::Proxy \"http://test-http-proxy.com\";\nEOF\n\nsource
+            /etc/environment\n\nexport DEBIAN_FRONTEND=noninteractive\napt update
+            && apt install -y curl jq\ncurl -s -k -v --header 'Authorization: Bearer
+            top-secret'\thttps://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/ubuntu-aws-kube-system-provisioning-config
+            | jq '.data[\"cloud-config\"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/ubuntu-aws-kube-system-provisioning-config.cfg\ncloud-init
+            clean\n\ncloud-init --file /etc/cloud/cloud.cfg.d/ubuntu-aws-kube-system-provisioning-config.cfg
+            init\nsystemctl daemon-reload\n\nsystemctl daemon-reload\n\n# cloud-init
+            should only run on the first boot. From this point forward we don't need
+            cloud-init anymore.\nsystemctl disable cloud-init\ntouch /etc/cloud/cloud-init.disabled\n\n#
+            Bootstrap phase for the machine is complete.\ntouch /etc/bootstrap-complete\nsystemctl
+            disable bootstrap.service\n\n# Start provisioning phase for the machine.\nsystemctl
+            restart setup.service\n"
           encoding: b64
       path: /opt/bin/bootstrap
       permissions: 755
@@ -39,15 +57,12 @@ spec:
             [Service]
             Type=oneshot
             RemainAfterExit=true
-            ExecStart=/opt/bin/bootstrap
+            EnvironmentFile=-/etc/environment
+            ExecStart=/opt/bin/supervise.sh /opt/bin/bootstrap
           encoding: b64
       path: /etc/systemd/system/bootstrap.service
       permissions: 644
     modules:
-      rh_subscription:
-        auto-attach: "false"
-        password: ""
-        username: ""
       runcmd:
       - systemctl restart bootstrap.service
       - systemctl daemon-reload
@@ -59,8 +74,8 @@ spec:
       availabilityZone: eu-central-1b
       subnetID: test-subnet
       vpcId: e-123f
-  osName: rhel
-  osVersion: "8.5"
+  osName: ubuntu
+  osVersion: "20.04"
   provisioningConfig:
     files:
     - content:
@@ -199,7 +214,6 @@ spec:
             #!/usr/bin/env bash
             set -euo pipefail
 
-            modprobe ip_tables
             modprobe ip_vs
             modprobe ip_vs_rr
             modprobe ip_vs_wrr
@@ -230,50 +244,55 @@ spec:
     - content:
         inline:
           data: |
-            # This file controls the state of SELinux on the system.
-            # SELINUX= can take one of these three values:
-            #     enforcing - SELinux security policy is enforced.
-            #     permissive - SELinux prints warnings instead of enforcing.
-            #     disabled - No SELinux policy is loaded.
-            SELINUX=permissive
-            # SELINUXTYPE= can take one of three two values:
-            #     targeted - Targeted processes are protected,
-            #     minimum - Modification of targeted policy. Only selected processes are protected.
-            #     mls - Multi Level Security protection.
-            SELINUXTYPE=targeted
+            # Added by kubermatic machine-controller
+            # Enable cgroups memory and swap accounting
+            GRUB_CMDLINE_LINUX="cgroup_enable=memory swapaccount=1"
           encoding: b64
-      path: /etc/selinux/config
+      path: /etc/default/grub.d/60-swap-accounting.cfg
       permissions: 644
     - content:
         inline:
           data: |
             #!/bin/bash
             set -xeuo pipefail
-
-            setenforce 0 || true
+            if systemctl is-active ufw; then systemctl stop ufw; fi
+            systemctl mask ufw
             systemctl restart systemd-modules-load.service
             sysctl --system
 
-            yum install -y \
-              device-mapper-persistent-data \
-              lvm2 \
+            # Override hostname if /etc/machine-name exists
+            if [ -x "$(command -v hostnamectl)" ] && [ -s /etc/machine-name ]; then
+              machine_name=$(cat /etc/machine-name)
+              hostnamectl set-hostname ${machine_name}
+            fi
+
+            apt-get update
+
+            DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y \
+              curl \
+              ca-certificates \
+              ceph-common \
+              cifs-utils \
+              conntrack \
+              e2fsprogs \
               ebtables \
               ethtool \
-              nfs-utils \
-              bash-completion \
-              sudo \
+              glusterfs-client \
+              iptables \
+              jq \
+              kmod \
+              openssh-client \
+              nfs-common \
               socat \
-              wget \
-              curl \
+              util-linux \
               ipvsadm
+            apt-get update
+            apt-get install -y apt-transport-https ca-certificates curl software-properties-common lsb-release
+            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+            add-apt-repository "deb https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
 
-            systemctl disable --now firewalld || true
-            yum install -y yum-utils
-            yum-config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
-            yum-config-manager --save --setopt=docker-ce-stable.module_hotfixes=true
-
-            yum install -y containerd.io-1.5* yum-plugin-versionlock
-            yum versionlock add containerd.io
+            apt-get install -y --allow-downgrades containerd.io=1.6*
+            apt-mark hold containerd.io
 
             systemctl daemon-reload
             systemctl enable --now containerd
@@ -339,27 +358,8 @@ spec:
                 ln -sf "$kube_dir/$bin" "$opt_bin"/$bin
             done
 
-            cat <<EOF | tee -a /etc/environment
-            HTTP_PROXY=http://test-http-proxy.com
-            http_proxy=http://test-http-proxy.com
-            HTTPS_PROXY=http://test-http-proxy.com
-            https_proxy=http://test-http-proxy.com
-            NO_PROXY=http://test-no-proxy.com
-            no_proxy=http://test-no-proxy.com
-            EOF
-
-            DEFAULT_IFC_NAME=$(ip -o route get 1  | grep -oP "dev \K\S+")
-
-            # enable DHCPv6 on the default interface
-            echo NETWORKING_IPV6=yes >> /etc/sysconfig/network
-            echo IPV6INIT=yes >> /etc/sysconfig/network-scripts/ifcfg-$DEFAULT_IFC_NAME
-            echo DHCPV6C=yes >> /etc/sysconfig/network-scripts/ifcfg-$DEFAULT_IFC_NAME
-            ifdown $DEFAULT_IFC_NAME && ifup $DEFAULT_IFC_NAME
-
-            mkdir -p /etc/systemd/system/kubelet.service.d/
             # set kubelet nodeip environment variable
             /opt/bin/setup_net_env.sh
-
             curl -s -k -v --header 'Authorization: Bearer top-secret' https://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/kube-system-ubuntu-aws-kubelet-bootstrap-config | jq '.data["kubeconfig"]' -r| base64 -d > /etc/kubernetes/bootstrap-kubelet.conf
 
             systemctl enable --now kubelet
@@ -367,17 +367,6 @@ spec:
             systemctl disable setup.service
           encoding: b64
       path: /opt/bin/setup
-      permissions: 755
-    - content:
-        inline:
-          data: |
-            #!/bin/bash
-            set -xeuo pipefail
-            while ! "$@"; do
-              sleep 1
-            done
-          encoding: b64
-      path: /opt/bin/supervise.sh
       permissions: 755
     - content:
         inline:
@@ -408,9 +397,10 @@ spec:
               --kubeconfig=/var/lib/kubelet/kubeconfig \
               --config=/etc/kubernetes/kubelet.conf \
               --cert-dir=/etc/kubernetes/pki \
+              --cloud-provider=aws \
+              --cloud-config=/etc/kubernetes/cloud-config \
               --exit-on-lock-contention \
               --lock-file=/tmp/kubelet.lock \
-              --container-runtime=remote \
               --container-runtime-endpoint=unix:///run/containerd/containerd.sock \
               --node-ip ${KUBELET_NODE_IP}
 
@@ -550,8 +540,7 @@ spec:
             cpuManagerReconcilePeriod: 0s
             evictionPressureTransitionPeriod: 0s
             featureGates:
-              GracefulNodeShutdown: true
-              IdentifyPodOS: false
+              DisableCloudProviders: false
             fileCheckFrequency: 0s
             httpCheckFrequency: 0s
             imageMinimumGCAge: 0s
@@ -599,6 +588,7 @@ spec:
             - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
             volumePluginDir: /var/lib/kubelet/volumeplugins
             volumeStatsAggPeriod: 0s
+            resolvConf: /run/systemd/resolve/resolv.conf
           encoding: b64
       path: /etc/kubernetes/kubelet.conf
       permissions: 644
@@ -610,6 +600,7 @@ spec:
             After=kubelet.service
 
             [Service]
+            EnvironmentFile=-/etc/environment
             ExecStart=/opt/bin/health-monitor.sh kubelet
 
             [Install]
@@ -676,21 +667,6 @@ spec:
           encoding: b64
       path: /etc/containerd/config.toml
       permissions: 600
-    modules:
-      rh_subscription:
-        auto-attach: "false"
-        password: ""
-        username: ""
-      yum_repo_dir: /store/custom/yum.repos.d
-      yum_repos:
-        cloud-init-daily:
-          baseurl: https://k8c.io/osm
-          enabled_metadata: "1"
-          gpgcheck: "true"
-          gpgkey: https://k8c.io/osm/pubkey.gpg
-          name: test cloud-init yum repos
-          skip_if_unavailable: "true"
-          type: rpm-md
     userSSHKeys:
     - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c
   provisioningUtility: cloud-init

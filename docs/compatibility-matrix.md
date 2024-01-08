@@ -4,6 +4,7 @@
 
 Currently supported K8S versions are:
 
+- 1.29
 - 1.28
 - 1.27
 - 1.26

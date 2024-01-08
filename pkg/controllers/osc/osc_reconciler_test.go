@@ -80,7 +80,7 @@ kPe6XoSbiLm/kxk32T0=
 
 const (
 	defaultOSPPathPrefix  = "../../../../deploy/osps/default/"
-	defaultKubeletVersion = "1.22.2"
+	defaultKubeletVersion = "1.29.0"
 	ospUbuntu             = "osp-ubuntu"
 )
 
@@ -116,9 +116,12 @@ type testConfig struct {
 	namespace        string
 	containerRuntime string
 	clusterDNSIPs    []net.IP
+	featureGates     map[string]bool
 }
 
 func TestReconciler_Reconcile(t *testing.T) {
+	disableCloudProviderFeatureGate := map[string]bool{"DisableCloudProviders": false}
+
 	var testCases = []struct {
 		name                   string
 		kubeletVersion         string
@@ -142,13 +145,32 @@ func TestReconciler_Reconcile(t *testing.T) {
 			operatingSystem:        providerconfigtypes.OperatingSystemUbuntu,
 			oscFile:                "osc-ubuntu-aws-containerd.yaml",
 			mdName:                 "ubuntu-aws",
-			kubeletVersion:         "1.26.7",
+			kubeletVersion:         "1.29.0",
 			provisioningSecretFile: "secret-ubuntu-aws-containerd-provisioning.yaml",
 			bootstrapSecretFile:    "secret-ubuntu-aws-containerd-bootstrap.yaml",
 			config: testConfig{
 				namespace:        "kube-system",
 				containerRuntime: "containerd",
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
+			},
+			cloudProvider:     "aws",
+			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
+		},
+		{
+			name:                   "Ubuntu OS in AWS with DisableCloudProviders feature gate disabled",
+			ospFile:                defaultOSPPathPrefix + fmt.Sprintf("%s.yaml", ospUbuntu),
+			ospName:                ospUbuntu,
+			operatingSystem:        providerconfigtypes.OperatingSystemUbuntu,
+			oscFile:                "osc-ubuntu-aws.yaml",
+			mdName:                 "ubuntu-aws",
+			kubeletVersion:         "1.29.0",
+			provisioningSecretFile: "secret-ubuntu-aws-provisioning.yaml",
+			bootstrapSecretFile:    "secret-ubuntu-aws-bootstrap.yaml",
+			config: testConfig{
+				namespace:        "kube-system",
+				containerRuntime: "containerd",
+				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
+				featureGates:     disableCloudProviderFeatureGate,
 			},
 			cloudProvider:     "aws",
 			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
@@ -161,7 +183,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 			oscFile:                "osc-ubuntu-aws-dualstack.yaml",
 			mdName:                 "ubuntu-aws",
 			ipFamily:               cloudproviderutil.IPFamilyIPv4IPv6,
-			kubeletVersion:         "1.26.7",
+			kubeletVersion:         "1.29.0",
 			provisioningSecretFile: "secret-ubuntu-aws-dualstack-provisioning.yaml",
 			bootstrapSecretFile:    "secret-ubuntu-aws-dualstack-bootstrap.yaml",
 			config: testConfig{
@@ -180,7 +202,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 			oscFile:                "osc-ubuntu-aws-dualstack-IPv6+IPv4.yaml",
 			mdName:                 "ubuntu-aws",
 			ipFamily:               cloudproviderutil.IPFamilyIPv6IPv4,
-			kubeletVersion:         "1.26.7",
+			kubeletVersion:         "1.29.0",
 			provisioningSecretFile: "secret-ubuntu-aws-dualstack-IPv6+IPv4-provisioning.yaml",
 			bootstrapSecretFile:    "secret-ubuntu-aws-dualstack-IPv6+IPv4-bootstrap.yaml",
 			config: testConfig{
@@ -820,6 +842,10 @@ func loadFile(obj runtime.Object, name string) error {
 func buildReconciler(fakeClient controllerruntimeclient.Client, config testConfig) Reconciler {
 	kubeconfigProvider := clusterinfo.New(fakeClient, "foobar")
 	bootstrappingManager := bootstrap.New(fakeClient, kubeconfigProvider, nil, "")
+	featureGates := map[string]bool{"GracefulNodeShutdown": true, "IdentifyPodOS": false}
+	if config.featureGates != nil {
+		featureGates = config.featureGates
+	}
 
 	return Reconciler{
 		Client:       fakeClient,
@@ -831,7 +857,7 @@ func buildReconciler(fakeClient controllerruntimeclient.Client, config testConfi
 		caCert:               dummyCACert,
 		containerRuntime:     config.containerRuntime,
 		clusterDNSIPs:        config.clusterDNSIPs,
-		kubeletFeatureGates:  map[string]bool{"GracefulNodeShutdown": true, "IdentifyPodOS": false},
+		kubeletFeatureGates:  featureGates,
 		bootstrappingManager: bootstrappingManager,
 		nodeHTTPProxy:        "http://test-http-proxy.com",
 		nodeNoProxy:          "http://test-no-proxy.com",

@@ -49,7 +49,7 @@ func TestMutateMachineDeployment(t *testing.T) {
 					Template: clusterv1alpha1.MachineTemplateSpec{
 						Spec: clusterv1alpha1.MachineSpec{
 							Versions: clusterv1alpha1.MachineVersionInfo{
-								Kubelet: "1.22.1",
+								Kubelet: "1.29.0",
 							},
 							ProviderSpec: clusterv1alpha1.ProviderSpec{
 								Value: &runtime.RawExtension{
@@ -72,7 +72,7 @@ func TestMutateMachineDeployment(t *testing.T) {
 					Template: clusterv1alpha1.MachineTemplateSpec{
 						Spec: clusterv1alpha1.MachineSpec{
 							Versions: clusterv1alpha1.MachineVersionInfo{
-								Kubelet: "1.22.1",
+								Kubelet: "1.29.0",
 							},
 							ProviderSpec: clusterv1alpha1.ProviderSpec{
 								Value: &runtime.RawExtension{

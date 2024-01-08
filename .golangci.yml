@@ -71,3 +71,7 @@ linters-settings:
       main:
         deny:
           - { pkg: io/ioutil, desc: https://go.dev/doc/go1.16#ioutil }
+
+issues:
+  exclude:
+    - "cyclomatic complexity 32 of func `GenerateOperatingSystemConfig` is high"
