@@ -116,7 +116,7 @@ type testConfig struct {
 	namespace        string
 	containerRuntime string
 	clusterDNSIPs    []net.IP
-	featureGates map[string]bool
+	featureGates     map[string]bool
 }
 
 func TestReconciler_Reconcile(t *testing.T) {
@@ -170,7 +170,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 				namespace:        "kube-system",
 				containerRuntime: "containerd",
 				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
-				featureGates: disableCloudProviderFeatureGate,
+				featureGates:     disableCloudProviderFeatureGate,
 			},
 			cloudProvider:     "aws",
 			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
