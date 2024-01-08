@@ -22,11 +22,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"strconv"
 	"strings"
 
+	"github.com/go-logr/zapr"
 	"go.uber.org/zap"
 
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
@@ -37,6 +39,7 @@ import (
 	"k8c.io/operating-system-manager/pkg/controllers/osp"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/generator"
+	osmlog "k8c.io/operating-system-manager/pkg/log"
 	providerconfig "k8c.io/operating-system-manager/pkg/providerconfig/config"
 	"k8c.io/operating-system-manager/pkg/resources/reconciling"
 	"k8c.io/operating-system-manager/pkg/util/certificate"
@@ -46,12 +49,12 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	ctrlruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
@@ -101,7 +104,8 @@ func init() {
 }
 
 func main() {
-	klog.InitFlags(nil)
+	logFlags := osmlog.NewDefaultOptions()
+	logFlags.AddFlags(flag.CommandLine)
 
 	opt := &options{}
 
@@ -142,12 +146,22 @@ func main() {
 
 	flag.Parse()
 
+	if err := logFlags.Validate(); err != nil {
+		log.Fatalf("invalid options: %v", err)
+	}
+
+	rawLog := osmlog.New(logFlags.Debug, logFlags.Format)
+	log := rawLog.Sugar()
+	// set the logger used by controller-runtime
+	ctrlruntimelog.SetLogger(zapr.NewLogger(rawLog.WithOptions(zap.AddCallerSkip(1))))
+	reconciling.Configure(log)
+
 	if len(opt.namespace) == 0 {
-		klog.Fatal("-namespace is required")
+		log.Fatal("-namespace is required")
 	}
 
 	if opt.containerRuntime != "containerd" {
-		klog.Fatalf("%s not supported; containerd is the only supported container runtimes", opt.containerRuntime)
+		log.Fatalf("%s not supported; containerd is the only supported container runtimes", opt.containerRuntime)
 	}
 
 	var (
@@ -158,7 +172,7 @@ func main() {
 	if len(opt.caBundleFile) > 0 {
 		customCACert, err = retrieveCustomCACertificate(opt.caBundleFile)
 		if err != nil {
-			klog.Fatalf("-ca-bundle is invalid: %s", err.Error())
+			log.Fatalf("-ca-bundle is invalid: %s", err.Error())
 		}
 	}
 
@@ -167,19 +181,19 @@ func main() {
 	// Parse flags
 	parsedClusterDNSIPs, err := parseClusterDNSIPs(opt.clusterDNSIPs)
 	if err != nil {
-		klog.Fatalf("invalid cluster dns specified: %v", err)
+		log.Fatalf("invalid cluster dns specified: %v", err)
 	}
 
 	parsedKubeletFeatureGates, err := parseKubeletFeatureGates(opt.kubeletFeatureGates)
 	if err != nil {
-		klog.Fatalf("invalid kubelet feature gates specified: %v", err)
+		log.Fatalf("invalid kubelet feature gates specified: %v", err)
 	}
 
 	var bootstrapTokenServiceAccountName *types.NamespacedName
 	if opt.bootstrapTokenServiceAccountName != "" {
 		flagParts := strings.Split(opt.bootstrapTokenServiceAccountName, "/")
 		if flagPartsLen := len(flagParts); flagPartsLen != 2 {
-			klog.Fatalf("splitting the bootstrap-token-service-account-name flag value in '/' returned %d parts, expected exactly two", flagPartsLen)
+			log.Fatalf("splitting the bootstrap-token-service-account-name flag value in '/' returned %d parts, expected exactly two", flagPartsLen)
 		}
 		bootstrapTokenServiceAccountName = &types.NamespacedName{Namespace: flagParts[0], Name: flagParts[1]}
 	}
@@ -195,22 +209,13 @@ func main() {
 	}
 	containerRuntimeConfig, err := containerruntime.BuildConfig(containerRuntimeOpts)
 	if err != nil {
-		klog.Fatalf("failed to generate container runtime config: %v", err)
+		log.Fatalf("failed to generate container runtime config: %v", err)
 	}
-
-	// Configure logger
-	logger, err := zap.NewProduction()
-	if err != nil {
-		klog.Fatal(err)
-	}
-	log := logger.Sugar()
-
-	reconciling.Configure(log)
 
 	// Create manager with client against in-cluster config
 	mgr, err := createManager(opt)
 	if err != nil {
-		klog.Fatalf("failed to create runtime manager: %v", err)
+		log.Fatalf("failed to create runtime manager: %v", err)
 	}
 
 	// Start with assuming that current cluster will be used as worker cluster
@@ -223,7 +228,7 @@ func main() {
 			&clientcmd.ClientConfigLoadingRules{ExplicitPath: opt.workerClusterKubeconfig},
 			&clientcmd.ConfigOverrides{}).ClientConfig()
 		if err != nil {
-			klog.Fatal(err)
+			log.Fatal(err)
 		}
 
 		// Build dedicated client for worker cluster, some read actions fail on the split client created by manager due to informers not syncing in-time
@@ -231,7 +236,7 @@ func main() {
 			Scheme: scheme,
 		})
 		if err != nil {
-			klog.Fatalf("failed to build worker client: %v", err)
+			log.Fatalf("failed to build worker client: %v", err)
 		}
 
 		workerMgr, err = manager.New(workerClusterConfig, manager.Options{
@@ -244,7 +249,7 @@ func main() {
 			Metrics:                 metricsserver.Options{BindAddress: opt.workerMetricsAddress},
 		})
 		if err != nil {
-			klog.Fatal(err)
+			log.Fatal(err)
 		}
 
 		// "-worker-cluster-kubeconfig" was not empty and a valid kubeconfig was provided,
@@ -253,7 +258,7 @@ func main() {
 		opt.kubeconfig = opt.workerClusterKubeconfig
 
 		if err := mgr.Add(workerMgr); err != nil {
-			klog.Fatal("failed to add workers cluster mgr to main mgr", zap.Error(err))
+			log.Fatal("failed to add workers cluster mgr to main mgr", zap.Error(err))
 		}
 	}
 
@@ -261,7 +266,7 @@ func main() {
 	if opt.caBundleFile == "" {
 		caCert, err = certificate.GetCACert(opt.kubeconfig, mgr.GetConfig())
 		if err != nil {
-			klog.Fatal("failed to load CA certificate", zap.Error(err))
+			log.Fatal("failed to load CA certificate", zap.Error(err))
 		}
 	}
 
@@ -273,7 +278,7 @@ func main() {
 
 	// Setup OSP controller
 	if err := osp.Add(mgr, log, opt.namespace, opt.workerCount); err != nil {
-		klog.Fatal(err)
+		log.Fatal(err)
 	}
 
 	// Setup OSC controller
@@ -298,12 +303,12 @@ func main() {
 		opt.nodeRegistryCredentialsSecret,
 		parsedKubeletFeatureGates,
 	); err != nil {
-		klog.Fatal(err)
+		log.Fatal(err)
 	}
 
 	log.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		klog.Fatalf("Failed to start OSC controller: %v", zap.Error(err))
+		log.Fatalf("Failed to start OSC controller: %v", zap.Error(err))
 	}
 }
 
