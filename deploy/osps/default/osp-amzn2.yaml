@@ -522,10 +522,11 @@ spec:
                 --kubeconfig=/var/lib/kubelet/kubeconfig \
                 --config=/etc/kubernetes/kubelet.conf \
                 --cert-dir=/etc/kubernetes/pki \
-                {{- if or (semverCompare "<1.29" .KubeVersion) (.DisableCloudProvidersFeatureGateDisabled) }}
                 {{- if .ExternalCloudProvider }}
                 --cloud-provider=external \
                 {{- else if .InTreeCCMAvailable }}
+                {{- /* In-tree cloud providers have been disabled starting from k8s 1.29. For more information: https://github.com/kubernetes/kubernetes/pull/117503 */}}
+                {{- if or (semverCompare "<1.29" .KubeVersion) (.DisableCloudProvidersFeatureGateDisabled) }}
                 --cloud-provider={{- .CloudProviderName }} \
                 --cloud-config=/etc/kubernetes/cloud-config \
                 {{- end }}
