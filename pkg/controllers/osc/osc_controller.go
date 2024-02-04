@@ -34,6 +34,7 @@ import (
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/generator"
 	kuberneteshelper "k8c.io/operating-system-manager/pkg/kubernetes"
+	"k8s.io/client-go/tools/clientcmd/api"
 
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -267,6 +268,13 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 		r.containerRuntimeConfig,
 		r.kubeletFeatureGates,
 	)
+
+	if osc.Spec.CloudProvider.Name == "edge" {
+		if err := r.generateEdgeScript(ctx, md, token, bootstrapKubeconfig); err != nil {
+			return fmt.Errorf("failed to generate edge provider bootstrap script: %v", err)
+		}
+	}
+
 	if err != nil {
 		return fmt.Errorf("failed to generate %s osc: %w", oscName, err)
 	}
@@ -456,6 +464,37 @@ func (r *Reconciler) checkOSP(ctx context.Context, md *clusterv1alpha1.MachineDe
 	}
 
 	return err
+}
+
+func (r *Reconciler) generateEdgeScript(ctx context.Context, md *clusterv1alpha1.MachineDeployment, token string, config *api.Config) error {
+	var clusterName string
+	for key := range config.Clusters {
+		clusterName = key
+		break
+	}
+
+	serverURL := config.Clusters[clusterName].Server
+	bootstrapSecretName := fmt.Sprintf("%s-%s-bootstrap-config", md.Name, md.Namespace)
+	script := fmt.Sprintf("curl -s -k -v --header 'Authorization: Bearer %s' %s/api/v1/namespaces/cloud-init-settings/secrets/%s | jq '.data[\"cloud-config\"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/%s.cfg \ncloud-init --file /etc/cloud/cloud.cfg.d/%s.cfg init",
+		token, serverURL, bootstrapSecretName, bootstrapSecretName, bootstrapSecretName)
+
+	scriptSecretName := fmt.Sprintf("edge-provider-script-%s-%s", md.Name, md.Namespace)
+	secret := &corev1.Secret{}
+	if err := r.workerClient.Get(ctx, types.NamespacedName{Name: scriptSecretName, Namespace: bootstrap.CloudInitNamespace}, secret); err != nil {
+		if !kerrors.IsNotFound(err) {
+			return fmt.Errorf("failed to get %s secret in namespace %s: %w", scriptSecretName, bootstrap.CloudInitNamespace, err)
+		}
+	}
+
+	if secret.Data == nil {
+		secret.Data = map[string][]byte{}
+	}
+
+	secret.Name = scriptSecretName
+	secret.Namespace = bootstrap.CloudInitNamespace
+	secret.Data["fetch-bootstrap-script"] = []byte(script)
+
+	return r.workerClient.Create(ctx, secret)
 }
 
 // filterMachineDeploymentPredicate will filter machine deployments based on the presence of OSP annotation

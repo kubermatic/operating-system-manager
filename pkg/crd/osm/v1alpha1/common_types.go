@@ -44,6 +44,7 @@ const (
 	CloudProviderAzure               CloudProvider = "azure"
 	CloudProviderBaremetal           CloudProvider = "baremetal"
 	CloudProviderDigitalocean        CloudProvider = "digitalocean"
+	CloudProviderEdge                CloudProvider = "edge"
 	CloudProviderEquinixMetal        CloudProvider = "equinixmetal"
 	CloudProviderExternal            CloudProvider = "external"
 	CloudProviderFake                CloudProvider = "fake"
@@ -54,9 +55,9 @@ const (
 	CloudProviderNutanix             CloudProvider = "nutanix"
 	CloudProviderOpenNebula          CloudProvider = "opennebula"
 	CloudProviderOpenstack           CloudProvider = "openstack"
-	CloudProviderVsphere             CloudProvider = "vsphere"
-	CloudProviderVMwareCloudDirector CloudProvider = "vmware-cloud-director"
 	CloudProviderScaleway            CloudProvider = "scaleway"
+	CloudProviderVMwareCloudDirector CloudProvider = "vmware-cloud-director"
+	CloudProviderVsphere             CloudProvider = "vsphere"
 )
 
 // ContainerRuntime represents supported container runtime
