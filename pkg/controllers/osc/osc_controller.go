@@ -271,7 +271,7 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 
 	if osc.Spec.CloudProvider.Name == "edge" {
 		if err := r.generateEdgeScript(ctx, md, token, bootstrapKubeconfig); err != nil {
-			return fmt.Errorf("failed to generate edge provider bootstrap script: %v", err)
+			return fmt.Errorf("failed to generate edge provider bootstrap script: %w", err)
 		}
 	}
 
@@ -475,7 +475,7 @@ func (r *Reconciler) generateEdgeScript(ctx context.Context, md *clusterv1alpha1
 
 	serverURL := config.Clusters[clusterName].Server
 	bootstrapSecretName := fmt.Sprintf("%s-%s-bootstrap-config", md.Name, md.Namespace)
-	script := fmt.Sprintf("curl -s -k -v --header 'Authorization: Bearer %s' %s/api/v1/namespaces/cloud-init-settings/secrets/%s | jq '.data[\"cloud-config\"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/%s.cfg \ncloud-init --file /etc/cloud/cloud.cfg.d/%s.cfg init",
+	script := fmt.Sprintf("curl -s -k -v --header 'Authorization: Bearer %s' %s/api/v1/namespaces/cloud-init-settings/secrets/%s | jq '.data[\"cloud-config\"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/%s.cfg \ncloud-init --file /etc/cloud/cloud.cfg.d/%s.cfg init\n",
 		token, serverURL, bootstrapSecretName, bootstrapSecretName, bootstrapSecretName)
 
 	scriptSecretName := fmt.Sprintf("edge-provider-script-%s-%s", md.Name, md.Namespace)

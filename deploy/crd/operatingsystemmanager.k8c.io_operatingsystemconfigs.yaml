@@ -175,26 +175,26 @@ spec:
                   name:
                     description: Name represents the name of the supported cloud provider
                     enum:
-                    - alibaba
-                    - anexia
                     - aws
                     - azure
-                    - baremetal
                     - digitalocean
                     - edge
-                    - equinixmetal
-                    - external
-                    - fake
                     - gce
                     - hetzner
                     - kubevirt
                     - linode
                     - nutanix
-                    - opennebula
                     - openstack
-                    - scaleway
-                    - vmware-cloud-director
+                    - equinixmetal
                     - vsphere
+                    - fake
+                    - alibaba
+                    - anexia
+                    - scaleway
+                    - baremetal
+                    - external
+                    - vmware-cloud-director
+                    - opennebula
                     type: string
                   spec:
                     description: Spec represents the os/image reference in the supported
