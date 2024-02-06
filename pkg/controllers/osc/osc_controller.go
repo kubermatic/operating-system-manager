@@ -475,7 +475,7 @@ func (r *Reconciler) generateEdgeScript(ctx context.Context, md *clusterv1alpha1
 
 	serverURL := config.Clusters[clusterName].Server
 	bootstrapSecretName := fmt.Sprintf("%s-%s-bootstrap-config", md.Name, md.Namespace)
-	script := fmt.Sprintf("curl -s -k -v --header 'Authorization: Bearer %s' %s/api/v1/namespaces/cloud-init-settings/secrets/%s | jq '.data[\"cloud-config\"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/%s.cfg \ncloud-init --file /etc/cloud/cloud.cfg.d/%s.cfg init\n",
+	script := fmt.Sprintf("apt-get update -y\napt-get install jq -y\ncurl -s -k -v --header 'Authorization: Bearer %s' %s/api/v1/namespaces/cloud-init-settings/secrets/%s | jq '.data[\"cloud-config\"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/%s.cfg \ncloud-init --file /etc/cloud/cloud.cfg.d/%s.cfg init\nsystemctl enable bootstrap.service\nsystemctl restart bootstrap.service\n",
 		token, serverURL, bootstrapSecretName, bootstrapSecretName, bootstrapSecretName)
 
 	scriptSecretName := fmt.Sprintf("edge-provider-script-%s-%s", md.Name, md.Namespace)

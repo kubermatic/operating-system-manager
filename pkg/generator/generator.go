@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"strings"
 	"text/template"
 
 	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
@@ -128,7 +129,7 @@ func (d *DefaultCloudConfigGenerator) Generate(config *osmv1alpha1.OSCConfig, pr
 	}
 
 	// Fetch user data template based on the provisioning utility
-	userDataTemplate := getUserDataTemplate(provisioner)
+	userDataTemplate := getUserDataTemplate(provisioner, md.Name, string(cloudProvider))
 	tmpl, err := template.New("user-data").Funcs(TxtFuncMap()).Parse(userDataTemplate)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse user-data template: %w", err)
@@ -164,10 +165,15 @@ func (d *DefaultCloudConfigGenerator) Generate(config *osmv1alpha1.OSCConfig, pr
 	return toIgnition(buf.String())
 }
 
-func getUserDataTemplate(p osmv1alpha1.ProvisioningUtility) string {
+func getUserDataTemplate(p osmv1alpha1.ProvisioningUtility, mdName, cloudProvider string) string {
 	if p == osmv1alpha1.ProvisioningUtilityIgnition {
 		return ignitionTemplate
 	}
+
+	if cloudProvider == "edge" {
+		return strings.ReplaceAll(cloudInitTemplate, "<MACHINE_NAME>", mdName)
+	}
+
 	return cloudInitTemplate
 }
 
