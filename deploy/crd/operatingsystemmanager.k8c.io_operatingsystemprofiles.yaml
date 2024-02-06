@@ -469,6 +469,7 @@ spec:
                       - aws
                       - azure
                       - digitalocean
+                      - edge
                       - gce
                       - hetzner
                       - kubevirt
