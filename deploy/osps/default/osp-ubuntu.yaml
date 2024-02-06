@@ -27,6 +27,7 @@ spec:
     - name: "aws"
     - name: "azure"
     - name: "digitalocean"
+    - name: "edge"
     - name: "equinixmetal"
     - name: "gce"
     - name: "hetzner"
