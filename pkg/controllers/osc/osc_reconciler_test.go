@@ -121,8 +121,6 @@ type testConfig struct {
 }
 
 func TestReconciler_Reconcile(t *testing.T) {
-	disableCloudProviderFeatureGate := map[string]bool{"DisableCloudProviders": false}
-
 	var testCases = []struct {
 		name                   string
 		kubeletVersion         string
@@ -154,25 +152,6 @@ func TestReconciler_Reconcile(t *testing.T) {
 				containerRuntime:      "containerd",
 				externalCloudProvider: true,
 				clusterDNSIPs:         []net.IP{net.IPv4(10, 0, 0, 0)},
-			},
-			cloudProvider:     "aws",
-			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
-		},
-		{
-			name:                   "Ubuntu OS in AWS with DisableCloudProviders feature gate disabled",
-			ospFile:                defaultOSPPathPrefix + fmt.Sprintf("%s.yaml", ospUbuntu),
-			ospName:                ospUbuntu,
-			operatingSystem:        providerconfigtypes.OperatingSystemUbuntu,
-			oscFile:                "osc-ubuntu-aws.yaml",
-			mdName:                 "ubuntu-aws",
-			kubeletVersion:         "1.29.0",
-			provisioningSecretFile: "secret-ubuntu-aws-provisioning.yaml",
-			bootstrapSecretFile:    "secret-ubuntu-aws-bootstrap.yaml",
-			config: testConfig{
-				namespace:        "kube-system",
-				containerRuntime: "containerd",
-				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
-				featureGates:     disableCloudProviderFeatureGate,
 			},
 			cloudProvider:     "aws",
 			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
