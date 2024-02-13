@@ -166,16 +166,16 @@ func parseYAMLToObject(ospByte []byte) (*v1alpha1.OperatingSystemProfile, error)
 // filterDeploymentPredicate filters out all deployment events except the creation one.
 func filterDeploymentPredicate() predicate.Predicate {
 	return predicate.Funcs{
-		CreateFunc: func(e event.CreateEvent) bool {
+		CreateFunc: func(_ event.CreateEvent) bool {
 			return true
 		},
-		DeleteFunc: func(e event.DeleteEvent) bool {
+		DeleteFunc: func(_ event.DeleteEvent) bool {
 			return false
 		},
-		UpdateFunc: func(e event.UpdateEvent) bool {
+		UpdateFunc: func(_ event.UpdateEvent) bool {
 			return false
 		},
-		GenericFunc: func(e event.GenericEvent) bool {
+		GenericFunc: func(_ event.GenericEvent) bool {
 			return false
 		},
 	}

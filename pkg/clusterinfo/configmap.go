@@ -94,7 +94,7 @@ func (p *KubeconfigProvider) buildKubeconfigFromEndpoint(ctx context.Context) (*
 		return nil, errors.New("could not parse ip from ")
 	}
 
-	getSecurePort := func(endpointSubset corev1.EndpointSubset) *corev1.EndpointPort {
+	getSecurePort := func(_ corev1.EndpointSubset) *corev1.EndpointPort {
 		for _, p := range subset.Ports {
 			if p.Name == securePortName {
 				return &p

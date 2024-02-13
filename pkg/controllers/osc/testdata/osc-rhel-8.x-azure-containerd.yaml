@@ -451,8 +451,8 @@ spec:
       permissions: 644
     - content:
         inline:
-          data: |
-            {"cloud":"AZUREPUBLICCLOUD","tenantId":"","subscriptionId":"","aadClientId":"","aadClientSecret":"","resourceGroup":"","location":"","vnetName":"","subnetName":"","routeTableName":"","securityGroupName":"fake-sg","primaryAvailabilitySetName":"","vnetResourceGroup":"","useInstanceMetadata":true,"loadBalancerSku":""}
+          data: |2+
+
           encoding: b64
       path: /etc/kubernetes/cloud-config
       permissions: 600
