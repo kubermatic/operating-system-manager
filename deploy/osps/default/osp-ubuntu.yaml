@@ -573,12 +573,10 @@ spec:
                 --cert-dir=/etc/kubernetes/pki \
                 {{- if .ExternalCloudProvider }}
                 --cloud-provider=external \
-                {{- else if .InTreeCCMAvailable }}
                 {{- /* In-tree cloud providers have been disabled starting from k8s 1.29. For more information: https://github.com/kubernetes/kubernetes/pull/117503 */}}
-                {{- if or (semverCompare "<1.29" .KubeVersion) (.DisableCloudProvidersFeatureGateDisabled) }}
+                {{- else if and (.InTreeCCMAvailable) (semverCompare "<1.29" .KubeVersion) }}
                 --cloud-provider={{- .CloudProviderName }} \
                 --cloud-config=/etc/kubernetes/cloud-config \
-                {{- end }}
                 {{- end }}
                 {{- if ne .CloudProviderName "aws" }}
                 --hostname-override=${KUBELET_HOSTNAME} \
