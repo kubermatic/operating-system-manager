@@ -18,6 +18,9 @@ package cloudprovider
 
 import (
 	"errors"
+	"fmt"
+
+	"github.com/Masterminds/semver/v3"
 
 	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
 	"k8c.io/operating-system-manager/pkg/cloudprovider/aws"
@@ -30,7 +33,23 @@ import (
 )
 
 // GetCloudConfig will return the cloud-config for machine
-func GetCloudConfig(pconfig providerconfigtypes.Config, kubeletVersion string) (string, error) {
+func GetCloudConfig(external bool, pconfig providerconfigtypes.Config, kubeletVersion string) (string, error) {
+	// cloud-config is not required by the kubelet for external cloud providers.
+	if external {
+		return "", nil
+	}
+
+	// In-tree cloud providers have been disabled starting from k8s 1.29 hence we don't need to generate cloud-config for them.
+	gteKube129Condition, _ := semver.NewConstraint(">= 1.29")
+	kubeSemVer, err := semver.NewVersion(kubeletVersion)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse kubelet version: %w", err)
+	}
+
+	if gteKube129Condition.Check(kubeSemVer) {
+		return "", nil
+	}
+
 	cloudProvider := osmv1alpha1.CloudProvider(pconfig.CloudProvider)
 
 	switch cloudProvider {
