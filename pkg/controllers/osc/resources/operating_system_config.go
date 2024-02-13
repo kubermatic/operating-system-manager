@@ -102,16 +102,6 @@ func GenerateOperatingSystemConfig(
 
 	networkIPFamily := providerConfig.Network.GetIPFamily()
 
-	var cloudConfig string
-	if providerConfig.OverwriteCloudConfig != nil {
-		cloudConfig = *providerConfig.OverwriteCloudConfig
-	} else {
-		cloudConfig, err = cloudprovider.GetCloudConfig(providerConfig, md.Spec.Template.Spec.Versions.Kubelet)
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch cloud-config: %w", err)
-		}
-	}
-
 	// Ensure that Kubelet version is prefixed by "v"
 	kubeletVersion, err := semver.NewVersion(md.Spec.Template.Spec.Versions.Kubelet)
 	if err != nil {
@@ -171,10 +161,14 @@ func GenerateOperatingSystemConfig(
 	if err != nil {
 		return nil, err
 	}
-
-	if external &&
-		osmv1alpha1.CloudProvider(providerConfig.CloudProvider) == osmv1alpha1.CloudProviderVsphere {
-		cloudConfig = ""
+	var cloudConfig string
+	if providerConfig.OverwriteCloudConfig != nil {
+		cloudConfig = *providerConfig.OverwriteCloudConfig
+	} else {
+		cloudConfig, err = cloudprovider.GetCloudConfig(external, providerConfig, md.Spec.Template.Spec.Versions.Kubelet)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch cloud-config: %w", err)
+		}
 	}
 
 	data := filesData{
