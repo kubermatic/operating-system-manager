@@ -623,10 +623,10 @@ spec:
         inline:
           data: |
             [Service]
-            EnvironmentFile=/run/metadata/torcx
+            EnvironmentFile=-/run/metadata/torcx
             Environment=CONTAINERD_CONFIG=/etc/containerd/config.toml
             ExecStart=
-            ExecStart=/usr/bin/env PATH=${TORCX_BINDIR}:${PATH} ${TORCX_BINDIR}/containerd --config ${CONTAINERD_CONFIG}
+            ExecStart=/usr/bin/env PATH=${TORCX_BINDIR}:${PATH} containerd --config ${CONTAINERD_CONFIG}
       path: /etc/systemd/system/containerd.service.d/10-custom.conf
       permissions: 644
     units:
