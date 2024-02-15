@@ -41,6 +41,9 @@ lint:
 	@golangci-lint --version
 	golangci-lint run -v ./pkg/...
 
+yamllint:
+	yamllint -c .yamllint.conf .
+
 .PHONY: vendor
 vendor: buildenv
 	go mod vendor
