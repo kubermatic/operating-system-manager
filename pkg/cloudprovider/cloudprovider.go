@@ -30,7 +30,11 @@ import (
 )
 
 // GetCloudConfig will return the cloud-config for machine
-func GetCloudConfig(pconfig providerconfigtypes.Config, kubeletVersion string) (string, error) {
+func GetCloudConfig(external bool, pconfig providerconfigtypes.Config, kubeletVersion string) (string, error) {
+	if external {
+		return "", nil
+	}
+
 	cloudProvider := osmv1alpha1.CloudProvider(pconfig.CloudProvider)
 
 	switch cloudProvider {
