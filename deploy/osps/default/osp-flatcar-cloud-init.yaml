@@ -201,6 +201,12 @@ spec:
               #!/bin/bash
               set -xeuo pipefail
 
+              # Check if bootstrap phase has already completed. This is required when we run `cloud-init init` again since it tries to re-run
+              # the bootstrap cloud-config as well, from the userdata.
+              if [ -f /etc/bootstrap-complete ]; then
+                exit 0
+              fi
+
               {{- /* Configure proxy as the first step to ensure that all the phases of provisioning respect the proxy environment. */}}
               {{- template "configureProxyScript" }}
 
@@ -262,6 +268,10 @@ spec:
 
               systemctl enable --now kubelet
               systemctl enable --now --no-block kubelet-healthcheck.service
+
+              # Bootstrap phase for the machine is complete.
+              touch /etc/bootstrap-complete
+
               systemctl disable setup.service
 
       - path: /opt/bin/health-monitor.sh
