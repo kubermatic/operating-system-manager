@@ -55,7 +55,7 @@ spec:
       configureVCloudNetworkStatic: |-
         function query_ovf () {
           PATH=$PATH:/usr/share/oem/bin/
-          
+
           local QUERY=$1
           echo $(vmtoolsd --cmd "info-get guestinfo.ovfEnv" | grep "${QUERY}" | sed -e 's/.*oe:value="//g' | sed 's/"\/>//g')
         }
