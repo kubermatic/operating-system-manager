@@ -21,7 +21,7 @@ spec:
   osName: flatcar
   ## Flatcar Stable (09/11/2021)
   osVersion: "2983.2.0"
-  version: "v1.4.0"
+  version: "v1.5.0"
   provisioningUtility: "ignition"
   supportedCloudProviders:
     - name: "aws"
