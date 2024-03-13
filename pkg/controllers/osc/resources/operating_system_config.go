@@ -26,7 +26,6 @@ import (
 	"text/template"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/Masterminds/sprig/v3"
 
 	"github.com/kubermatic/machine-controller/pkg/apis/cluster/common"
 	"github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
@@ -41,6 +40,7 @@ import (
 	"k8c.io/operating-system-manager/pkg/providerconfig/rhel"
 	"k8c.io/operating-system-manager/pkg/providerconfig/rockylinux"
 	"k8c.io/operating-system-manager/pkg/providerconfig/ubuntu"
+	fm "k8c.io/operating-system-manager/pkg/util/funcmap"
 	jsonutil "k8c.io/operating-system-manager/pkg/util/json"
 	kubeconfigutil "k8c.io/operating-system-manager/pkg/util/kubeconfig"
 
@@ -328,7 +328,7 @@ func renderedFiles(config osmv1alpha1.OSPConfig, containerRuntime string, data f
 }
 
 func populateFilesList(files []osmv1alpha1.File, additionalTemplates []string, d filesData) ([]osmv1alpha1.File, error) {
-	funcMap := sprig.TxtFuncMap()
+	funcMap := fm.ExtraTxtFuncMap()
 	var pfiles []osmv1alpha1.File
 	for _, file := range files {
 		content := file.Content.Inline.Data
@@ -391,7 +391,7 @@ func selectAdditionalTemplates(config osmv1alpha1.OSPConfig, containerRuntime st
 	}
 
 	templates := make([]string, 0)
-	funcMap := sprig.TxtFuncMap()
+	funcMap := fm.ExtraTxtFuncMap()
 
 	// render templates
 	for name, t := range templatesToRender {
