@@ -3,6 +3,7 @@ module k8c.io/operating-system-manager
 go 1.21
 
 require (
+	github.com/BurntSushi/toml v1.3.2
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/Masterminds/sprig/v3 v3.2.3
 	github.com/flatcar/container-linux-config-transpiler v0.9.4
@@ -27,7 +28,6 @@ require (
 )
 
 require (
-	github.com/BurntSushi/toml v1.3.2 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/ajeddeloh/go-json v0.0.0-20231102161613-e49c8866685a // indirect
 	github.com/alecthomas/units v0.0.0-20231202071711-9a357b53e9c9 // indirect
