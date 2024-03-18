@@ -132,7 +132,7 @@ presubmits:
       containers:
         - image: quay.io/kubermatic/build:go-1.22-node-18-5
           command:
-            - "/bin/shfmt"
+            - shfmt
           args:
             #   -l        list files whose formatting differs from shfmt's
             #   -d        error with a diff when the formatting differs
