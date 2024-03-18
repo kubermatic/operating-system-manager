@@ -219,7 +219,7 @@ func (b *Bootstrap) createBootstrapToken(ctx context.Context, name string) (stri
 	if existingSecret != nil {
 		token, err := b.updateSecretExpirationAndGetToken(ctx, existingSecret)
 		if err != nil {
-			return "", false, fmt.Errorf("failed to updte bootstrap token: %w", err)
+			return "", false, fmt.Errorf("failed to update bootstrap token: %w", err)
 		}
 
 		return token, true, nil
