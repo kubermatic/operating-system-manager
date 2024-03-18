@@ -19,7 +19,7 @@ set -euo pipefail
 cd $(dirname $0)/..
 source hack/lib.sh
 
-CONTAINERIZE_IMAGE=golang:1.22.1 containerize ./hack/update-crds-openapi.sh
+CONTAINERIZE_IMAGE=quay.io/kubermatic/build:go-1.22-node-18-5 containerize ./hack/update-crds-openapi.sh
 SCRIPT_ROOT=$(dirname "${BASH_SOURCE}")
 
 echodate "Creating vendor directory"

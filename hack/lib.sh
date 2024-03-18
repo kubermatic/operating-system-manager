@@ -123,12 +123,13 @@ containerize() {
     mkdir -p "$gomodcache"
 
     exec docker run \
-      -v "$PWD":/go/src/k8c.io/kubermatic \
+      -v "$PWD":/go/src/k8c.io/operating-system-manager \
       -v "$gocache":"$gocache" \
       -v "$gomodcache":"$gomodcache" \
-      -w /go/src/k8c.io/kubermatic \
+      -w /go/src/k8c.io/operating-system-manager \
       -e "GOCACHE=$gocache" \
       -e "GOMODCACHE=$gomodcache" \
+      -e "CONTAINERIZED=1" \
       -u "$(id -u):$(id -g)" \
       --entrypoint="$cmd" \
       --rm \

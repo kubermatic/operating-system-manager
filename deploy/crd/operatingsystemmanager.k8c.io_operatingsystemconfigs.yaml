@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.13.0
+    controller-gen.kubebuilder.io/version: v0.14.0
   name: operatingsystemconfigs.operatingsystemmanager.k8c.io
 spec:
   group: operatingsystemmanager.k8c.io
@@ -22,14 +22,19 @@ spec:
         description: OperatingSystemConfig is the object that represents the OperatingSystemConfig
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -46,9 +51,9 @@ spec:
                     description: Files is a list of files that should exist in the
                       instance
                     items:
-                      description: File is a file that should get written to the host's
-                        file system. The content can either be inlined or referenced
-                        from a secret in the same namespace.
+                      description: |-
+                        File is a file that should get written to the host's file system. The content can either be inlined or
+                        referenced from a secret in the same namespace.
                       properties:
                         content:
                           description: Content describe the file's content.
@@ -74,9 +79,9 @@ spec:
                           type: string
                         permissions:
                           default: 644
-                          description: Permissions describes with which permissions
-                            the file should get written to the file system. Should
-                            be in decimal base and without any leading zeroes.
+                          description: |-
+                            Permissions describes with which permissions the file should get written to the file system.
+                            Should be in decimal base and without any leading zeroes.
                           format: int32
                           type: integer
                       required:
@@ -225,9 +230,9 @@ spec:
                     description: Files is a list of files that should exist in the
                       instance
                     items:
-                      description: File is a file that should get written to the host's
-                        file system. The content can either be inlined or referenced
-                        from a secret in the same namespace.
+                      description: |-
+                        File is a file that should get written to the host's file system. The content can either be inlined or
+                        referenced from a secret in the same namespace.
                       properties:
                         content:
                           description: Content describe the file's content.
@@ -253,9 +258,9 @@ spec:
                           type: string
                         permissions:
                           default: 644
-                          description: Permissions describes with which permissions
-                            the file should get written to the file system. Should
-                            be in decimal base and without any leading zeroes.
+                          description: |-
+                            Permissions describes with which permissions the file should get written to the file system.
+                            Should be in decimal base and without any leading zeroes.
                           format: int32
                           type: integer
                       required:
