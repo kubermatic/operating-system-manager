@@ -500,10 +500,10 @@ func getKubeletConfigs(annotations map[string]string) (kubeletConfig, error) {
 	return cfg, nil
 }
 
-func getKeyValueMap(value string, kvDelimeter string) *map[string]string {
+func getKeyValueMap(value string, kvDelimiter string) *map[string]string {
 	res := make(map[string]string)
 	for _, pair := range strings.Split(value, ",") {
-		kvPair := strings.SplitN(pair, kvDelimeter, 2)
+		kvPair := strings.SplitN(pair, kvDelimiter, 2)
 		if len(kvPair) != 2 {
 			continue
 		}

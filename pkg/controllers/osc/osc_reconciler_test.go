@@ -360,6 +360,11 @@ func TestReconciler_Reconcile(t *testing.T) {
 				t.Fatalf("failed to get osc: %v", err)
 			}
 
+			osc.TypeMeta = metav1.TypeMeta{
+				Kind:       "OperatingSystemConfig",
+				APIVersion: osmv1alpha1.SchemeGroupVersion.String(),
+			}
+
 			buff, err := yaml.Marshal(osc)
 			if err != nil {
 				t.Fatalf(err.Error())
@@ -380,6 +385,11 @@ func TestReconciler_Reconcile(t *testing.T) {
 				t.Fatalf("failed loading bootstrap secret %s from testdata: %v", testCase.bootstrapSecretFile, err)
 			}
 
+			secret.TypeMeta = metav1.TypeMeta{
+				Kind:       "Secret",
+				APIVersion: "v1",
+			}
+
 			buff, err = yaml.Marshal(secret)
 			if err != nil {
 				t.Fatalf(err.Error())
@@ -395,7 +405,11 @@ func TestReconciler_Reconcile(t *testing.T) {
 				t.Fatalf("failed to get provisioning secret: %v", err)
 			}
 
-			testSecret = &corev1.Secret{}
+			secret.TypeMeta = metav1.TypeMeta{
+				Kind:       "Secret",
+				APIVersion: "v1",
+			}
+
 			if err := loadFile(testSecret, testCase.provisioningSecretFile); err != nil {
 				t.Fatalf("failed loading secret %s from testdata: %v", testCase.provisioningSecretFile, err)
 			}

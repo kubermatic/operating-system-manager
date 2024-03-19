@@ -37,10 +37,19 @@ spec:
           description: OperatingSystemProfile is the object that represents the OperatingSystemProfile
           properties:
             apiVersion:
-              description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              description: |-
+                APIVersion defines the versioned schema of this representation of an object.
+                Servers should convert recognized schemas to the latest internal value, and
+                may reject unrecognized values.
+                More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
               type: string
             kind:
-              description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              description: |-
+                Kind is a string value representing the REST resource this object represents.
+                Servers may infer this from the endpoint the client submits requests to.
+                Cannot be updated.
+                In CamelCase.
+                More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
               type: string
             metadata:
               type: object
@@ -53,7 +62,9 @@ spec:
                     files:
                       description: Files is a list of files that should exist in the instance
                       items:
-                        description: File is a file that should get written to the host's file system. The content can either be inlined or referenced from a secret in the same namespace.
+                        description: |-
+                          File is a file that should get written to the host's file system. The content can either be inlined or
+                          referenced from a secret in the same namespace.
                         properties:
                           content:
                             description: Content describe the file's content.
@@ -76,7 +87,9 @@ spec:
                             type: string
                           permissions:
                             default: 644
-                            description: Permissions describes with which permissions the file should get written to the file system. Should be in decimal base and without any leading zeroes.
+                            description: |-
+                              Permissions describes with which permissions the file should get written to the file system.
+                              Should be in decimal base and without any leading zeroes.
                             format: int32
                             type: integer
                         required:
@@ -114,14 +127,18 @@ spec:
                           type: object
                       type: object
                     supportedContainerRuntimes:
-                      description: SupportedContainerRuntimes represents the container runtimes supported by the given OS. Docker has been deprecated and is no-op.
+                      description: |-
+                        SupportedContainerRuntimes represents the container runtimes supported by the given OS.
+                        Docker has been deprecated and is no-op.
                       items:
                         description: ContainerRuntimeSpec aggregates information about a specific container runtime
                         properties:
                           files:
                             description: Files to add to the main files list when the containerRuntime is selected
                             items:
-                              description: File is a file that should get written to the host's file system. The content can either be inlined or referenced from a secret in the same namespace.
+                              description: |-
+                                File is a file that should get written to the host's file system. The content can either be inlined or
+                                referenced from a secret in the same namespace.
                               properties:
                                 content:
                                   description: Content describe the file's content.
@@ -144,7 +161,9 @@ spec:
                                   type: string
                                 permissions:
                                   default: 644
-                                  description: Permissions describes with which permissions the file should get written to the file system. Should be in decimal base and without any leading zeroes.
+                                  description: |-
+                                    Permissions describes with which permissions the file should get written to the file system.
+                                    Should be in decimal base and without any leading zeroes.
                                   format: int32
                                   type: integer
                               required:
@@ -230,7 +249,9 @@ spec:
                     files:
                       description: Files is a list of files that should exist in the instance
                       items:
-                        description: File is a file that should get written to the host's file system. The content can either be inlined or referenced from a secret in the same namespace.
+                        description: |-
+                          File is a file that should get written to the host's file system. The content can either be inlined or
+                          referenced from a secret in the same namespace.
                         properties:
                           content:
                             description: Content describe the file's content.
@@ -253,7 +274,9 @@ spec:
                             type: string
                           permissions:
                             default: 644
-                            description: Permissions describes with which permissions the file should get written to the file system. Should be in decimal base and without any leading zeroes.
+                            description: |-
+                              Permissions describes with which permissions the file should get written to the file system.
+                              Should be in decimal base and without any leading zeroes.
                             format: int32
                             type: integer
                         required:
@@ -291,14 +314,18 @@ spec:
                           type: object
                       type: object
                     supportedContainerRuntimes:
-                      description: SupportedContainerRuntimes represents the container runtimes supported by the given OS. Docker has been deprecated and is no-op.
+                      description: |-
+                        SupportedContainerRuntimes represents the container runtimes supported by the given OS.
+                        Docker has been deprecated and is no-op.
                       items:
                         description: ContainerRuntimeSpec aggregates information about a specific container runtime
                         properties:
                           files:
                             description: Files to add to the main files list when the containerRuntime is selected
                             items:
-                              description: File is a file that should get written to the host's file system. The content can either be inlined or referenced from a secret in the same namespace.
+                              description: |-
+                                File is a file that should get written to the host's file system. The content can either be inlined or
+                                referenced from a secret in the same namespace.
                               properties:
                                 content:
                                   description: Content describe the file's content.
@@ -321,7 +348,9 @@ spec:
                                   type: string
                                 permissions:
                                   default: 644
-                                  description: Permissions describes with which permissions the file should get written to the file system. Should be in decimal base and without any leading zeroes.
+                                  description: |-
+                                    Permissions describes with which permissions the file should get written to the file system.
+                                    Should be in decimal base and without any leading zeroes.
                                   format: int32
                                   type: integer
                               required:

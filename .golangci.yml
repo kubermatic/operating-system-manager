@@ -71,6 +71,9 @@ linters-settings:
       main:
         deny:
           - { pkg: io/ioutil, desc: https://go.dev/doc/go1.16#ioutil }
+  govet:
+    enable:
+      - nilness # find tautologies / impossible conditions
 
 issues:
   exclude:

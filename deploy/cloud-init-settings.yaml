@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# cloud-init-settings is a dedicated namespace for storing provisioing configurations for machines. That are later consumed by machine-controller
+# cloud-init-settings is a dedicated namespace for storing provisioning configurations for machines. That are later consumed by machine-controller
 # The dedicated and restricted service-account, cloud-init-getter is then used in order to reach, authenticate and be autorized by the API server to fetch those
 # provisioning configurations for the machines
 

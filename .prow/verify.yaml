@@ -21,7 +21,7 @@ presubmits:
       preset-goproxy: "true"
     spec:
       containers:
-        - image: quay.io/kubermatic-labs/boilerplate:v0.2.0
+        - image: quay.io/kubermatic/build:go-1.22-node-18-5
           command:
             - make
           args:
@@ -36,7 +36,7 @@ presubmits:
       preset-goproxy: "true"
     spec:
       containers:
-        - image: golang:1.22.1
+        - image: quay.io/kubermatic/build:go-1.22-node-18-5
           command:
             - make
           args:
@@ -58,7 +58,7 @@ presubmits:
       preset-goproxy: "true"
     spec:
       containers:
-        - image: quay.io/kubermatic/build:go-1.22-node-18-0
+        - image: quay.io/kubermatic/build:go-1.22-node-18-5
           command:
             - make
           args:
@@ -79,7 +79,7 @@ presubmits:
       preset-goproxy: "true"
     spec:
       containers:
-        - image: quay.io/kubermatic/build:go-1.22-node-18-kind-0.22-5
+        - image: quay.io/kubermatic/build:go-1.22-node-18-5
           command:
             - ./hack/verify-licenses.sh
           resources:
@@ -95,7 +95,7 @@ presubmits:
       preset-goproxy: "true"
     spec:
       containers:
-        - image: golangci/golangci-lint:v1.56.0
+        - image: quay.io/kubermatic/build:go-1.22-node-18-5
           command:
             - make
           args:
@@ -115,7 +115,7 @@ presubmits:
       preset-goproxy: "true"
     spec:
       containers:
-        - image: quay.io/kubermatic/build:go-1.22-node-18-kind-0.22-5
+        - image: quay.io/kubermatic/build:go-1.22-node-18-5
           command:
             - make
           args:
@@ -130,9 +130,9 @@ presubmits:
     clone_uri: "ssh://git@github.com/kubermatic/operating-system-manager.git"
     spec:
       containers:
-        - image: docker.io/mvdan/shfmt:v3.5.1
+        - image: quay.io/kubermatic/build:go-1.22-node-18-5
           command:
-            - "/bin/shfmt"
+            - shfmt
           args:
             #   -l        list files whose formatting differs from shfmt's
             #   -d        error with a diff when the formatting differs
@@ -161,7 +161,7 @@ presubmits:
       preset-goproxy: "true"
     spec:
       containers:
-        - image: golang:1.22.1
+        - image: quay.io/kubermatic/build:go-1.22-node-18-5
           command:
             - make
           args:
