@@ -12,13 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 run:
-  deadline: 20m
+  timeout: 20m
   issues-exit-code: 1
-  skip-dirs:
-    - hack
-    - vendor
-  skip-files:
-    - zz_generated.*.go
 
 linters:
   enable:
@@ -78,3 +73,8 @@ linters-settings:
 issues:
   exclude:
     - "cyclomatic complexity 32 of func `GenerateOperatingSystemConfig` is high"
+  exclude-dirs:
+    - hack
+    - vendor
+  exclude-files:
+    - zz_generated.*.go
