@@ -672,6 +672,10 @@ spec:
               staticPodPath: /etc/kubernetes/manifests
               streamingConnectionIdleTimeout: 0s
               syncFrequency: 0s
+              # Enable parallel image pulling.
+              serializeImagePulls: false
+              # Set max parallel image pulls to 10.
+              maxParallelImagePulls: 10
               kubeReserved:
               {{- if .KubeReserved -}}
                 {{ range $key, $val := .KubeReserved }}
