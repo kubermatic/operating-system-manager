@@ -36,7 +36,7 @@ import (
 // AdmissionHandler for validating OperatingSystemConfig CRD.
 type AdmissionHandler struct {
 	log     *zap.SugaredLogger
-	decoder *admission.Decoder
+	decoder admission.Decoder
 }
 
 // NewAdmissionHandler returns a new validation AdmissionHandler.
