@@ -238,7 +238,19 @@ spec:
         cd -
 
         {{- /* # cri-tools variables */}}
-        CRI_TOOLS_RELEASE="${CRI_TOOLS_RELEASE:-v1.29.0}"
+        {{- if semverCompare "~1.27.0" .KubeVersion }}
+        CRI_TOOLS_RELEASE="v1.27.1"
+        {{- else if semverCompare "~1.28.0" .KubeVersion }}
+        CRI_TOOLS_RELEASE="v1.28.0"
+        {{- else if semverCompare "~1.29.0" .KubeVersion }}
+        CRI_TOOLS_RELEASE="v1.29.0"
+        {{- else if semverCompare "~1.30.0" .KubeVersion }}
+        CRI_TOOLS_RELEASE="v1.30.0"
+        {{- else }}
+        {{- /* Fallback to the latest version */}}
+        CRI_TOOLS_RELEASE="v1.30.0"
+        {{- end }}
+
         cri_tools_base_url="https://github.com/kubernetes-sigs/cri-tools/releases/download/${CRI_TOOLS_RELEASE}"
         cri_tools_filename="crictl-${CRI_TOOLS_RELEASE}-linux-${arch}.tar.gz"
 

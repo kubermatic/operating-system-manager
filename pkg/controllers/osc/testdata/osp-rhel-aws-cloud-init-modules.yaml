@@ -20,7 +20,8 @@ metadata:
 spec:
   osName: "rhel"
   osVersion: "8.5"
-  version: "v0.1.5"
+  version: "v1.5.0"
+  provisioningUtility: "cloud-init"
   supportedCloudProviders:
     - name: "aws"
     - name: "azure"
@@ -29,7 +30,39 @@ spec:
     - name: "vsphere"
 
   bootstrapConfig:
+    templates:
+      configureProxyScript: |-
+        {{- if .HTTPProxy }}
+        cat <<EOF | tee -a /etc/environment
+        HTTP_PROXY={{ .HTTPProxy }}
+        http_proxy={{ .HTTPProxy }}
+        HTTPS_PROXY={{ .HTTPProxy }}
+        https_proxy={{ .HTTPProxy }}
+        EOF
+        {{- end }}
+
+        {{- if .NoProxy }}
+        cat <<EOF | tee -a /etc/environment
+        NO_PROXY={{ .NoProxy }}
+        no_proxy={{ .NoProxy }}
+        EOF
+        {{- end }}
+
+        source /etc/environment
+
     files:
+      - path: /opt/bin/supervise.sh
+        permissions: 755
+        content:
+          inline:
+            encoding: b64
+            data: |
+              #!/bin/bash
+              set -xeuo pipefail
+              while ! "$@"; do
+                sleep 1
+              done
+
       - path: /opt/bin/bootstrap
         permissions: 755
         content:
@@ -39,6 +72,15 @@ spec:
               #!/bin/bash
               set -xeuo pipefail
 
+              # Check if bootstrap phase has already completed. This is required when we run `cloud-init init` again since it tries to re-run
+              # the bootstrap cloud-config as well, from the userdata.
+              if [ -f /etc/bootstrap-complete ]; then
+                exit 0
+              fi
+
+              {{- /* Configure proxy as the first step to ensure that all the phases of provisioning respect the proxy environment. */}}
+              {{- template "configureProxyScript" }}
+
               yum install -y curl jq
 
               curl -s -k -v --header 'Authorization: Bearer {{ .Token }}' {{ .ServerURL }}/api/v1/namespaces/cloud-init-settings/secrets/{{ .SecretName }} | jq '.data["cloud-config"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/{{ .SecretName }}.cfg
@@ -46,6 +88,16 @@ spec:
               cloud-init --file /etc/cloud/cloud.cfg.d/{{ .SecretName }}.cfg init
 
               systemctl daemon-reload
+
+              # cloud-init should only run on the first boot. From this point forward we don't need cloud-init anymore.
+              systemctl disable cloud-init
+              touch /etc/cloud/cloud-init.disabled
+
+              # Bootstrap phase for the machine is complete.
+              touch /etc/bootstrap-complete
+              systemctl disable bootstrap.service
+
+              # Start provisioning phase for the machine.
               systemctl restart setup.service
 
       - path: /etc/systemd/system/bootstrap.service
@@ -63,7 +115,8 @@ spec:
               [Service]
               Type=oneshot
               RemainAfterExit=true
-              ExecStart=/opt/bin/bootstrap
+              EnvironmentFile=-/etc/environment
+              ExecStart=/opt/bin/supervise.sh /opt/bin/bootstrap
 
     modules:
       runcmd:
@@ -105,61 +158,11 @@ spec:
             */}}
             yum-config-manager --save --setopt=docker-ce-stable.module_hotfixes=true
 
-            yum install -y containerd.io-1.5* yum-plugin-versionlock
+            yum install -y containerd.io-1.6* yum-plugin-versionlock
             yum versionlock add containerd.io
 
             systemctl daemon-reload
             systemctl enable --now containerd
-
-      - name: docker
-        files:
-          - path: /etc/systemd/system/containerd.service.d/environment.conf
-            content:
-              inline:
-                data: |
-                  [Service]
-                  Restart=always
-                  EnvironmentFile=-/etc/environment
-
-          - path: /etc/systemd/system/docker.service.d/environment.conf
-            content:
-              inline:
-                data: |
-                  [Service]
-                  Restart=always
-                  EnvironmentFile=-/etc/environment
-
-          - path: /etc/docker/daemon.json
-            permissions: 644
-            content:
-              inline:
-                encoding: b64
-                data: |-
-                  {{ .ContainerRuntimeConfig }}
-
-          - path: /root/.docker/config.json
-            permissions: 600
-            content:
-              inline:
-                encoding: b64
-                data: |-
-                  {{ .ContainerRuntimeAuthConfig }}
-
-        templates:
-          containerRuntimeInstallation: |-
-            yum install -y yum-utils
-            yum-config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
-            yum-config-manager --save --setopt=docker-ce-stable.module_hotfixes=true
-
-            yum install -y \
-                docker-ce-cli-20.10* \
-                containerd.io-1.5* \
-                docker-ce-20.10* \
-                yum-plugin-versionlock
-            yum versionlock add docker-ce* containerd.io
-
-            systemctl daemon-reload
-            systemctl enable --now docker
 
     templates:
       safeDownloadBinariesScript: |-
@@ -170,9 +173,6 @@ spec:
 
         {{- /* create all the necessary dirs */}}
         mkdir -p /etc/cni/net.d /etc/kubernetes/manifests "$opt_bin" "$cni_bin_dir"
-        {{- if semverCompare "<1.23" .KubeVersion }}
-        mkdir -p /etc/kubernetes/dynamic-config-dir
-        {{- end }}
         {{- /* HOST_ARCH can be defined outside of machine-controller (in kubeone for example) */}}
         arch=${HOST_ARCH-}
         if [ -z "$arch" ]
@@ -212,6 +212,16 @@ spec:
         cd -
 
         {{- /* # cri-tools variables */}}
+        {{- if semverCompare "~1.27.0" .KubeVersion }}
+        CRI_TOOLS_RELEASE="v1.27.1"
+        {{- else if semverCompare "~1.28.0" .KubeVersion }}
+        CRI_TOOLS_RELEASE="v1.28.0"
+        {{- else if semverCompare "~1.29.0" .KubeVersion }}
+        CRI_TOOLS_RELEASE="v1.29.0"
+        {{- else if semverCompare "~1.30.0" .KubeVersion }}
+        CRI_TOOLS_RELEASE="v1.30.0"
+        {{- end }}
+
         CRI_TOOLS_RELEASE="${CRI_TOOLS_RELEASE:-v1.29.0}"
         cri_tools_base_url="https://github.com/kubernetes-sigs/cri-tools/releases/download/${CRI_TOOLS_RELEASE}"
         cri_tools_filename="crictl-${CRI_TOOLS_RELEASE}-linux-${arch}.tar.gz"
@@ -263,18 +273,6 @@ spec:
             {{- /* link kube binaries from verioned dir to $opt_bin */}}
             ln -sf "$kube_dir/$bin" "$opt_bin"/$bin
         done
-
-      configureProxyScript: |-
-        {{- if .HTTPProxy }}
-        cat <<EOF | tee -a /etc/environment
-        HTTP_PROXY={{ .HTTPProxy }}
-        http_proxy={{ .HTTPProxy }}
-        HTTPS_PROXY={{ .HTTPProxy }}
-        https_proxy={{ .HTTPProxy }}
-        NO_PROXY={{ .NoProxy }}
-        no_proxy={{ .NoProxy }}
-        EOF
-        {{- end }}
 
     files:
       - path: /opt/bin/health-monitor.sh
@@ -439,6 +437,13 @@ spec:
               kernel.panic_on_oops = 1
               kernel.panic = 10
               net.ipv4.ip_forward = 1
+              {{- if or (eq .NetworkIPFamily "IPv4+IPv6") (eq .NetworkIPFamily "IPv6+IPv4") (eq .NetworkIPFamily "IPv6") }}
+              net.ipv6.conf.all.forwarding = 1
+              # Configure Linux to accept router advertisements to ensure the default
+              # IPv6 route is not removed from the routing table when the Docker service starts.
+              # For more information: https://github.com/docker/for-linux/issues/844
+              net.ipv6.conf.all.accept_ra		= 2
+              {{- end }}
               vm.overcommit_memory = 1
               fs.inotify.max_user_watches = 1048576
               fs.inotify.max_user_instances = 8192
@@ -475,6 +480,12 @@ spec:
               systemctl restart systemd-modules-load.service
               sysctl --system
 
+              # Override hostname if /etc/machine-name exists
+              if [ -x "$(command -v hostnamectl)" ] && [ -s /etc/machine-name ]; then
+                machine_name=$(cat /etc/machine-name)
+                hostnamectl set-hostname ${machine_name}
+              fi
+
               yum install -y \
                 device-mapper-persistent-data \
                 lvm2 \
@@ -505,15 +516,17 @@ spec:
 
               {{- template "safeDownloadBinariesScript" }}
 
-              {{- template "configureProxyScript" }}
-
               DEFAULT_IFC_NAME=$(ip -o route get 1  | grep -oP "dev \K\S+")
+              IFC_CFG_FILE=/etc/sysconfig/network-scripts/ifcfg-$DEFAULT_IFC_NAME
+              # Enable IPv6 and DHCPv6 on the default interface
+              grep IPV6INIT $IFC_CFG_FILE && sed -i '/IPV6INIT*/c IPV6INIT=yes' $IFC_CFG_FILE || echo "IPV6INIT=yes" >> $IFC_CFG_FILE
+              grep DHCPV6C $IFC_CFG_FILE && sed -i '/DHCPV6C*/c DHCPV6C=yes' $IFC_CFG_FILE || echo "DHCPV6C=yes" >> $IFC_CFG_FILE
+              grep IPV6_AUTOCONF $IFC_CFG_FILE && sed -i '/IPV6_AUTOCONF*/c IPV6_AUTOCONF=yes' $IFC_CFG_FILE || echo "IPV6_AUTOCONF=yes" >> $IFC_CFG_FILE
 
-              # enable DHCPv6 on the default interface
-              echo NETWORKING_IPV6=yes >> /etc/sysconfig/network
-              echo IPV6INIT=yes >> /etc/sysconfig/network-scripts/ifcfg-$DEFAULT_IFC_NAME
-              echo DHCPV6C=yes >> /etc/sysconfig/network-scripts/ifcfg-$DEFAULT_IFC_NAME
-              ifdown $DEFAULT_IFC_NAME && ifup $DEFAULT_IFC_NAME
+              # Restart NetworkManager to apply for IPv6 configs
+              systemctl restart NetworkManager
+              # Let NetworkManager apply the DHCPv6 configs
+              sleep 3
 
               mkdir -p /etc/systemd/system/kubelet.service.d/
               # set kubelet nodeip environment variable
@@ -522,23 +535,13 @@ spec:
               {{ if eq .CloudProviderName "vsphere" }}
               systemctl enable --now vmtoolsd.service
               {{ end -}}
-              curl -s -k -v --header 'Authorization: Bearer top-secret' https://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/kube-system-ubuntu-aws-kubelet-bootstrap-config | jq '.data["kubeconfig"]' -r| base64 -d > /etc/kubernetes/bootstrap-kubelet.conf
+
+              {{- /* fetch kubelet bootstrapping kubeconfig */}}
+              curl -s -k -v --header 'Authorization: Bearer {{ .Token }}' {{ .ServerURL }}/api/v1/namespaces/cloud-init-settings/secrets/{{ .BootstrapKubeconfigSecretName }} | jq '.data["kubeconfig"]' -r| base64 -d > /etc/kubernetes/bootstrap-kubelet.conf
 
               systemctl enable --now kubelet
               systemctl enable --now --no-block kubelet-healthcheck.service
               systemctl disable setup.service
-
-      - path: /opt/bin/supervise.sh
-        permissions: 755
-        content:
-          inline:
-            encoding: b64
-            data: |
-              #!/bin/bash
-              set -xeuo pipefail
-              while ! "$@"; do
-                sleep 1
-              done
 
       - path: /etc/systemd/system/kubelet.service
         content:
@@ -583,10 +586,6 @@ spec:
                 {{- else if and (eq .CloudProviderName "aws") (.ExternalCloudProvider) }}
                 --hostname-override=${KUBELET_HOSTNAME} \
                 {{- end }}
-                {{- if semverCompare "<1.23" .KubeVersion }}
-                --dynamic-config-dir=/etc/kubernetes/dynamic-config-dir \
-                --feature-gates=DynamicKubeletConfig=true \
-                {{- end }}
                 --exit-on-lock-contention \
                 --lock-file=/tmp/kubelet.lock \
                 {{- if .PauseImage }}
@@ -596,12 +595,7 @@ spec:
                 --register-with-taints={{- .InitialTaints }} \
                 {{- end }}
                 {{- if eq .ContainerRuntime "containerd" }}
-                --container-runtime=remote \
                 --container-runtime-endpoint=unix:///run/containerd/containerd.sock \
-                {{- end }}
-                {{- if eq .ContainerRuntime "docker" }}
-                --container-runtime=docker \
-                --container-runtime-endpoint=unix:///var/run/dockershim.sock \
                 {{- end }}
                 {{- /* If external or in-tree CCM is in use we don't need to set --node-ip as the cloud provider will know what IPs to return.  */}}
                 {{- if not (and (or (eq .NetworkIPFamily "IPv4+IPv6") (eq .NetworkIPFamily "IPv6+IPv4")) (or (.InTreeCCMAvailable) (.ExternalCloudProvider))) }}
@@ -636,6 +630,12 @@ spec:
               {{- else if eq .NetworkIPFamily "IPv4+IPv6" }}
               DEFAULT_IFC_IPv4=$(ip -o route get  1 | grep -oP "src \K\S+")
               DEFAULT_IFC_IPv6=$(ip -o -6 route get  1:: | grep -oP "src \K\S+")
+
+              if [ -z "${DEFAULT_IFC_IPv6}" ]
+              then
+                echodate "Failed to get IPv6 address for the default route interface"
+                exit 1
+              fi
               DEFAULT_IFC_IP=$DEFAULT_IFC_IPv4,$DEFAULT_IFC_IPv6
               {{- else if eq .NetworkIPFamily "IPv6+IPv4" }}
               DEFAULT_IFC_IPv4=$(ip -o route get  1 | grep -oP "src \K\S+")
@@ -664,9 +664,6 @@ spec:
               if [ -s /etc/machine-name ]; then
                 FULL_HOSTNAME=$(cat /etc/machine-name)
               fi
-              {{- if eq .CloudProviderName "openstack" }}
-              FULL_HOSTNAME=$(echo $FULL_HOSTNAME | sed -e "s/.novalocal//")
-              {{- end }}
 
               # write the nodeip_env file
               # we need the line below because flatcar has the same string "coreos" in that file
@@ -738,8 +735,6 @@ spec:
               - "{{ . }}"
               {{- end }}
               clusterDomain: cluster.local
-              {{- /* containerLogMaxSize and containerLogMaxFiles have no effect for docker  */}}
-              {{- if ne .ContainerRuntime "docker" }}
               {{- if .ContainerLogMaxSize }}
               containerLogMaxSize: {{ .ContainerLogMaxSize }}
               {{- else }}
@@ -749,7 +744,6 @@ spec:
               containerLogMaxFiles: {{ .ContainerLogMaxFiles }}
               {{- else }}
               containerLogMaxFiles: 5
-              {{- end }}
               {{- end }}
               cpuManagerReconcilePeriod: 0s
               evictionPressureTransitionPeriod: 0s
@@ -781,6 +775,10 @@ spec:
               staticPodPath: /etc/kubernetes/manifests
               streamingConnectionIdleTimeout: 0s
               syncFrequency: 0s
+              # Enable parallel image pulling.
+              serializeImagePulls: false
+              # Set max parallel image pulls to 10.
+              maxParallelImagePulls: 10
               kubeReserved:
               {{- if .KubeReserved -}}
                 {{ range $key, $val := .KubeReserved }}
@@ -839,6 +837,7 @@ spec:
               After=kubelet.service
 
               [Service]
+              EnvironmentFile=-/etc/environment
               ExecStart=/opt/bin/health-monitor.sh kubelet
 
               [Install]
@@ -857,15 +856,3 @@ spec:
               # providers swap gets enabled on reboot or after the setup script has finished executing.
               sed -i.orig '/.*swap.*/d' /etc/fstab
               swapoff -a
-
-    modules:
-      yum_repos:
-        cloud-init-daily:
-          name: test cloud-init yum repos
-          baseurl: https://k8c.io/osm
-          type: rpm-md
-          skip_if_unavailable: true
-          gpgcheck: true
-          gpgkey: https://k8c.io/osm/pubkey.gpg
-          enabled_metadata: 1
-      yum_repo_dir: /store/custom/yum.repos.d

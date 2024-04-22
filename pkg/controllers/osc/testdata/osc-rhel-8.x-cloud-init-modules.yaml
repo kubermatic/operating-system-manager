@@ -15,6 +15,36 @@ spec:
           data: |
             #!/bin/bash
             set -xeuo pipefail
+            while ! "$@"; do
+              sleep 1
+            done
+          encoding: b64
+      path: /opt/bin/supervise.sh
+      permissions: 755
+    - content:
+        inline:
+          data: |
+            #!/bin/bash
+            set -xeuo pipefail
+
+            # Check if bootstrap phase has already completed. This is required when we run `cloud-init init` again since it tries to re-run
+            # the bootstrap cloud-config as well, from the userdata.
+            if [ -f /etc/bootstrap-complete ]; then
+              exit 0
+            fi
+
+            cat <<EOF | tee -a /etc/environment
+            HTTP_PROXY=http://test-http-proxy.com
+            http_proxy=http://test-http-proxy.com
+            HTTPS_PROXY=http://test-http-proxy.com
+            https_proxy=http://test-http-proxy.com
+            EOF
+            cat <<EOF | tee -a /etc/environment
+            NO_PROXY=http://test-no-proxy.com
+            no_proxy=http://test-no-proxy.com
+            EOF
+
+            source /etc/environment
 
             yum install -y curl jq
 
@@ -23,6 +53,16 @@ spec:
             cloud-init --file /etc/cloud/cloud.cfg.d/osp-rhel-aws-kube-system-provisioning-config.cfg init
 
             systemctl daemon-reload
+
+            # cloud-init should only run on the first boot. From this point forward we don't need cloud-init anymore.
+            systemctl disable cloud-init
+            touch /etc/cloud/cloud-init.disabled
+
+            # Bootstrap phase for the machine is complete.
+            touch /etc/bootstrap-complete
+            systemctl disable bootstrap.service
+
+            # Start provisioning phase for the machine.
             systemctl restart setup.service
           encoding: b64
       path: /opt/bin/bootstrap
@@ -39,7 +79,8 @@ spec:
             [Service]
             Type=oneshot
             RemainAfterExit=true
-            ExecStart=/opt/bin/bootstrap
+            EnvironmentFile=-/etc/environment
+            ExecStart=/opt/bin/supervise.sh /opt/bin/bootstrap
           encoding: b64
       path: /etc/systemd/system/bootstrap.service
       permissions: 644
@@ -254,6 +295,12 @@ spec:
             systemctl restart systemd-modules-load.service
             sysctl --system
 
+            # Override hostname if /etc/machine-name exists
+            if [ -x "$(command -v hostnamectl)" ] && [ -s /etc/machine-name ]; then
+              machine_name=$(cat /etc/machine-name)
+              hostnamectl set-hostname ${machine_name}
+            fi
+
             yum install -y \
               device-mapper-persistent-data \
               lvm2 \
@@ -272,7 +319,7 @@ spec:
             yum-config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
             yum-config-manager --save --setopt=docker-ce-stable.module_hotfixes=true
 
-            yum install -y containerd.io-1.5* yum-plugin-versionlock
+            yum install -y containerd.io-1.6* yum-plugin-versionlock
             yum versionlock add containerd.io
 
             systemctl daemon-reload
@@ -308,6 +355,8 @@ spec:
             tar xvf "$cni_filename"
             rm -f "$cni_filename"
             cd -
+            CRI_TOOLS_RELEASE="v1.30.0"
+
             CRI_TOOLS_RELEASE="${CRI_TOOLS_RELEASE:-v1.29.0}"
             cri_tools_base_url="https://github.com/kubernetes-sigs/cri-tools/releases/download/${CRI_TOOLS_RELEASE}"
             cri_tools_filename="crictl-${CRI_TOOLS_RELEASE}-linux-${arch}.tar.gz"
@@ -339,45 +388,30 @@ spec:
                 ln -sf "$kube_dir/$bin" "$opt_bin"/$bin
             done
 
-            cat <<EOF | tee -a /etc/environment
-            HTTP_PROXY=http://test-http-proxy.com
-            http_proxy=http://test-http-proxy.com
-            HTTPS_PROXY=http://test-http-proxy.com
-            https_proxy=http://test-http-proxy.com
-            NO_PROXY=http://test-no-proxy.com
-            no_proxy=http://test-no-proxy.com
-            EOF
-
             DEFAULT_IFC_NAME=$(ip -o route get 1  | grep -oP "dev \K\S+")
+            IFC_CFG_FILE=/etc/sysconfig/network-scripts/ifcfg-$DEFAULT_IFC_NAME
+            # Enable IPv6 and DHCPv6 on the default interface
+            grep IPV6INIT $IFC_CFG_FILE && sed -i '/IPV6INIT*/c IPV6INIT=yes' $IFC_CFG_FILE || echo "IPV6INIT=yes" >> $IFC_CFG_FILE
+            grep DHCPV6C $IFC_CFG_FILE && sed -i '/DHCPV6C*/c DHCPV6C=yes' $IFC_CFG_FILE || echo "DHCPV6C=yes" >> $IFC_CFG_FILE
+            grep IPV6_AUTOCONF $IFC_CFG_FILE && sed -i '/IPV6_AUTOCONF*/c IPV6_AUTOCONF=yes' $IFC_CFG_FILE || echo "IPV6_AUTOCONF=yes" >> $IFC_CFG_FILE
 
-            # enable DHCPv6 on the default interface
-            echo NETWORKING_IPV6=yes >> /etc/sysconfig/network
-            echo IPV6INIT=yes >> /etc/sysconfig/network-scripts/ifcfg-$DEFAULT_IFC_NAME
-            echo DHCPV6C=yes >> /etc/sysconfig/network-scripts/ifcfg-$DEFAULT_IFC_NAME
-            ifdown $DEFAULT_IFC_NAME && ifup $DEFAULT_IFC_NAME
+            # Restart NetworkManager to apply for IPv6 configs
+            systemctl restart NetworkManager
+            # Let NetworkManager apply the DHCPv6 configs
+            sleep 3
 
             mkdir -p /etc/systemd/system/kubelet.service.d/
             # set kubelet nodeip environment variable
             /opt/bin/setup_net_env.sh
 
-            curl -s -k -v --header 'Authorization: Bearer top-secret' https://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/kube-system-ubuntu-aws-kubelet-bootstrap-config | jq '.data["kubeconfig"]' -r| base64 -d > /etc/kubernetes/bootstrap-kubelet.conf
+
+            curl -s -k -v --header 'Authorization: Bearer top-secret' https://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/kube-system-osp-rhel-aws-kubelet-bootstrap-config | jq '.data["kubeconfig"]' -r| base64 -d > /etc/kubernetes/bootstrap-kubelet.conf
 
             systemctl enable --now kubelet
             systemctl enable --now --no-block kubelet-healthcheck.service
             systemctl disable setup.service
           encoding: b64
       path: /opt/bin/setup
-      permissions: 755
-    - content:
-        inline:
-          data: |
-            #!/bin/bash
-            set -xeuo pipefail
-            while ! "$@"; do
-              sleep 1
-            done
-          encoding: b64
-      path: /opt/bin/supervise.sh
       permissions: 755
     - content:
         inline:
@@ -410,7 +444,6 @@ spec:
               --cert-dir=/etc/kubernetes/pki \
               --exit-on-lock-contention \
               --lock-file=/tmp/kubelet.lock \
-              --container-runtime=remote \
               --container-runtime-endpoint=unix:///run/containerd/containerd.sock \
               --node-ip ${KUBELET_NODE_IP}
 
@@ -570,6 +603,10 @@ spec:
             staticPodPath: /etc/kubernetes/manifests
             streamingConnectionIdleTimeout: 0s
             syncFrequency: 0s
+            # Enable parallel image pulling.
+            serializeImagePulls: false
+            # Set max parallel image pulls to 10.
+            maxParallelImagePulls: 10
             kubeReserved:
               cpu: 200m
               ephemeral-storage: 1Gi
@@ -606,6 +643,7 @@ spec:
             After=kubelet.service
 
             [Service]
+            EnvironmentFile=-/etc/environment
             ExecStart=/opt/bin/health-monitor.sh kubelet
 
             [Install]
@@ -677,16 +715,6 @@ spec:
         auto-attach: "false"
         password: ""
         username: ""
-      yum_repo_dir: /store/custom/yum.repos.d
-      yum_repos:
-        cloud-init-daily:
-          baseurl: https://k8c.io/osm
-          enabled_metadata: "1"
-          gpgcheck: "true"
-          gpgkey: https://k8c.io/osm/pubkey.gpg
-          name: test cloud-init yum repos
-          skip_if_unavailable: "true"
-          type: rpm-md
     userSSHKeys:
     - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c
   provisioningUtility: cloud-init
