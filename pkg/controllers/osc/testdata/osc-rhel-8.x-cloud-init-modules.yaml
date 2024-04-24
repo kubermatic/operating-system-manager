@@ -355,6 +355,7 @@ spec:
             tar xvf "$cni_filename"
             rm -f "$cni_filename"
             cd -
+            chown -R root:root "$cni_bin_dir"
             CRI_TOOLS_RELEASE="v1.30.0"
 
             CRI_TOOLS_RELEASE="${CRI_TOOLS_RELEASE:-v1.29.0}"

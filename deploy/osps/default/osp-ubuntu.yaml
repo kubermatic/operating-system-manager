@@ -237,6 +237,9 @@ spec:
         rm -f "$cni_filename"
         cd -
 
+        {{- /* set ownership of the CNI binaries to root:root. Required due to https://github.com/cilium/cilium/issues/23838 */}}
+        chown -R root:root "$cni_bin_dir"
+
         {{- /* # cri-tools variables */}}
         {{- if semverCompare "~1.27.0" .KubeVersion }}
         CRI_TOOLS_RELEASE="v1.27.1"
