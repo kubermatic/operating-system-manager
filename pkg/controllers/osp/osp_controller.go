@@ -19,7 +19,6 @@ package osp
 import (
 	"context"
 	"fmt"
-	"io/fs"
 	"path/filepath"
 	"strings"
 
@@ -28,13 +27,11 @@ import (
 	"k8c.io/operating-system-manager/deploy/osps"
 	"k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/resources/reconciling"
-	predicateutil "k8c.io/operating-system-manager/pkg/util/predicate"
 
-	appsv1 "k8s.io/api/apps/v1"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 	ctrlruntime "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -51,132 +48,130 @@ const (
 	ospsDefaultDirName = "default"
 )
 
+type ospMap map[string]*v1alpha1.OperatingSystemProfile
+
 type Reconciler struct {
 	client.Client
-	log             *zap.SugaredLogger
-	defaultOSPFiles map[string][]byte
+	log         *zap.SugaredLogger
+	defaultOSPs ospMap
 
 	namespace string
 }
 
 func Add(mgr manager.Manager, log *zap.SugaredLogger, namespace string, workerCount int) error {
-	ospDefaultDir, err := osps.FS.ReadDir(ospsDefaultDirName)
+	defaultOSPs, err := loadDefaultOSPs()
 	if err != nil {
-		return fmt.Errorf("failed to read osps default directory: %w", err)
-	}
-
-	var defaultOSPFiles = make(map[string][]byte, len(ospDefaultDir))
-	for _, ospFile := range ospDefaultDir {
-		defaultOSPFile, err := fs.ReadFile(osps.FS, filepath.Join(ospsDefaultDirName, ospFile.Name()))
-		if err != nil {
-			return fmt.Errorf("failed to read osp file %s: %w", ospFile.Name(), err)
-		}
-
-		defaultOSPFiles[ospFile.Name()] = defaultOSPFile
+		return fmt.Errorf("failed to load default OSPs: %w", err)
 	}
 
 	reconciler := &Reconciler{
-		Client:          mgr.GetClient(),
-		log:             log,
-		defaultOSPFiles: defaultOSPFiles,
-		namespace:       namespace,
+		Client:      mgr.GetClient(),
+		log:         log,
+		defaultOSPs: defaultOSPs,
+		namespace:   namespace,
 	}
 
-	c, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: reconciler, MaxConcurrentReconciles: workerCount})
-	if err != nil {
-		return err
+	// trigger controller once upon startup to bootstrap the default OSPs
+	bootstrapping := make(chan event.GenericEvent, len(defaultOSPs))
+	for name := range defaultOSPs {
+		bootstrapping <- event.GenericEvent{
+			Object: &v1alpha1.OperatingSystemProfile{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: namespace,
+				},
+			},
+		}
 	}
 
-	// Since the osp controller cares about only creating the default OSP resources, we need to watch for the creation
-	// of any random resource in the underlying namespace where osm is deployed. We picked deployments for this and added additional
-	// event filtering to avoid redundant reconciliation/requeues.
-	if err := c.Watch(source.Kind(mgr.GetCache(), &appsv1.Deployment{}),
-		&handler.EnqueueRequestForObject{},
-		filterDeploymentPredicate(),
-		predicateutil.ByNamespace(namespace),
-	); err != nil {
-		return fmt.Errorf("failed to create watch for deployments: %w", err)
-	}
+	_, err = builder.ControllerManagedBy(mgr).
+		Named(ControllerName).
+		WithOptions(controller.Options{
+			MaxConcurrentReconciles: workerCount,
+		}).
+		For(&v1alpha1.OperatingSystemProfile{}, builder.WithPredicates(predicate.NewPredicateFuncs(func(object client.Object) bool {
+			return object.GetNamespace() == namespace
+		}))).
+		WatchesRawSource(source.Channel(bootstrapping, &handler.EnqueueRequestForObject{})).
+		Build(reconciler)
 
-	return nil
+	return err
 }
 
-func (r *Reconciler) Reconcile(ctx context.Context, _ ctrlruntime.Request) (reconcile.Result, error) {
-	r.log.Info("Reconciling default OSP resource..")
-
-	if err := r.reconcile(ctx); err != nil {
+func (r *Reconciler) Reconcile(ctx context.Context, req ctrlruntime.Request) (reconcile.Result, error) {
+	if err := r.reconcileOSP(ctx, req.Name); err != nil {
 		return reconcile.Result{}, err
 	}
+
 	return reconcile.Result{}, nil
 }
 
-func (r *Reconciler) reconcile(ctx context.Context) error {
-	var ospReconcilers []reconciling.NamedOperatingSystemProfileReconcilerFactory
-	for name, ospFile := range r.defaultOSPFiles {
-		osp, err := parseYAMLToObject(ospFile)
-		if err != nil {
-			return fmt.Errorf("failed to parse osp %s: %w", name, err)
-		}
-
-		// Remove file extension .yaml from the OSP name
-		name = strings.ReplaceAll(name, ".yaml", "")
-
-		// Check if OSP already exists
-		existingOSP := &v1alpha1.OperatingSystemProfile{}
-		if err := r.Client.Get(ctx, types.NamespacedName{Name: name, Namespace: r.namespace}, existingOSP); err != nil && !kerrors.IsNotFound(err) {
-			return fmt.Errorf("failed to retrieve existing OperatingSystemProfile: %w", err)
-		}
-
-		// Since OSPs are immutable, we only want to reconcile resources when the version is different.
-		if osp.Spec.Version != existingOSP.Spec.Version {
-			// OSP already exists
-			osp.SetResourceVersion(existingOSP.GetResourceVersion())
-			osp.SetGeneration(existingOSP.GetGeneration())
-
-			ospReconcilers = append(ospReconcilers, ospReconciler(name, osp))
-		}
+func (r *Reconciler) reconcileOSP(ctx context.Context, name string) error {
+	osp, ok := r.defaultOSPs[name]
+	if !ok {
+		return nil
 	}
 
-	if err := reconciling.ReconcileOperatingSystemProfiles(ctx,
-		ospReconcilers,
-		r.namespace, r.Client); err != nil {
-		return fmt.Errorf("failed to reconcile osps: %w", err)
+	r.log.Debugw("Reconciling OSP resource...", "osp", name)
+
+	ospReconcilers := []reconciling.NamedOperatingSystemProfileReconcilerFactory{
+		ospReconciler(name, osp),
+	}
+
+	if err := reconciling.ReconcileOperatingSystemProfiles(ctx, ospReconcilers, r.namespace, r.Client); err != nil {
+		return fmt.Errorf("failed to reconcile OSP: %w", err)
 	}
 
 	return nil
 }
 
-func ospReconciler(name string, osp *v1alpha1.OperatingSystemProfile) reconciling.NamedOperatingSystemProfileReconcilerFactory {
+func ospReconciler(name string, source *v1alpha1.OperatingSystemProfile) reconciling.NamedOperatingSystemProfileReconcilerFactory {
 	return func() (string, reconciling.OperatingSystemProfileReconciler) {
-		return name, func(*v1alpha1.OperatingSystemProfile) (*v1alpha1.OperatingSystemProfile, error) {
+		return name, func(osp *v1alpha1.OperatingSystemProfile) (*v1alpha1.OperatingSystemProfile, error) {
+			// only attempt an update if our OSP is newer
+			if osp.Spec.Version != source.Spec.Version {
+				osp.Spec = source.Spec
+			}
+
 			return osp, nil
 		}
 	}
 }
 
-func parseYAMLToObject(ospByte []byte) (*v1alpha1.OperatingSystemProfile, error) {
+func loadDefaultOSPs() (ospMap, error) {
+	ospDefaultDir, err := osps.FS.ReadDir(ospsDefaultDirName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read OSPs default directory: %w", err)
+	}
+
+	var defaultOSPs = make(ospMap, len(ospDefaultDir))
+	for _, ospFile := range ospDefaultDir {
+		filename := ospFile.Name()
+
+		osp, err := parseOSPFile(filename)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read OSP %s: %w", filename, err)
+		}
+
+		// Remove file extension .yaml to get OSP name
+		ospName := strings.ReplaceAll(filename, ".yaml", "")
+
+		defaultOSPs[ospName] = osp
+	}
+
+	return defaultOSPs, nil
+}
+
+func parseOSPFile(filename string) (*v1alpha1.OperatingSystemProfile, error) {
+	content, err := osps.FS.ReadFile(filepath.Join(ospsDefaultDirName, filename))
+	if err != nil {
+		return nil, err
+	}
+
 	osp := &v1alpha1.OperatingSystemProfile{}
-	if err := yamlutil.Unmarshal(ospByte, osp); err != nil {
+	if err := yamlutil.Unmarshal(content, osp); err != nil {
 		return nil, err
 	}
 
 	return osp, nil
-}
-
-// filterDeploymentPredicate filters out all deployment events except the creation one.
-func filterDeploymentPredicate() predicate.Predicate {
-	return predicate.Funcs{
-		CreateFunc: func(_ event.CreateEvent) bool {
-			return true
-		},
-		DeleteFunc: func(_ event.DeleteEvent) bool {
-			return false
-		},
-		UpdateFunc: func(_ event.UpdateEvent) bool {
-			return false
-		},
-		GenericFunc: func(_ event.GenericEvent) bool {
-			return false
-		},
-	}
 }
