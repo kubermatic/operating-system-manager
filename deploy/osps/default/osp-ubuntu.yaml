@@ -20,7 +20,7 @@ metadata:
 spec:
   osName: "ubuntu"
   osVersion: "20.04"
-  version: "v1.2.4"
+  version: "v1.2.5"
   supportedCloudProviders:
     - name: "alibaba"
     - name: "aws"
@@ -106,7 +106,15 @@ spec:
               echo "network: {config: disabled}" > /etc/cloud/cloud.cfg.d/99-custom-networking.cfg
               {{- end }}
 
-              cloud-init --file /etc/cloud/cloud.cfg.d/{{ .SecretName }}.cfg init
+              CLOUD_INIT_VERSION=$(cloud-init --version | awk '{print $2}')
+              # Compare the semver values of cloud-init versions to determine the correct command to run.
+              # This is required because the command line arguments for cloud-init changed in version 24.1, for details: https://github.com/canonical/cloud-init/releases/tag/24.1.
+              if [[ $(echo -e "24.0.0\n$CLOUD_INIT_VERSION" | sort -V | head -n1) = "24.0.0" ]]; then
+                  cloud-init init --file /etc/cloud/cloud.cfg.d/{{ .SecretName }}.cfg
+              else
+                  cloud-init --file /etc/cloud/cloud.cfg.d/{{ .SecretName }}.cfg init
+              fi
+
               systemctl daemon-reload
 
               {{- if eq .CloudProviderName "digitalocean" }}
