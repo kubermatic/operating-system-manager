@@ -20,7 +20,7 @@ metadata:
 spec:
   osName: "rockylinux"
   osVersion: "8.6"
-  version: "v1.3.4"
+  version: "v1.3.5"
   provisioningUtility: "cloud-init"
   supportedCloudProviders:
     - name: "aws"
@@ -88,7 +88,14 @@ spec:
 
               curl -s -k -v --header 'Authorization: Bearer {{ .Token }}' {{ .ServerURL }}/api/v1/namespaces/cloud-init-settings/secrets/{{ .SecretName }} | jq '.data["cloud-config"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/{{ .SecretName }}.cfg
               cloud-init clean
-              cloud-init --file /etc/cloud/cloud.cfg.d/{{ .SecretName }}.cfg init
+              CLOUD_INIT_VERSION=$(cloud-init --version | awk '{print $2}')
+              # Compare the semver values of cloud-init versions to determine the correct command to run.
+              # This is required because the command line arguments for cloud-init changed in version 24.1, for details: https://github.com/canonical/cloud-init/releases/tag/24.1.
+              if [[ $(echo -e "24.0.0\n$CLOUD_INIT_VERSION" | sort -V | head -n1) = "24.0.0" ]]; then
+                  cloud-init init --file /etc/cloud/cloud.cfg.d/{{ .SecretName }}.cfg
+              else
+                  cloud-init --file /etc/cloud/cloud.cfg.d/{{ .SecretName }}.cfg init
+              fi
 
               systemctl daemon-reload
 
