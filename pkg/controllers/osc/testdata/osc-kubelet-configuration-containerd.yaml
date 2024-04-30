@@ -35,8 +35,14 @@ spec:
             && apt install -y curl jq\ncurl -s -k -v --header 'Authorization: Bearer
             top-secret'\thttps://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/kubelet-configuration-kube-system-provisioning-config
             | jq '.data[\"cloud-config\"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/kubelet-configuration-kube-system-provisioning-config.cfg\ncloud-init
-            clean\n\ncloud-init --file /etc/cloud/cloud.cfg.d/kubelet-configuration-kube-system-provisioning-config.cfg
-            init\nsystemctl daemon-reload\n\nsystemctl daemon-reload\n\n# cloud-init
+            clean\n\nCLOUD_INIT_VERSION=$(cloud-init --version | awk '{print $2}')\n#
+            Compare the semver values of cloud-init versions to determine the correct
+            command to run.\n# This is required because the command line arguments
+            for cloud-init changed in version 24.1, for details: https://github.com/canonical/cloud-init/releases/tag/24.1.\nif
+            [[ $(echo -e \"24.0.0\\n$CLOUD_INIT_VERSION\" | sort -V | head -n1) =
+            \"24.0.0\" ]]; then\n    cloud-init init --file /etc/cloud/cloud.cfg.d/kubelet-configuration-kube-system-provisioning-config.cfg\nelse\n
+            \   cloud-init --file /etc/cloud/cloud.cfg.d/kubelet-configuration-kube-system-provisioning-config.cfg
+            init\nfi\n\nsystemctl daemon-reload\n\nsystemctl daemon-reload\n\n# cloud-init
             should only run on the first boot. From this point forward we don't need
             cloud-init anymore.\nsystemctl disable cloud-init\ntouch /etc/cloud/cloud-init.disabled\n\n#
             Bootstrap phase for the machine is complete.\ntouch /etc/bootstrap-complete\nsystemctl
