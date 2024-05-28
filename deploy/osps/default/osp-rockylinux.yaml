@@ -25,6 +25,7 @@ spec:
   supportedCloudProviders:
     - name: "aws"
     - name: "azure"
+    - name: "baremetal"
     - name: "digitalocean"
     - name: "equinixmetal"
     - name: "hetzner"
