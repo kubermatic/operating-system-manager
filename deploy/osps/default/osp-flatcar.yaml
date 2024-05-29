@@ -32,6 +32,7 @@ spec:
     - name: "openstack"
     - name: "vsphere"
     - name: "vmware-cloud-director"
+
   bootstrapConfig:
     templates:
       configureProxyScript: |-
