@@ -18,15 +18,13 @@ require (
 	go.uber.org/zap v1.27.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8c.io/reconciler v0.5.0
-	k8s.io/api v0.30.0
-	k8s.io/apimachinery v0.30.0
-	k8s.io/client-go v0.30.0
-	k8s.io/code-generator v0.30.0
+	k8s.io/api v0.30.1
+	k8s.io/apimachinery v0.30.1
+	k8s.io/client-go v0.30.1
+	k8s.io/code-generator v0.30.1
 	k8s.io/klog/v2 v2.120.1
 	k8s.io/utils v0.0.0-20240310230437-4693a0247e57
-	// Pinned due to a breaking change in k8s.io/client-go/tools/leaderelection in v0.30.0
-	// TODO: Update to the latest semver version when https://github.com/kubernetes-sigs/controller-runtime/pull/2693 is released
-	sigs.k8s.io/controller-runtime v0.17.1-0.20240418082203-04706074d2f1
+	sigs.k8s.io/controller-runtime v0.18.3
 	sigs.k8s.io/controller-tools v0.14.0
 	sigs.k8s.io/yaml v1.4.0
 )
@@ -101,8 +99,8 @@ require (
 	google.golang.org/protobuf v1.33.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	k8s.io/apiextensions-apiserver v0.30.0-rc.2 // indirect
-	k8s.io/component-base v0.30.0-rc.2 // indirect
+	k8s.io/apiextensions-apiserver v0.30.1 // indirect
+	k8s.io/component-base v0.30.1 // indirect
 	k8s.io/gengo/v2 v2.0.0-20240228010128-51d4e06bde70 // indirect
 	k8s.io/klog v1.0.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20240228011516-70dd3763d340 // indirect

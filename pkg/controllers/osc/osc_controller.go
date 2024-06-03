@@ -42,13 +42,12 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/tools/record"
 	ctrlruntime "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 const (
@@ -121,21 +120,21 @@ func Add(
 		nodeRegistryCredentialsSecret: nodeRegistryCredentialsSecret,
 		kubeletFeatureGates:           kubeletFeatureGates,
 	}
-	c, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: reconciler, MaxConcurrentReconciles: workerCount})
-	if err != nil {
-		return err
-	}
 
-	if err := c.Watch(source.Kind(mgr.GetCache(), &clusterv1alpha1.MachineDeployment{}), &handler.EnqueueRequestForObject{}, filterMachineDeploymentPredicate()); err != nil {
-		return fmt.Errorf("failed to watch MachineDeployments: %w", err)
-	}
+	_, err := builder.ControllerManagedBy(mgr).
+		Named(ControllerName).
+		WithOptions(controller.Options{
+			MaxConcurrentReconciles: workerCount,
+		}).
+		For(&clusterv1alpha1.MachineDeployment{}, builder.WithPredicates(filterMachineDeploymentPredicate())).
+		Build(reconciler)
 
-	return nil
+	return err
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrlruntime.Request) (reconcile.Result, error) {
 	log := r.log.With("request", req)
-	log.Info("Reconciling OSC resource..")
+	log.Debug("Reconciling OSC resource...")
 
 	machineDeployment := &clusterv1alpha1.MachineDeployment{}
 	if err := r.workerClient.Get(ctx, req.NamespacedName, machineDeployment); err != nil {
