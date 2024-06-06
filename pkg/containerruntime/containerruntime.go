@@ -16,17 +16,12 @@ limitations under the License.
 
 package containerruntime
 
-import (
-	"github.com/kubermatic/machine-controller/pkg/providerconfig/types"
-)
-
 const (
 	containerdName = "containerd"
 )
 
 type Engine interface {
 	KubeletFlags() []string
-	ScriptFor(os types.OperatingSystem) (string, error)
 	ConfigFileName() string
 	Config() (string, error)
 	AuthConfigFileName() string
