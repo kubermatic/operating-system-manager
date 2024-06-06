@@ -30,9 +30,9 @@ import (
 	"github.com/kubermatic/machine-controller/pkg/apis/cluster/common"
 	"github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
 	mcbootstrap "github.com/kubermatic/machine-controller/pkg/bootstrap"
-	"github.com/kubermatic/machine-controller/pkg/containerruntime"
 	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
 	"k8c.io/operating-system-manager/pkg/cloudprovider"
+	"k8c.io/operating-system-manager/pkg/containerruntime"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/providerconfig/amzn2"
 	"k8c.io/operating-system-manager/pkg/providerconfig/centos"
@@ -465,7 +465,7 @@ func setOperatingSystemConfig(os providerconfigtypes.OperatingSystem, operatingS
 
 func getKubeletConfigs(annotations map[string]string) (kubeletConfig, error) {
 	var cfg kubeletConfig
-	kubeletConfigs := common.GetKubeletConfigs(annotations)
+	kubeletConfigs := getKubeletConfigMap(annotations)
 	if len(kubeletConfigs) == 0 {
 		return cfg, nil
 	}
@@ -498,6 +498,20 @@ func getKubeletConfigs(annotations map[string]string) (kubeletConfig, error) {
 		cfg.ContainerLogMaxFiles = &val
 	}
 	return cfg, nil
+}
+
+func getKubeletConfigMap(annotations map[string]string) map[string]string {
+	configs := map[string]string{}
+	for name, value := range annotations {
+		if strings.HasPrefix(name, common.KubeletConfigAnnotationPrefixV1) {
+			nameConfigValue := strings.SplitN(name, "/", 2)
+			if len(nameConfigValue) != 2 {
+				continue
+			}
+			configs[nameConfigValue[1]] = value
+		}
+	}
+	return configs
 }
 
 func getKeyValueMap(value string, kvDelimiter string) *map[string]string {

@@ -23,7 +23,7 @@ import (
 
 	"github.com/Masterminds/sprig/v3"
 
-	"github.com/kubermatic/machine-controller/pkg/ini"
+	"k8c.io/operating-system-manager/pkg/util/ini"
 )
 
 // cloudConfigTemplate renders the cloud-config in gcfg format. All
