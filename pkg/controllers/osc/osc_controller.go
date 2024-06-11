@@ -268,15 +268,14 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 		r.containerRuntimeConfig,
 		r.kubeletFeatureGates,
 	)
+	if err != nil {
+		return fmt.Errorf("failed to generate %s osc: %w", oscName, err)
+	}
 
 	if osc.Spec.CloudProvider.Name == "edge" {
 		if err := r.generateEdgeScript(ctx, md, token, bootstrapKubeconfig); err != nil {
 			return fmt.Errorf("failed to generate edge provider bootstrap script: %w", err)
 		}
-	}
-
-	if err != nil {
-		return fmt.Errorf("failed to generate %s osc: %w", oscName, err)
 	}
 
 	// Add machine deployment revision to OSC
