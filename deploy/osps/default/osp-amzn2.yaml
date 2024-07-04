@@ -46,6 +46,14 @@ spec:
 
         source /etc/environment
 
+      configureHostCABundle: |-
+        {{- if .HostCACert }}
+        cat <<EOF | tee /usr/local/share/ca-certificates/custom.crt
+        {{ .HostCACert }}
+        EOF
+        update-ca-certificates
+        {{- end }}
+
     files:
       - path: /opt/bin/supervise.sh
         permissions: 755
@@ -76,6 +84,7 @@ spec:
 
               {{- /* Configure proxy as the first step to ensure that all the phases of provisioning respect the proxy environment. */}}
               {{- template "configureProxyScript" }}
+              {{- template "configureHostCABundle" }}
 
               yum install -y curl jq
 
