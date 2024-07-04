@@ -89,6 +89,7 @@ type options struct {
 
 	overrideBootstrapKubeletAPIServer string
 	bootstrapTokenServiceAccountName  string
+	kubernetesCABundleFile            string
 	caBundleFile                      string
 }
 
@@ -142,7 +143,9 @@ func main() {
 	flag.BoolVar(&opt.enableLeaderElection, "leader-elect", true, "Enable leader election for controller manager.")
 	flag.StringVar(&opt.overrideBootstrapKubeletAPIServer, "override-bootstrap-kubelet-apiserver", "", "Override for the API server address used in worker nodes bootstrap-kubelet.conf")
 	flag.StringVar(&opt.bootstrapTokenServiceAccountName, "bootstrap-token-service-account-name", "", "When set use the service account token from this SA as bootstrap token instead of creating a temporary one. Passed in namespace/name format")
-	flag.StringVar(&opt.caBundleFile, "ca-bundle", "", "Path to a file containing all PEM-encoded CA certificates. Will be used for Kubernetes CA certificates.")
+
+	flag.StringVar(&opt.kubernetesCABundleFile, "kubernetes-ca-bundle", "", "Path to a file containing all PEM-encoded CA certificates. Will be used for Kubernetes CA certificates.")
+	flag.StringVar(&opt.caBundleFile, "ca-bundle", "", "Path to a file containing all PEM-encoded CA certificates. Will be propagated to the machine and used instead of the host's certificates if set.")
 
 	flag.Parse()
 
@@ -165,12 +168,20 @@ func main() {
 	}
 
 	var (
-		err          error
-		customCACert string
+		err                    error
+		kubernetesCustomCACert string
+		hostCACert             string
 	)
 
+	if len(opt.kubernetesCABundleFile) > 0 {
+		kubernetesCustomCACert, err = retrieveCustomCACertificate(opt.kubernetesCABundleFile)
+		if err != nil {
+			log.Fatalf("-ca-bundle is invalid: %s", err.Error())
+		}
+	}
+
 	if len(opt.caBundleFile) > 0 {
-		customCACert, err = retrieveCustomCACertificate(opt.caBundleFile)
+		hostCACert, err = retrieveCustomCACertificate(opt.caBundleFile)
 		if err != nil {
 			log.Fatalf("-ca-bundle is invalid: %s", err.Error())
 		}
@@ -262,8 +273,8 @@ func main() {
 		}
 	}
 
-	caCert := customCACert
-	if opt.caBundleFile == "" {
+	caCert := kubernetesCustomCACert
+	if opt.kubernetesCABundleFile == "" {
 		caCert, err = certificate.GetCACert(opt.kubeconfig, mgr.GetConfig())
 		if err != nil {
 			log.Fatal("failed to load CA certificate", zap.Error(err))
@@ -289,6 +300,7 @@ func main() {
 		mgr.GetClient(),
 		bootstrappingManager,
 		caCert,
+		hostCACert,
 		opt.namespace,
 		opt.workerCount,
 		parsedClusterDNSIPs,

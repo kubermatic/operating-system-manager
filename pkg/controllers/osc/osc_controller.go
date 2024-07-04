@@ -73,6 +73,7 @@ type Reconciler struct {
 	generator                     generator.CloudConfigGenerator
 	clusterDNSIPs                 []net.IP
 	caCert                        string
+	hostCACert                    string
 	nodeHTTPProxy                 string
 	nodeNoProxy                   string
 	nodeRegistryCredentialsSecret string
@@ -87,6 +88,7 @@ func Add(
 	client ctrlruntimeclient.Client,
 	bootstrappingManager bootstrap.Bootstrap,
 	caCert string,
+	hostCACert string,
 	namespace string,
 	workerCount int,
 	clusterDNSIPs []net.IP,
@@ -107,6 +109,7 @@ func Add(
 		recorder:                      mgr.GetEventRecorderFor(ControllerName),
 		bootstrappingManager:          bootstrappingManager,
 		caCert:                        caCert,
+		hostCACert:                    hostCACert,
 		namespace:                     namespace,
 		generator:                     generator,
 		clusterDNSIPs:                 clusterDNSIPs,
@@ -257,6 +260,7 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 		oscName,
 		r.namespace,
 		r.caCert,
+		r.hostCACert,
 		r.clusterDNSIPs,
 		r.containerRuntime,
 		r.externalCloudProvider,

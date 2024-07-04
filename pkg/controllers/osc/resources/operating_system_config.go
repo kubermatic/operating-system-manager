@@ -70,6 +70,7 @@ func GenerateOperatingSystemConfig(
 	oscName string,
 	namespace string,
 	caCert string,
+	hostCACert string,
 	clusterDNSIPs []net.IP,
 	containerRuntime string,
 	externalCloudProvider bool,
@@ -176,6 +177,7 @@ func GenerateOperatingSystemConfig(
 		KubeVersion:                kubeletVersionStr,
 		ClusterDNSIPs:              clusterDNSIPs,
 		KubernetesCACert:           caCert,
+		HostCACert:                 hostCACert,
 		InTreeCCMAvailable:         inTreeCCM,
 		CloudConfig:                cloudConfig,
 		ContainerRuntime:           containerRuntime,
@@ -268,6 +270,7 @@ type filesData struct {
 	CNIVersion                 string
 	ClusterDNSIPs              []net.IP
 	KubernetesCACert           string
+	HostCACert                 string
 	ServerAddress              string
 	CloudConfig                string
 	ContainerRuntime           string
