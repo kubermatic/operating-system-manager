@@ -221,9 +221,7 @@ spec:
         chown -R root:root "$cni_bin_dir"
 
         {{- /* # cri-tools variables */}}
-        {{- if semverCompare "~1.27.0" .KubeVersion }}
-        CRI_TOOLS_RELEASE="v1.27.1"
-        {{- else if semverCompare "~1.28.0" .KubeVersion }}
+        {{- if semverCompare "~1.28.0" .KubeVersion }}
         CRI_TOOLS_RELEASE="v1.28.0"
         {{- else if semverCompare "~1.29.0" .KubeVersion }}
         CRI_TOOLS_RELEASE="v1.29.0"
