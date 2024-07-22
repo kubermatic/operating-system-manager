@@ -71,8 +71,6 @@ linters-settings:
       - nilness # find tautologies / impossible conditions
 
 issues:
-  exclude:
-    - "cyclomatic complexity 32 of func `GenerateOperatingSystemConfig` is high"
   exclude-dirs:
     - hack
     - vendor
