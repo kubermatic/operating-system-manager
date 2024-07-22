@@ -163,7 +163,7 @@ spec:
         templates:
           containerRuntimeInstallation: |-
             yum install -y \
-              containerd-1.6* \
+              containerd-1.7* \
               yum-plugin-versionlock
             yum versionlock add containerd
 
