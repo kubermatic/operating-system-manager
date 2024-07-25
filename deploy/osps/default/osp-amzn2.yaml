@@ -162,9 +162,7 @@ spec:
                   {{ .ContainerRuntimeConfig }}
         templates:
           containerRuntimeInstallation: |-
-            yum install -y \
-              containerd-1.7* \
-              yum-plugin-versionlock
+            yum install -y containerd-1.7* yum-plugin-versionlock
             yum versionlock add containerd
 
             systemctl daemon-reload
