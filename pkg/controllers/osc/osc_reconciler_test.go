@@ -367,7 +367,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 
 			buff, err := yaml.Marshal(osc)
 			if err != nil {
-				t.Fatalf(err.Error())
+				t.Fatal(err)
 			}
 			testUtil.CompareOutput(t, testCase.oscFile, string(buff), *update)
 
@@ -392,7 +392,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 
 			buff, err = yaml.Marshal(secret)
 			if err != nil {
-				t.Fatalf(err.Error())
+				t.Fatal(err)
 			}
 			testUtil.CompareOutput(t, testCase.bootstrapSecretFile, string(buff), *update)
 
@@ -416,7 +416,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 
 			buff, err = yaml.Marshal(secret)
 			if err != nil {
-				t.Fatalf(err.Error())
+				t.Fatal(err)
 			}
 			testUtil.CompareOutput(t, testCase.provisioningSecretFile, string(buff), *update)
 		})
