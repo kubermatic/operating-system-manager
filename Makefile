@@ -21,7 +21,7 @@ export GO111MODULE=on
 export GOFLAGS?=-mod=readonly -trimpath
 export GIT_TAG ?= $(shell git tag --points-at HEAD)
 
-GO_VERSION = 1.22.5
+GO_VERSION = 1.23.0
 
 CMD = $(notdir $(wildcard ./cmd/*))
 BUILD_DEST ?= _build
