@@ -826,7 +826,7 @@ func generateMachineDeployment(t *testing.T, os providerconfigtypes.OperatingSys
 			Template: clusterv1alpha1.MachineTemplateSpec{
 				Spec: clusterv1alpha1.MachineSpec{
 					Versions: clusterv1alpha1.MachineVersionInfo{
-						Kubelet: "1.30.0",
+						Kubelet: "1.31.0",
 					},
 					ProviderSpec: clusterv1alpha1.ProviderSpec{
 						Value: &runtime.RawExtension{
