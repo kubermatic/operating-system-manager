@@ -757,15 +757,15 @@ spec:
                 anonymous:
                   enabled: false
                 webhook:
-                  cacheTTL: 0s
+                  cacheTTL: 2m
                   enabled: true
                 x509:
                   clientCAFile: /etc/kubernetes/pki/ca.crt
               authorization:
                 mode: Webhook
                 webhook:
-                  cacheAuthorizedTTL: 0s
-                  cacheUnauthorizedTTL: 0s
+                  cacheAuthorizedTTL: 5m0s
+                  cacheUnauthorizedTTL: 30s
               cgroupDriver: systemd
               clusterDNS:
               {{- range .ClusterDNSIPs }}
@@ -782,36 +782,17 @@ spec:
               {{- else }}
               containerLogMaxFiles: 5
               {{- end }}
-              cpuManagerReconcilePeriod: 0s
-              evictionPressureTransitionPeriod: 0s
               featureGates:
               {{- if .KubeletFeatureGates -}}
                 {{ range $key, $val := .KubeletFeatureGates }}
                 {{ $key }}: {{ $val }}
                 {{- end -}}
               {{- end }}
-              fileCheckFrequency: 0s
-              httpCheckFrequency: 0s
-              imageMinimumGCAge: 0s
-              logging:
-                flushFrequency: 0
-                options:
-                  json:
-                    infoBufferSize: "0"
-                verbosity: 0
-              memorySwap: {}
-              nodeStatusReportFrequency: 0s
-              nodeStatusUpdateFrequency: 0s
               protectKernelDefaults: true
               readOnlyPort: 0
               rotateCertificates: true
-              runtimeRequestTimeout: 0s
               serverTLSBootstrap: true
-              shutdownGracePeriod: 0s
-              shutdownGracePeriodCriticalPods: 0s
               staticPodPath: /etc/kubernetes/manifests
-              streamingConnectionIdleTimeout: 0s
-              syncFrequency: 0s
               # Enable parallel image pulling.
               serializeImagePulls: false
               # Set max parallel image pulls to 10.
@@ -861,7 +842,6 @@ spec:
               - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
               - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
               volumePluginDir: /var/lib/kubelet/volumeplugins
-              volumeStatsAggPeriod: 0s
               resolvConf: /run/systemd/resolve/resolv.conf
 
       - path: /etc/systemd/system/kubelet-healthcheck.service
