@@ -23,10 +23,10 @@ import (
 	"strings"
 	"text/template"
 
-	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
-	mcbootstrap "github.com/kubermatic/machine-controller/pkg/bootstrap"
-	"github.com/kubermatic/machine-controller/pkg/jsonutil"
-	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
+	clusterv1alpha1 "k8c.io/machine-controller/pkg/apis/cluster/v1alpha1"
+	mcbootstrap "k8c.io/machine-controller/pkg/bootstrap"
+	"k8c.io/machine-controller/pkg/jsonutil"
+	providerconfigtypes "k8c.io/machine-controller/pkg/providerconfig/types"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/providerconfig"
 )

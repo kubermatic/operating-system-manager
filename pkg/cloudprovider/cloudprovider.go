@@ -22,7 +22,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 
-	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
+	providerconfigtypes "k8c.io/machine-controller/pkg/providerconfig/types"
 	"k8c.io/operating-system-manager/pkg/cloudprovider/aws"
 	"k8c.io/operating-system-manager/pkg/cloudprovider/azure"
 	"k8c.io/operating-system-manager/pkg/cloudprovider/gce"

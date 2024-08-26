@@ -24,10 +24,10 @@ import (
 
 	"go.uber.org/zap"
 
-	clusterv1alpha1 "github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
-	mcbootstrap "github.com/kubermatic/machine-controller/pkg/bootstrap"
-	machinecontrollerutil "github.com/kubermatic/machine-controller/pkg/controller/util"
-	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
+	clusterv1alpha1 "k8c.io/machine-controller/pkg/apis/cluster/v1alpha1"
+	mcbootstrap "k8c.io/machine-controller/pkg/bootstrap"
+	machinecontrollerutil "k8c.io/machine-controller/pkg/controller/util"
+	providerconfigtypes "k8c.io/machine-controller/pkg/providerconfig/types"
 	"k8c.io/operating-system-manager/pkg/bootstrap"
 	"k8c.io/operating-system-manager/pkg/containerruntime"
 	"k8c.io/operating-system-manager/pkg/controllers/osc/resources"

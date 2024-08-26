@@ -16,7 +16,7 @@ limitations under the License.
 
 package types
 
-import "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
+import "k8c.io/machine-controller/pkg/providerconfig/types"
 
 const AzureCloudProvider = "AZUREPUBLICCLOUD"
 

@@ -27,10 +27,10 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 
-	"github.com/kubermatic/machine-controller/pkg/apis/cluster/common"
-	"github.com/kubermatic/machine-controller/pkg/apis/cluster/v1alpha1"
-	mcbootstrap "github.com/kubermatic/machine-controller/pkg/bootstrap"
-	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
+	"k8c.io/machine-controller/pkg/apis/cluster/common"
+	"k8c.io/machine-controller/pkg/apis/cluster/v1alpha1"
+	mcbootstrap "k8c.io/machine-controller/pkg/bootstrap"
+	providerconfigtypes "k8c.io/machine-controller/pkg/providerconfig/types"
 	"k8c.io/operating-system-manager/pkg/cloudprovider"
 	"k8c.io/operating-system-manager/pkg/containerruntime"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"

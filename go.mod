@@ -11,7 +11,6 @@ require (
 	github.com/flatcar/container-linux-config-transpiler v0.9.4
 	github.com/go-logr/zapr v1.3.0
 	github.com/go-test/deep v1.1.1
-	github.com/kubermatic/machine-controller v1.59.1-0.20240821075210-107e3514d267
 	github.com/onsi/ginkgo/v2 v2.20.1
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
 	github.com/sethvargo/go-password v0.3.0
@@ -19,6 +18,7 @@ require (
 	go.uber.org/zap v1.27.0
 	gopkg.in/gcfg.v1 v1.2.3
 	gopkg.in/yaml.v3 v3.0.1
+	k8c.io/machine-controller v1.59.1-0.20240826134918-7051af1be2ce
 	k8c.io/reconciler v0.5.0
 	k8s.io/api v0.31.0
 	k8s.io/apimachinery v0.31.0
@@ -28,7 +28,6 @@ require (
 	k8s.io/utils v0.0.0-20240821151609-f90d01438635
 	sigs.k8s.io/controller-runtime v0.19.0
 	sigs.k8s.io/controller-tools v0.14.0
-	sigs.k8s.io/yaml v1.4.0
 )
 
 require (
@@ -110,6 +109,7 @@ require (
 	k8s.io/kube-openapi v0.0.0-20240816214639-573285566f34 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
+	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
 replace github.com/ajeddeloh/go-json => github.com/coreos/go-json v0.0.0-20231102161613-e49c8866685a
