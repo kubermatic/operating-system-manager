@@ -19,7 +19,7 @@ package config
 import (
 	"context"
 
-	"github.com/kubermatic/machine-controller/pkg/providerconfig"
+	"k8c.io/machine-controller/pkg/providerconfig"
 
 	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )

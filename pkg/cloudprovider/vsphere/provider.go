@@ -23,7 +23,7 @@ import (
 	"net/url"
 	"strings"
 
-	providerconfigtypes "github.com/kubermatic/machine-controller/pkg/providerconfig/types"
+	providerconfigtypes "k8c.io/machine-controller/pkg/providerconfig/types"
 	"k8c.io/operating-system-manager/pkg/cloudprovider/vsphere/types"
 	"k8c.io/operating-system-manager/pkg/providerconfig/config"
 )
