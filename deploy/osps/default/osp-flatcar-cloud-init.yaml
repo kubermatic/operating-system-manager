@@ -47,6 +47,14 @@ spec:
 
         source /etc/environment
 
+      configureHostCABundle: |-
+        {{- if .HostCACert }}
+        cat <<EOF | tee /etc/ssl/certs/custom.pem
+        {{ .HostCACert }}
+        EOF
+        update-ca-certificates
+        {{- end }}
+
       safeDownloadBinariesScript: |-
         {{- /* setup some common directories */}}
         opt_bin=/opt/bin
@@ -209,6 +217,7 @@ spec:
 
               {{- /* Configure proxy as the first step to ensure that all the phases of provisioning respect the proxy environment. */}}
               {{- template "configureProxyScript" }}
+              {{- template "configureHostCABundle" }}
 
               {{- if not .FlatcarConfig.DisableAutoUpdate }}
               cat << EOF | tee /etc/polkit-1/rules.d/60-noreboot_norestart.rules
