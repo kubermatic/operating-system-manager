@@ -19,7 +19,7 @@ metadata:
   namespace: kube-system
 spec:
   osName: "ubuntu"
-  osVersion: "20.04"
+  osVersion: "24.04"
   version: "v1.5.0"
   provisioningUtility: "cloud-init"
   supportedCloudProviders:
@@ -106,6 +106,13 @@ spec:
               {{- /* Configure proxy as the first step to ensure that all the phases of provisioning respect the proxy environment. */}}
               {{- template "configureProxyScript" }}
               {{- template "configureHostCABundle" }}
+
+              {{- /* Starting with Ubuntu 24.04, there is an issue with DNS resolution that leaves machines without connectivity consistently. We even observed this issue on machines
+              where the netplan wasn't executed in the second cloud-init run. To fix this we are adding Cloudfare as fallback for DNS resolution */}}
+              {{- if eq .CloudProviderName "hetzner" }}
+              sed -i '/\[Resolve\]/a FallbackDNS=1.1.1.1#cloudflare-dns.com 1.0.0.1#cloudflare-dns.com 2606:4700:4700::1111#cloudflare-dns.com 2606:4700:4700::1001#cloudflare-dns.com' /etc/systemd/resolved.conf
+              systemctl restart systemd-resolved
+              {{- end }}
 
               export DEBIAN_FRONTEND=noninteractive
               apt update && apt install -y curl jq
