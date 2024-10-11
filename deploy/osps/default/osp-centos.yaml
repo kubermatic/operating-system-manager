@@ -26,7 +26,6 @@ spec:
     - name: "alibaba"
     - name: "aws"
     - name: "azure"
-    - name: "baremetal"
     - name: "digitalocean"
     - name: "equinixmetal"
     - name: "kubevirt"
