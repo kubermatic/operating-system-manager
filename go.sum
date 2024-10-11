@@ -487,8 +487,8 @@ honnef.co/go/tools v0.0.0-20190106161140-3f1c8253044a/go.mod h1:rf3lG4BRIbNafJWh
 honnef.co/go/tools v0.0.0-20190418001031-e561f6794a2a/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 honnef.co/go/tools v0.0.1-2019.2.3/go.mod h1:a3bituU0lyd329TUQxRnasdCoJDkEUEAqEt0JzvZhAg=
-k8c.io/machine-controller v1.59.1-0.20240826134918-7051af1be2ce h1:xdYbfFTr5WFMNDNwt5P148skkHFJ3BA/gAfpQX11CRY=
-k8c.io/machine-controller v1.59.1-0.20240826134918-7051af1be2ce/go.mod h1:iz5Fx0pR3n3B2wV8IKDcFdovartpzVG5vL3GISGktWo=
+k8c.io/machine-controller v1.59.1-0.20241011055903-713b23c97a6c h1:wXd2RGtpYLf0lVobWqhFV6JE5U84sRawuWhuy6kgaXk=
+k8c.io/machine-controller v1.59.1-0.20241011055903-713b23c97a6c/go.mod h1:j9SHRLpzFj5wOMlhdPJL+ub08P8rvVvQOFtg7JaLYb4=
 k8c.io/reconciler v0.5.0 h1:BHpelg1UfI/7oBFctqOq8sX6qzflXpl3SlvHe7e8wak=
 k8c.io/reconciler v0.5.0/go.mod h1:pT1+SVcVXJQeBJhpJBXQ5XW64QnKKeYTnVlQf0dGE0k=
 k8s.io/api v0.31.1 h1:Xe1hX/fPW3PXYYv8BlozYqw63ytA92snr96zMW9gWTU=

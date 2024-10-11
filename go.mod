@@ -1,8 +1,8 @@
 module k8c.io/operating-system-manager
 
-go 1.22.0
+go 1.22.3
 
-toolchain go1.22.2
+toolchain go1.23.2
 
 require (
 	github.com/BurntSushi/toml v1.4.0
@@ -18,7 +18,7 @@ require (
 	go.uber.org/zap v1.27.0
 	gopkg.in/gcfg.v1 v1.2.3
 	gopkg.in/yaml.v3 v3.0.1
-	k8c.io/machine-controller v1.59.1-0.20240826134918-7051af1be2ce
+	k8c.io/machine-controller v1.59.1-0.20241011055903-713b23c97a6c
 	k8c.io/reconciler v0.5.0
 	k8s.io/api v0.31.1
 	k8s.io/apimachinery v0.31.1
