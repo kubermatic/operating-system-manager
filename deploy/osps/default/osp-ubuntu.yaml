@@ -20,7 +20,7 @@ metadata:
 spec:
   osName: "ubuntu"
   osVersion: "24.04"
-  version: "v1.6.0"
+  version: "v1.6.1"
   provisioningUtility: "cloud-init"
   supportedCloudProviders:
     - name: "alibaba"
@@ -75,154 +75,6 @@ spec:
         sudo update-ca-certificates
         {{- end }}
 
-    files:
-      - path: /opt/bin/supervise.sh
-        permissions: 755
-        content:
-          inline:
-            encoding: b64
-            data: |
-              #!/bin/bash
-              set -xeuo pipefail
-              while ! "$@"; do
-                sleep 1
-              done
-
-      - path: /opt/bin/bootstrap
-        permissions: 755
-        content:
-          inline:
-            encoding: b64
-            data: |
-              #!/bin/bash
-              set -xeuo pipefail
-
-              # Check if bootstrap phase has already completed. This is required when we run `cloud-init init` again since it tries to re-run
-              # the bootstrap cloud-config as well, from the userdata.
-              if [ -f /etc/bootstrap-complete ]; then
-                exit 0
-              fi
-
-              {{- /* Configure proxy as the first step to ensure that all the phases of provisioning respect the proxy environment. */}}
-              {{- template "configureProxyScript" }}
-              {{- template "configureHostCABundle" }}
-
-              {{- /* Starting with Ubuntu 24.04, there is an issue with DNS resolution that leaves machines without connectivity consistently. We even observed this issue on machines
-              where the netplan wasn't executed in the second cloud-init run. To fix this we are adding Cloudfare as fallback for DNS resolution */}}
-              {{- if eq .CloudProviderName "hetzner" }}
-              sed -i '/\[Resolve\]/a FallbackDNS=1.1.1.1#cloudflare-dns.com 1.0.0.1#cloudflare-dns.com 2606:4700:4700::1111#cloudflare-dns.com 2606:4700:4700::1001#cloudflare-dns.com' /etc/systemd/resolved.conf
-              systemctl restart systemd-resolved
-              {{- end }}
-
-              export DEBIAN_FRONTEND=noninteractive
-              apt update && apt install -y curl jq
-              curl -s -k -v --header 'Authorization: Bearer {{ .Token }}'	{{ .ServerURL }}/api/v1/namespaces/cloud-init-settings/secrets/{{ .SecretName }} | jq '.data["cloud-config"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/{{ .SecretName }}.cfg
-              cloud-init clean
-
-              {{- /* Azure's cloud-init provider integration has changed recently (end of April 2024) and now requires us to run this command below once to set some files up that seem required for another cloud-init run. */}}
-              {{- if (eq .CloudProviderName "azure") }}
-              cloud-init init --local
-              {{- end }}
-
-              {{- /* The default cloud-init configurations files have a bug on Digital Ocean that causes the machine to be in-accessible on the 2nd cloud-init and in case of Hetzner, ipv6 addresses are missing. Hence we disable network configuration. */}}
-              {{- if (or (eq .CloudProviderName "digitalocean") (eq .CloudProviderName "hetzner")) }}
-              rm /etc/netplan/50-cloud-init.yaml
-              echo "network: {config: disabled}" > /etc/cloud/cloud.cfg.d/99-custom-networking.cfg
-              {{- end }}
-
-              CLOUD_INIT_VERSION=$(cloud-init --version | awk '{print $2}')
-              # Compare the semver values of cloud-init versions to determine the correct command to run.
-              # This is required because the command line arguments for cloud-init changed in version 24.1, for details: https://github.com/canonical/cloud-init/releases/tag/24.1.
-              if [[ $(echo -e "24.0.0\n$CLOUD_INIT_VERSION" | sort -V | head -n1) = "24.0.0" ]]; then
-                  cloud-init init --file /etc/cloud/cloud.cfg.d/{{ .SecretName }}.cfg
-              else
-                  cloud-init --file /etc/cloud/cloud.cfg.d/{{ .SecretName }}.cfg init
-              fi
-
-              systemctl daemon-reload
-
-              {{- if eq .CloudProviderName "digitalocean" }}
-              netplan generate
-              netplan apply
-              {{- end }}
-
-              systemctl daemon-reload
-
-              # cloud-init should only run on the first boot. From this point forward we don't need cloud-init anymore.
-              systemctl disable cloud-init
-              touch /etc/cloud/cloud-init.disabled
-
-              # Bootstrap phase for the machine is complete.
-              touch /etc/bootstrap-complete
-              systemctl disable bootstrap.service
-
-              # Start provisioning phase for the machine.
-              systemctl restart setup.service
-
-      - path: /etc/systemd/system/bootstrap.service
-        permissions: 644
-        content:
-          inline:
-            encoding: b64
-            data: |
-              [Install]
-              WantedBy=multi-user.target
-
-              [Unit]
-              Requires=network-online.target
-              After=network-online.target
-              [Service]
-              Type=oneshot
-              RemainAfterExit=true
-              EnvironmentFile=-/etc/environment
-              ExecStart=/opt/bin/supervise.sh /opt/bin/bootstrap
-
-    modules:
-      runcmd:
-        - systemctl restart bootstrap.service
-        - systemctl daemon-reload
-
-  provisioningConfig:
-    supportedContainerRuntimes:
-      - name: containerd
-        files:
-          - path: /etc/systemd/system/containerd.service.d/environment.conf
-            content:
-              inline:
-                data: |
-                  [Service]
-                  Restart=always
-                  EnvironmentFile=-/etc/environment
-
-          - path: /etc/crictl.yaml
-            content:
-              inline:
-                data: |
-                  runtime-endpoint: unix:///run/containerd/containerd.sock
-
-          - path: /etc/containerd/config.toml
-            permissions: 600
-            content:
-              inline:
-                encoding: b64
-                data: |
-                  {{ .ContainerRuntimeConfig }}
-        templates:
-          containerRuntimeInstallation: |-
-            apt-get update
-            apt-get install -y apt-transport-https ca-certificates curl software-properties-common lsb-release
-            install -m 0755 -d /etc/apt/keyrings
-            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-            echo "deb [signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list
-
-            apt-get update
-            apt-get install -y --allow-downgrades -o Dpkg::Options::="--force-confold" containerd.io=1.7*
-            apt-mark hold containerd.io
-
-            systemctl daemon-reload
-            systemctl enable --now containerd
-
-    templates:
       safeDownloadBinariesScript: |-
         {{- /* setup some common directories */}}
         opt_bin=/opt/bin
@@ -335,7 +187,123 @@ spec:
             ln -sf "$kube_dir/$bin" "$opt_bin"/$bin
         done
 
+      # containerd specific template
+      containerRuntimeInstallation: |-
+        apt-get update
+        apt-get install -y apt-transport-https ca-certificates curl software-properties-common lsb-release
+        install -m 0755 -d /etc/apt/keyrings
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+        echo "deb [signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list
+
+        apt-get update
+        apt-get install -y --allow-downgrades -o Dpkg::Options::="--force-confold" containerd.io=1.7*
+        apt-mark hold containerd.io
+
+        systemctl daemon-reload
+        systemctl enable --now containerd
+
     files:
+      - path: /opt/bin/supervise.sh
+        permissions: 755
+        content:
+          inline:
+            encoding: b64
+            data: |
+              #!/bin/bash
+              set -xeuo pipefail
+              while ! "$@"; do
+                sleep 1
+              done
+
+      - path: /opt/bin/bootstrap
+        permissions: 755
+        content:
+          inline:
+            encoding: b64
+            data: |
+              #!/bin/bash
+              set -xeuo pipefail
+
+              # Check if bootstrap phase has already completed. This is required when we run `cloud-init init` again since it tries to re-run
+              # the bootstrap cloud-config as well, from the userdata.
+              if [ -f /etc/bootstrap-complete ]; then
+                exit 0
+              fi
+
+              {{- /* Configure proxy as the first step to ensure that all the phases of provisioning respect the proxy environment. */}}
+              {{- template "configureProxyScript" }}
+              {{- template "configureHostCABundle" }}
+
+              {{- /* Starting with Ubuntu 24.04, there is an issue with DNS resolution that leaves machines without connectivity consistently. We even observed this issue on machines
+              where the netplan wasn't executed in the second cloud-init run. To fix this we are adding Cloudfare as fallback for DNS resolution */}}
+              {{- if eq .CloudProviderName "hetzner" }}
+              sed -i '/\[Resolve\]/a FallbackDNS=1.1.1.1#cloudflare-dns.com 1.0.0.1#cloudflare-dns.com 2606:4700:4700::1111#cloudflare-dns.com 2606:4700:4700::1001#cloudflare-dns.com' /etc/systemd/resolved.conf
+              systemctl restart systemd-resolved
+              {{- end }}
+
+              export DEBIAN_FRONTEND=noninteractive
+              apt update && apt install -y curl jq
+              curl -s -k -v --header 'Authorization: Bearer {{ .Token }}'	{{ .ServerURL }}/api/v1/namespaces/cloud-init-settings/secrets/{{ .SecretName }} | jq '.data["cloud-config"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/{{ .SecretName }}.cfg
+              cloud-init clean
+
+              {{- /* Azure's cloud-init provider integration has changed recently (end of April 2024) and now requires us to run this command below once to set some files up that seem required for another cloud-init run. */}}
+              {{- if (eq .CloudProviderName "azure") }}
+              cloud-init init --local
+              {{- end }}
+
+              {{- /* The default cloud-init configurations files have a bug on Digital Ocean that causes the machine to be in-accessible on the 2nd cloud-init and in case of Hetzner, ipv6 addresses are missing. Hence we disable network configuration. */}}
+              {{- if (or (eq .CloudProviderName "digitalocean") (eq .CloudProviderName "hetzner")) }}
+              rm /etc/netplan/50-cloud-init.yaml
+              echo "network: {config: disabled}" > /etc/cloud/cloud.cfg.d/99-custom-networking.cfg
+              {{- end }}
+
+              CLOUD_INIT_VERSION=$(cloud-init --version | awk '{print $2}')
+              # Compare the semver values of cloud-init versions to determine the correct command to run.
+              # This is required because the command line arguments for cloud-init changed in version 24.1, for details: https://github.com/canonical/cloud-init/releases/tag/24.1.
+              if [[ $(echo -e "24.0.0\n$CLOUD_INIT_VERSION" | sort -V | head -n1) = "24.0.0" ]]; then
+                  cloud-init init --file /etc/cloud/cloud.cfg.d/{{ .SecretName }}.cfg
+              else
+                  cloud-init --file /etc/cloud/cloud.cfg.d/{{ .SecretName }}.cfg init
+              fi
+
+              systemctl daemon-reload
+
+              {{- if eq .CloudProviderName "digitalocean" }}
+              netplan generate
+              netplan apply
+              {{- end }}
+
+              systemctl daemon-reload
+
+              # cloud-init should only run on the first boot. From this point forward we don't need cloud-init anymore.
+              systemctl disable cloud-init
+              touch /etc/cloud/cloud-init.disabled
+
+              # Bootstrap phase for the machine is complete.
+              touch /etc/bootstrap-complete
+              systemctl disable bootstrap.service
+
+              # Start provisioning phase for the machine.
+              systemctl restart setup.service
+
+      - path: /etc/systemd/system/bootstrap.service
+        permissions: 644
+        content:
+          inline:
+            encoding: b64
+            data: |
+              [Install]
+              WantedBy=multi-user.target
+
+              [Unit]
+              Requires=network-online.target
+              After=network-online.target
+              [Service]
+              Type=oneshot
+              RemainAfterExit=true
+              EnvironmentFile=-/etc/environment
+              ExecStart=/opt/bin/supervise.sh /opt/bin/bootstrap
+
       - path: /opt/bin/health-monitor.sh
         permissions: 755
         content:
@@ -541,16 +509,18 @@ spec:
 
               apt-get update
 
+              # removed below packages from the apt-get as they give compatiblity errors in 2404 repos.
+              # ceph-common \
+              # glusterfs-client \
+
               DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y \
                 curl \
                 ca-certificates \
-                ceph-common \
                 cifs-utils \
                 conntrack \
                 e2fsprogs \
                 ebtables \
                 ethtool \
-                glusterfs-client \
                 iptables \
                 jq \
                 kmod \
@@ -879,3 +849,38 @@ spec:
               # providers swap gets enabled on reboot or after the setup script has finished executing.
               sed -i.orig '/.*swap.*/d' /etc/fstab
               swapoff -a
+
+      # containerd runtime files
+      - path: /etc/systemd/system/containerd.service.d/environment.conf
+        content:
+          inline:
+            data: |
+              [Service]
+              Restart=always
+              EnvironmentFile=-/etc/environment
+      - path: /etc/crictl.yaml
+        content:
+          inline:
+            data: |
+              runtime-endpoint: unix:///run/containerd/containerd.sock
+      - path: /etc/containerd/config.toml
+        permissions: 600
+        content:
+          inline:
+            encoding: b64
+            data: |
+              {{ .ContainerRuntimeConfig }}
+
+    modules:
+      runcmd:
+        - systemctl restart bootstrap.service
+        - systemctl daemon-reload
+
+  # TODO: Remove after confirmation
+  # provisioningConfig:
+  #   supportedContainerRuntimes:
+  #     - name: containerd
+  #       files:
+  #       templates:
+    # templates:
+    # files:
