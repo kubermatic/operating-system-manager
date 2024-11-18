@@ -106,6 +106,10 @@ clean:
 	rm -rf $(BUILD_DEST)
 	@echo "Cleaned $(BUILD_DEST)"
 
+.PHONY: update-fixtures
+update-fixtures:
+	./hack/update-fixtures.sh
+
 .PHONY: download-gocache
 download-gocache:
 	@./hack/ci/download-gocache.sh
