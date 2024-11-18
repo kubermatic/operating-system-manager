@@ -110,7 +110,6 @@ func MutateMachineDeployment(md *clusterv1alpha1.MachineDeployment) error {
 
 		switch providerConfig.OperatingSystem {
 		case providerconfigtypes.OperatingSystemUbuntu,
-			providerconfigtypes.OperatingSystemCentOS,
 			providerconfigtypes.OperatingSystemFlatcar,
 			providerconfigtypes.OperatingSystemAmazonLinux2,
 			providerconfigtypes.OperatingSystemRockyLinux,
