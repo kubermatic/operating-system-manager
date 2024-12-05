@@ -35,7 +35,6 @@ import (
 	"k8c.io/operating-system-manager/pkg/containerruntime"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/providerconfig/amzn2"
-	"k8c.io/operating-system-manager/pkg/providerconfig/centos"
 	"k8c.io/operating-system-manager/pkg/providerconfig/flatcar"
 	"k8c.io/operating-system-manager/pkg/providerconfig/rhel"
 	"k8c.io/operating-system-manager/pkg/providerconfig/rockylinux"
@@ -294,7 +293,6 @@ type filesData struct {
 
 type operatingSystemConfig struct {
 	AmazonLinuxConfig amzn2.Config
-	CentOSConfig      centos.Config
 	FlatcarConfig     flatcar.Config
 	RhelConfig        rhel.Config
 	UbuntuConfig      ubuntu.Config
@@ -425,13 +423,6 @@ func setOperatingSystemConfig(os providerconfigtypes.OperatingSystem, operatingS
 			return err
 		}
 		data.AmazonLinuxConfig = *config
-		return nil
-	case providerconfigtypes.OperatingSystemCentOS:
-		config, err := centos.LoadConfig(operatingSystemSpec)
-		if err != nil {
-			return err
-		}
-		data.CentOSConfig = *config
 		return nil
 	case providerconfigtypes.OperatingSystemFlatcar:
 		config, err := flatcar.LoadConfig(operatingSystemSpec)
