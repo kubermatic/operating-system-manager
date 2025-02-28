@@ -22,7 +22,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 
-	providerconfigtypes "k8c.io/machine-controller/pkg/providerconfig/types"
+	"k8c.io/machine-controller/sdk/providerconfig"
 	"k8c.io/operating-system-manager/pkg/cloudprovider/aws"
 	"k8c.io/operating-system-manager/pkg/cloudprovider/azure"
 	"k8c.io/operating-system-manager/pkg/cloudprovider/gce"
@@ -33,7 +33,7 @@ import (
 )
 
 // GetCloudConfig will return the cloud-config for machine
-func GetCloudConfig(external bool, pconfig providerconfigtypes.Config, kubeletVersion string) (string, error) {
+func GetCloudConfig(external bool, pconfig providerconfig.Config, kubeletVersion string) (string, error) {
 	// cloud-config is not required by the kubelet for external cloud providers.
 	if external {
 		return "", nil
@@ -77,7 +77,7 @@ func GetCloudConfig(external bool, pconfig providerconfigtypes.Config, kubeletVe
 	return "", errors.New("unknown cloud provider")
 }
 
-func KubeletCloudProviderConfig(cloudProvider providerconfigtypes.CloudProvider, external bool) (inTreeCCM bool, outOfTree bool, err error) {
+func KubeletCloudProviderConfig(cloudProvider providerconfig.CloudProvider, external bool) (inTreeCCM bool, outOfTree bool, err error) {
 	switch osmv1alpha1.CloudProvider(cloudProvider) {
 	case osmv1alpha1.CloudProviderAWS,
 		osmv1alpha1.CloudProviderAzure,

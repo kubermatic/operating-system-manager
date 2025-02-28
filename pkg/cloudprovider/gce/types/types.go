@@ -16,15 +16,15 @@ limitations under the License.
 
 package types
 
-import "k8c.io/machine-controller/pkg/providerconfig/types"
+import "k8c.io/machine-controller/sdk/providerconfig"
 
 // RawConfig is a direct representation of an GCE machine object's configuration
 type RawConfig struct {
-	ServiceAccount types.ConfigVarString `json:"serviceAccount,omitempty"`
-	Zone           types.ConfigVarString `json:"zone"`
-	Network        types.ConfigVarString `json:"network"`
-	Subnetwork     types.ConfigVarString `json:"subnetwork"`
-	Tags           []string              `json:"tags,omitempty"`
-	MultiZone      types.ConfigVarBool   `json:"multizone"`
-	Regional       types.ConfigVarBool   `json:"regional"`
+	ServiceAccount providerconfig.ConfigVarString `json:"serviceAccount,omitempty"`
+	Zone           providerconfig.ConfigVarString `json:"zone"`
+	Network        providerconfig.ConfigVarString `json:"network"`
+	Subnetwork     providerconfig.ConfigVarString `json:"subnetwork"`
+	Tags           []string                       `json:"tags,omitempty"`
+	MultiZone      providerconfig.ConfigVarBool   `json:"multizone"`
+	Regional       providerconfig.ConfigVarBool   `json:"regional"`
 }

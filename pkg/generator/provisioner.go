@@ -19,9 +19,9 @@ package generator
 import (
 	"fmt"
 
-	clusterv1alpha1 "k8c.io/machine-controller/pkg/apis/cluster/v1alpha1"
-	"k8c.io/machine-controller/pkg/jsonutil"
-	providerconfigtypes "k8c.io/machine-controller/pkg/providerconfig/types"
+	clusterv1alpha1 "k8c.io/machine-controller/sdk/apis/cluster/v1alpha1"
+	"k8c.io/machine-controller/sdk/jsonutil"
+	"k8c.io/machine-controller/sdk/providerconfig"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/providerconfig/flatcar"
 )
@@ -31,7 +31,7 @@ func GetProvisioningUtility(osName osmv1alpha1.OperatingSystem, md clusterv1alph
 	// We need to check if `ProvisioningUtility` was explicitly specified in the machine deployment. If not then we
 	// will always default to `ignition`.
 	if osName == osmv1alpha1.OperatingSystemFlatcar {
-		providerConfig := providerconfigtypes.Config{}
+		providerConfig := providerconfig.Config{}
 		if err := jsonutil.StrictUnmarshal(md.Spec.Template.Spec.ProviderSpec.Value.Raw, &providerConfig); err != nil {
 			return "", fmt.Errorf("failed to decode provider configs: %w", err)
 		}

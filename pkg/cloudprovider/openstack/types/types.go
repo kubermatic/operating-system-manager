@@ -16,23 +16,23 @@ limitations under the License.
 
 package types
 
-import "k8c.io/machine-controller/pkg/providerconfig/types"
+import "k8c.io/machine-controller/sdk/providerconfig"
 
 type RawConfig struct {
 	// Auth details
-	IdentityEndpoint            types.ConfigVarString `json:"identityEndpoint,omitempty"`
-	Username                    types.ConfigVarString `json:"username,omitempty"`
-	Password                    types.ConfigVarString `json:"password,omitempty"`
-	ApplicationCredentialID     types.ConfigVarString `json:"applicationCredentialID,omitempty"`
-	ApplicationCredentialSecret types.ConfigVarString `json:"applicationCredentialSecret,omitempty"`
-	DomainName                  types.ConfigVarString `json:"domainName,omitempty"`
-	ProjectName                 types.ConfigVarString `json:"projectName,omitempty"`
-	ProjectID                   types.ConfigVarString `json:"projectID,omitempty"`
-	TenantName                  types.ConfigVarString `json:"tenantName,omitempty"`
-	TenantID                    types.ConfigVarString `json:"tenantID,omitempty"`
-	TokenID                     types.ConfigVarString `json:"tokenId,omitempty"`
-	Region                      types.ConfigVarString `json:"region,omitempty"`
+	IdentityEndpoint            providerconfig.ConfigVarString `json:"identityEndpoint,omitempty"`
+	Username                    providerconfig.ConfigVarString `json:"username,omitempty"`
+	Password                    providerconfig.ConfigVarString `json:"password,omitempty"`
+	ApplicationCredentialID     providerconfig.ConfigVarString `json:"applicationCredentialID,omitempty"`
+	ApplicationCredentialSecret providerconfig.ConfigVarString `json:"applicationCredentialSecret,omitempty"`
+	DomainName                  providerconfig.ConfigVarString `json:"domainName,omitempty"`
+	ProjectName                 providerconfig.ConfigVarString `json:"projectName,omitempty"`
+	ProjectID                   providerconfig.ConfigVarString `json:"projectID,omitempty"`
+	TenantName                  providerconfig.ConfigVarString `json:"tenantName,omitempty"`
+	TenantID                    providerconfig.ConfigVarString `json:"tenantID,omitempty"`
+	TokenID                     providerconfig.ConfigVarString `json:"tokenId,omitempty"`
+	Region                      providerconfig.ConfigVarString `json:"region,omitempty"`
 
-	TrustDevicePath       types.ConfigVarBool `json:"trustDevicePath"`
-	NodeVolumeAttachLimit *uint               `json:"nodeVolumeAttachLimit"`
+	TrustDevicePath       providerconfig.ConfigVarBool `json:"trustDevicePath"`
+	NodeVolumeAttachLimit *uint                        `json:"nodeVolumeAttachLimit"`
 }

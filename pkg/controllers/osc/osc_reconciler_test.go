@@ -27,11 +27,11 @@ import (
 	"testing"
 	"time"
 
-	"k8c.io/machine-controller/pkg/apis/cluster/v1alpha1"
-	mcbootstrap "k8c.io/machine-controller/pkg/bootstrap"
-	cloudproviderutil "k8c.io/machine-controller/pkg/cloudprovider/util"
 	machinecontrollerutil "k8c.io/machine-controller/pkg/controller/util"
-	providerconfigtypes "k8c.io/machine-controller/pkg/providerconfig/types"
+	"k8c.io/machine-controller/sdk/apis/cluster/v1alpha1"
+	mcbootstrap "k8c.io/machine-controller/sdk/bootstrap"
+	mcnet "k8c.io/machine-controller/sdk/net"
+	"k8c.io/machine-controller/sdk/providerconfig"
 	"k8c.io/operating-system-manager/pkg/bootstrap"
 	"k8c.io/operating-system-manager/pkg/clusterinfo"
 	"k8c.io/operating-system-manager/pkg/containerruntime"
@@ -127,9 +127,9 @@ func TestReconciler_Reconcile(t *testing.T) {
 		ospFile                string
 		ospName                string
 		oscFile                string
-		operatingSystem        providerconfigtypes.OperatingSystem
+		operatingSystem        providerconfig.OperatingSystem
 		mdName                 string
-		ipFamily               cloudproviderutil.IPFamily
+		ipFamily               mcnet.IPFamily
 		bootstrapSecretFile    string
 		provisioningSecretFile string
 		config                 testConfig
@@ -141,7 +141,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 			name:                   "Ubuntu OS in AWS with Containerd",
 			ospFile:                defaultOSPPathPrefix + fmt.Sprintf("%s.yaml", ospUbuntu),
 			ospName:                ospUbuntu,
-			operatingSystem:        providerconfigtypes.OperatingSystemUbuntu,
+			operatingSystem:        providerconfig.OperatingSystemUbuntu,
 			oscFile:                "osc-ubuntu-aws-containerd.yaml",
 			mdName:                 "ubuntu-aws",
 			kubeletVersion:         "1.29.0",
@@ -160,10 +160,10 @@ func TestReconciler_Reconcile(t *testing.T) {
 			name:                   "Ubuntu OS in AWS with Dualstack Networking",
 			ospFile:                defaultOSPPathPrefix + fmt.Sprintf("%s.yaml", ospUbuntu),
 			ospName:                ospUbuntu,
-			operatingSystem:        providerconfigtypes.OperatingSystemUbuntu,
+			operatingSystem:        providerconfig.OperatingSystemUbuntu,
 			oscFile:                "osc-ubuntu-aws-dualstack.yaml",
 			mdName:                 "ubuntu-aws",
-			ipFamily:               cloudproviderutil.IPFamilyIPv4IPv6,
+			ipFamily:               mcnet.IPFamilyIPv4IPv6,
 			kubeletVersion:         "1.29.0",
 			provisioningSecretFile: "secret-ubuntu-aws-dualstack-provisioning.yaml",
 			bootstrapSecretFile:    "secret-ubuntu-aws-dualstack-bootstrap.yaml",
@@ -179,10 +179,10 @@ func TestReconciler_Reconcile(t *testing.T) {
 			name:                   "Ubuntu OS in AWS with Dualstack IPv6+IPv4 Networking",
 			ospFile:                defaultOSPPathPrefix + fmt.Sprintf("%s.yaml", ospUbuntu),
 			ospName:                ospUbuntu,
-			operatingSystem:        providerconfigtypes.OperatingSystemUbuntu,
+			operatingSystem:        providerconfig.OperatingSystemUbuntu,
 			oscFile:                "osc-ubuntu-aws-dualstack-IPv6+IPv4.yaml",
 			mdName:                 "ubuntu-aws",
-			ipFamily:               cloudproviderutil.IPFamilyIPv6IPv4,
+			ipFamily:               mcnet.IPFamilyIPv6IPv4,
 			kubeletVersion:         "1.29.0",
 			provisioningSecretFile: "secret-ubuntu-aws-dualstack-IPv6+IPv4-provisioning.yaml",
 			bootstrapSecretFile:    "secret-ubuntu-aws-dualstack-IPv6+IPv4-bootstrap.yaml",
@@ -198,7 +198,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 			name:                   "Flatcar OS in AWS with Containerd",
 			ospFile:                defaultOSPPathPrefix + "osp-flatcar.yaml",
 			ospName:                "osp-flatcar",
-			operatingSystem:        providerconfigtypes.OperatingSystemFlatcar,
+			operatingSystem:        providerconfig.OperatingSystemFlatcar,
 			oscFile:                "osc-flatcar-aws-containerd.yaml",
 			mdName:                 "flatcar-aws-containerd",
 			kubeletVersion:         defaultKubeletVersion,
@@ -216,7 +216,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 			name:                   "RHEL OS in AWS with Containerd",
 			ospFile:                "osp-rhel-aws-cloud-init-modules.yaml",
 			ospName:                "osp-rhel-cloud-init-modules",
-			operatingSystem:        providerconfigtypes.OperatingSystemRHEL,
+			operatingSystem:        providerconfig.OperatingSystemRHEL,
 			oscFile:                "osc-rhel-8.x-cloud-init-modules.yaml",
 			provisioningSecretFile: "secret-osc-rhel-8.x-cloud-init-modules-provisioning.yaml",
 			bootstrapSecretFile:    "secret-osc-rhel-8.x-cloud-init-modules-bootstrap.yaml",
@@ -234,7 +234,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 			name:                   "RHEL OS on Azure with Containerd",
 			ospFile:                defaultOSPPathPrefix + "osp-rhel.yaml",
 			ospName:                "osp-rhel",
-			operatingSystem:        providerconfigtypes.OperatingSystemRHEL,
+			operatingSystem:        providerconfig.OperatingSystemRHEL,
 			oscFile:                "osc-rhel-8.x-azure-containerd.yaml",
 			mdName:                 "osp-rhel-azure",
 			kubeletVersion:         defaultKubeletVersion,
@@ -252,7 +252,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 			name:                   "Kubelet configuration with containerd",
 			ospFile:                defaultOSPPathPrefix + fmt.Sprintf("%s.yaml", ospUbuntu),
 			ospName:                ospUbuntu,
-			operatingSystem:        providerconfigtypes.OperatingSystemUbuntu,
+			operatingSystem:        providerconfig.OperatingSystemUbuntu,
 			oscFile:                "osc-kubelet-configuration-containerd.yaml",
 			mdName:                 "kubelet-configuration",
 			kubeletVersion:         defaultKubeletVersion,
@@ -429,7 +429,7 @@ func TestOSCAndSecretRotation(t *testing.T) {
 		kubeletVersion    string
 		ospFile           string
 		ospName           string
-		operatingSystem   providerconfigtypes.OperatingSystem
+		operatingSystem   providerconfig.OperatingSystem
 		oscFile           string
 		mdName            string
 		secretFile        string
@@ -441,7 +441,7 @@ func TestOSCAndSecretRotation(t *testing.T) {
 			name:            "test updates of machineDeployment",
 			ospFile:         defaultOSPPathPrefix + fmt.Sprintf("%s.yaml", ospUbuntu),
 			ospName:         ospUbuntu,
-			operatingSystem: providerconfigtypes.OperatingSystemUbuntu,
+			operatingSystem: providerconfig.OperatingSystemUbuntu,
 			oscFile:         "osc-ubuntu-aws-containerd.yaml",
 			mdName:          "ubuntu-aws",
 			kubeletVersion:  defaultKubeletVersion,
@@ -494,7 +494,7 @@ func TestOSCAndSecretRotation(t *testing.T) {
 			},
 		}
 
-		md := generateMachineDeployment(t, testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.kubeletVersion, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec, nil, cloudproviderutil.IPFamilyIPv4)
+		md := generateMachineDeployment(t, testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.kubeletVersion, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec, nil, mcnet.IPFamilyIPv4)
 
 		objects = append(objects, osp)
 		objects = append(objects, md)
@@ -625,7 +625,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 		kubeletVersion    string
 		ospFile           string
 		ospName           string
-		operatingSystem   providerconfigtypes.OperatingSystem
+		operatingSystem   providerconfig.OperatingSystem
 		oscFile           string
 		mdName            string
 		secretFile        string
@@ -637,7 +637,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 			name:            "test the deletion of machineDeployment",
 			ospFile:         defaultOSPPathPrefix + fmt.Sprintf("%s.yaml", ospUbuntu),
 			ospName:         ospUbuntu,
-			operatingSystem: providerconfigtypes.OperatingSystemUbuntu,
+			operatingSystem: providerconfig.OperatingSystemUbuntu,
 			oscFile:         "osc-ubuntu-aws-containerd.yaml",
 			mdName:          "ubuntu-aws",
 			kubeletVersion:  defaultKubeletVersion,
@@ -690,7 +690,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 			},
 		}
 
-		md := generateMachineDeployment(t, testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.kubeletVersion, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec, nil, cloudproviderutil.IPFamilyIPv4)
+		md := generateMachineDeployment(t, testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.kubeletVersion, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec, nil, mcnet.IPFamilyIPv4)
 
 		objects = append(objects, osp)
 		objects = append(objects, md)
@@ -770,13 +770,13 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 	}
 }
 
-func generateMachineDeployment(t *testing.T, name, namespace, osp, kubeletVersion string, os providerconfigtypes.OperatingSystem, cloudprovider string, cloudProviderSpec runtime.RawExtension, additionalAnnotations map[string]string, ipFamily cloudproviderutil.IPFamily) *v1alpha1.MachineDeployment {
-	pconfig := providerconfigtypes.Config{
+func generateMachineDeployment(t *testing.T, name, namespace, osp, kubeletVersion string, os providerconfig.OperatingSystem, cloudprovider string, cloudProviderSpec runtime.RawExtension, additionalAnnotations map[string]string, ipFamily mcnet.IPFamily) *v1alpha1.MachineDeployment {
+	pconfig := providerconfig.Config{
 		SSHPublicKeys:     []string{"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c"},
 		OperatingSystem:   os,
 		CloudProviderSpec: cloudProviderSpec,
-		CloudProvider:     providerconfigtypes.CloudProvider(cloudprovider),
-		Network: &providerconfigtypes.NetworkConfig{
+		CloudProvider:     providerconfig.CloudProvider(cloudprovider),
+		Network: &providerconfig.NetworkConfig{
 			IPFamily: ipFamily,
 		},
 	}

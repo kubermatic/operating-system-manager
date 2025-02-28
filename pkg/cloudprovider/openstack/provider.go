@@ -21,14 +21,14 @@ import (
 	"errors"
 	"fmt"
 
-	providerconfigtypes "k8c.io/machine-controller/pkg/providerconfig/types"
+	providerconfig "k8c.io/machine-controller/sdk/providerconfig"
 	"k8c.io/operating-system-manager/pkg/cloudprovider/openstack/types"
 	"k8c.io/operating-system-manager/pkg/providerconfig/config"
 
 	"k8s.io/klog/v2"
 )
 
-func GetCloudConfig(pconfig providerconfigtypes.Config, kubeletVersion string) (string, error) {
+func GetCloudConfig(pconfig providerconfig.Config, kubeletVersion string) (string, error) {
 	c, err := getConfig(pconfig, kubeletVersion)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse config: %w", err)
@@ -41,7 +41,7 @@ func GetCloudConfig(pconfig providerconfigtypes.Config, kubeletVersion string) (
 
 	return s, nil
 }
-func getConfig(pconfig providerconfigtypes.Config, kubeletVersion string) (*types.CloudConfig, error) {
+func getConfig(pconfig providerconfig.Config, kubeletVersion string) (*types.CloudConfig, error) {
 	if pconfig.CloudProviderSpec.Raw == nil {
 		return nil, errors.New("CloudProviderSpec in the MachineDeployment cannot be empty")
 	}
