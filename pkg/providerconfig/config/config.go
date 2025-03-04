@@ -19,7 +19,7 @@ package config
 import (
 	"context"
 
-	"k8c.io/machine-controller/pkg/providerconfig"
+	"k8c.io/machine-controller/sdk/providerconfig"
 
 	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )

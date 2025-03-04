@@ -23,10 +23,10 @@ import (
 	"strings"
 	"text/template"
 
-	clusterv1alpha1 "k8c.io/machine-controller/pkg/apis/cluster/v1alpha1"
-	mcbootstrap "k8c.io/machine-controller/pkg/bootstrap"
-	"k8c.io/machine-controller/pkg/jsonutil"
-	providerconfigtypes "k8c.io/machine-controller/pkg/providerconfig/types"
+	clusterv1alpha1 "k8c.io/machine-controller/sdk/apis/cluster/v1alpha1"
+	mcbootstrap "k8c.io/machine-controller/sdk/bootstrap"
+	"k8c.io/machine-controller/sdk/jsonutil"
+	mcproviderconfig "k8c.io/machine-controller/sdk/providerconfig"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/providerconfig"
 )
@@ -118,7 +118,7 @@ func (d *DefaultCloudConfigGenerator) Generate(config *osmv1alpha1.OSCConfig, pr
 	}
 
 	// Retrieve Operating System Config.
-	providerConfig := providerconfigtypes.Config{}
+	providerConfig := mcproviderconfig.Config{}
 	if err := jsonutil.StrictUnmarshal(md.Spec.Template.Spec.ProviderSpec.Value.Raw, &providerConfig); err != nil {
 		return nil, fmt.Errorf("failed to decode provider configs: %w", err)
 	}

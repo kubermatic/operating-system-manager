@@ -23,8 +23,8 @@ import (
 
 	"github.com/go-test/deep"
 
-	clusterv1alpha1 "k8c.io/machine-controller/pkg/apis/cluster/v1alpha1"
-	providerconfigtypes "k8c.io/machine-controller/pkg/providerconfig/types"
+	clusterv1alpha1 "k8c.io/machine-controller/sdk/apis/cluster/v1alpha1"
+	"k8c.io/machine-controller/sdk/providerconfig"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -111,12 +111,12 @@ func TestMutateMachineDeployment(t *testing.T) {
 	}
 }
 
-func generateRawConfig(t *testing.T, os providerconfigtypes.OperatingSystem, cloudprovider string) []byte {
-	pconfig := providerconfigtypes.Config{
+func generateRawConfig(t *testing.T, os providerconfig.OperatingSystem, cloudprovider string) []byte {
+	pconfig := providerconfig.Config{
 		SSHPublicKeys:     []string{"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDdOIhYmzCK5DSVLu3c"},
 		OperatingSystem:   os,
 		CloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"cloudProvider":"aws", "cloudProviderSpec":"test-provider-spec"}`)},
-		CloudProvider:     providerconfigtypes.CloudProvider(cloudprovider),
+		CloudProvider:     providerconfig.CloudProvider(cloudprovider),
 	}
 	mdConfig, err := json.Marshal(pconfig)
 	if err != nil {

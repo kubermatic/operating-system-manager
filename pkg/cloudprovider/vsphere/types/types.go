@@ -16,21 +16,21 @@ limitations under the License.
 
 package types
 
-import "k8c.io/machine-controller/pkg/providerconfig/types"
+import "k8c.io/machine-controller/sdk/providerconfig"
 
 type RawConfig struct {
-	TemplateVMName types.ConfigVarString `json:"templateVMName"`
-	VMNetName      types.ConfigVarString `json:"vmNetName"`
-	Username       types.ConfigVarString `json:"username"`
-	Password       types.ConfigVarString `json:"password"`
-	VSphereURL     types.ConfigVarString `json:"vsphereURL"`
-	Datacenter     types.ConfigVarString `json:"datacenter"`
-	Cluster        types.ConfigVarString `json:"cluster"`
-	Folder         types.ConfigVarString `json:"folder"`
+	TemplateVMName providerconfig.ConfigVarString `json:"templateVMName"`
+	VMNetName      providerconfig.ConfigVarString `json:"vmNetName"`
+	Username       providerconfig.ConfigVarString `json:"username"`
+	Password       providerconfig.ConfigVarString `json:"password"`
+	VSphereURL     providerconfig.ConfigVarString `json:"vsphereURL"`
+	Datacenter     providerconfig.ConfigVarString `json:"datacenter"`
+	Cluster        providerconfig.ConfigVarString `json:"cluster"`
+	Folder         providerconfig.ConfigVarString `json:"folder"`
 
 	// Either Datastore or DatastoreCluster have to be provided.
-	DatastoreCluster types.ConfigVarString `json:"datastoreCluster"`
-	Datastore        types.ConfigVarString `json:"datastore"`
+	DatastoreCluster providerconfig.ConfigVarString `json:"datastoreCluster"`
+	Datastore        providerconfig.ConfigVarString `json:"datastore"`
 
-	AllowInsecure types.ConfigVarBool `json:"allowInsecure"`
+	AllowInsecure providerconfig.ConfigVarBool `json:"allowInsecure"`
 }

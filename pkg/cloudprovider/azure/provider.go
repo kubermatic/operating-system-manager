@@ -21,7 +21,7 @@ import (
 	"errors"
 	"fmt"
 
-	providerconfigtypes "k8c.io/machine-controller/pkg/providerconfig/types"
+	providerconfig "k8c.io/machine-controller/sdk/providerconfig"
 	"k8c.io/operating-system-manager/pkg/cloudprovider/azure/types"
 	"k8c.io/operating-system-manager/pkg/providerconfig/config"
 )
@@ -33,7 +33,7 @@ const (
 	envSubscriptionID = "AZURE_SUBSCRIPTION_ID"
 )
 
-func GetCloudConfig(pconfig providerconfigtypes.Config) (string, error) {
+func GetCloudConfig(pconfig providerconfig.Config) (string, error) {
 	c, err := getConfig(pconfig)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse config: %w", err)
@@ -46,7 +46,7 @@ func GetCloudConfig(pconfig providerconfigtypes.Config) (string, error) {
 
 	return s, nil
 }
-func getConfig(pconfig providerconfigtypes.Config) (*types.CloudConfig, error) {
+func getConfig(pconfig providerconfig.Config) (*types.CloudConfig, error) {
 	if pconfig.CloudProviderSpec.Raw == nil {
 		return nil, errors.New("CloudProviderSpec in the MachineDeployment cannot be empty")
 	}

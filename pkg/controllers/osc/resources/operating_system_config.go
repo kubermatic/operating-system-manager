@@ -27,10 +27,10 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 
-	"k8c.io/machine-controller/pkg/apis/cluster/common"
-	"k8c.io/machine-controller/pkg/apis/cluster/v1alpha1"
-	mcbootstrap "k8c.io/machine-controller/pkg/bootstrap"
-	providerconfigtypes "k8c.io/machine-controller/pkg/providerconfig/types"
+	"k8c.io/machine-controller/sdk/apis/cluster/common"
+	"k8c.io/machine-controller/sdk/apis/cluster/v1alpha1"
+	mcbootstrap "k8c.io/machine-controller/sdk/bootstrap"
+	"k8c.io/machine-controller/sdk/providerconfig"
 	"k8c.io/operating-system-manager/pkg/cloudprovider"
 	"k8c.io/operating-system-manager/pkg/containerruntime"
 	osmv1alpha1 "k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
@@ -95,7 +95,7 @@ func GenerateOperatingSystemConfig(
 	if len(md.Spec.Template.Spec.ProviderSpec.Value.Raw) == 0 {
 		return nil, fmt.Errorf("providerSpec cannot be empty")
 	}
-	providerConfig := providerconfigtypes.Config{}
+	providerConfig := providerconfig.Config{}
 	if err = jsonutil.StrictUnmarshal(md.Spec.Template.Spec.ProviderSpec.Value.Raw, &providerConfig); err != nil {
 		return nil, fmt.Errorf("failed to decode provider configs: %w", err)
 	}
@@ -203,7 +203,7 @@ func GenerateOperatingSystemConfig(
 		data.NetworkConfig = providerConfig.Network
 	}
 
-	if providerConfig.Network.IsStaticIPConfig() && providerConfig.OperatingSystem != providerconfigtypes.OperatingSystemFlatcar {
+	if providerConfig.Network.IsStaticIPConfig() && providerConfig.OperatingSystem != providerconfig.OperatingSystemFlatcar {
 		return nil, fmt.Errorf("static IP config is not supported with: %s", providerConfig.OperatingSystem)
 	}
 
@@ -212,7 +212,7 @@ func GenerateOperatingSystemConfig(
 		return nil, fmt.Errorf("failed to add operating system spec: %w", err)
 	}
 
-	if providerConfig.OperatingSystem == providerconfigtypes.OperatingSystemRHEL {
+	if providerConfig.OperatingSystem == providerconfig.OperatingSystemRHEL {
 		rhSubscription := rhel.RHSubscription(data.RhelConfig)
 
 		if osp.Spec.BootstrapConfig.CloudInitModules == nil {
@@ -274,7 +274,7 @@ type filesData struct {
 	CloudConfig                string
 	ContainerRuntime           string
 	CloudProviderName          osmv1alpha1.CloudProvider
-	NetworkConfig              *providerconfigtypes.NetworkConfig
+	NetworkConfig              *providerconfig.NetworkConfig
 	ExternalCloudProvider      bool
 	PauseImage                 string
 	InitialTaints              string
@@ -415,37 +415,37 @@ func addTemplatingSequence(templateName, template string) string {
 	return fmt.Sprintf("\n{{- define \"%s\" }}\n%s\n{{- end }}", templateName, template)
 }
 
-func setOperatingSystemConfig(os providerconfigtypes.OperatingSystem, operatingSystemSpec runtime.RawExtension, data *filesData) error {
+func setOperatingSystemConfig(os providerconfig.OperatingSystem, operatingSystemSpec runtime.RawExtension, data *filesData) error {
 	switch os {
-	case providerconfigtypes.OperatingSystemAmazonLinux2:
+	case providerconfig.OperatingSystemAmazonLinux2:
 		config, err := amzn2.LoadConfig(operatingSystemSpec)
 		if err != nil {
 			return err
 		}
 		data.AmazonLinuxConfig = *config
 		return nil
-	case providerconfigtypes.OperatingSystemFlatcar:
+	case providerconfig.OperatingSystemFlatcar:
 		config, err := flatcar.LoadConfig(operatingSystemSpec)
 		if err != nil {
 			return err
 		}
 		data.FlatcarConfig = *config
 		return nil
-	case providerconfigtypes.OperatingSystemRHEL:
+	case providerconfig.OperatingSystemRHEL:
 		config, err := rhel.LoadConfig(operatingSystemSpec)
 		if err != nil {
 			return err
 		}
 		data.RhelConfig = *config
 		return nil
-	case providerconfigtypes.OperatingSystemUbuntu:
+	case providerconfig.OperatingSystemUbuntu:
 		config, err := ubuntu.LoadConfig(operatingSystemSpec)
 		if err != nil {
 			return err
 		}
 		data.UbuntuConfig = *config
 		return nil
-	case providerconfigtypes.OperatingSystemRockyLinux:
+	case providerconfig.OperatingSystemRockyLinux:
 		config, err := rockylinux.LoadConfig(operatingSystemSpec)
 		if err != nil {
 			return err

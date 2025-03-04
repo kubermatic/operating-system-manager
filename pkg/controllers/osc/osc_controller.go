@@ -24,10 +24,10 @@ import (
 
 	"go.uber.org/zap"
 
-	clusterv1alpha1 "k8c.io/machine-controller/pkg/apis/cluster/v1alpha1"
-	mcbootstrap "k8c.io/machine-controller/pkg/bootstrap"
 	machinecontrollerutil "k8c.io/machine-controller/pkg/controller/util"
-	providerconfigtypes "k8c.io/machine-controller/pkg/providerconfig/types"
+	clusterv1alpha1 "k8c.io/machine-controller/sdk/apis/cluster/v1alpha1"
+	mcbootstrap "k8c.io/machine-controller/sdk/bootstrap"
+	"k8c.io/machine-controller/sdk/providerconfig"
 	"k8c.io/operating-system-manager/pkg/bootstrap"
 	"k8c.io/operating-system-manager/pkg/containerruntime"
 	"k8c.io/operating-system-manager/pkg/controllers/osc/resources"
@@ -539,7 +539,7 @@ func validateMachineDeployment(ctx context.Context, md *clusterv1alpha1.MachineD
 	}
 
 	// Get providerConfig from machineDeployment
-	providerConfig := providerconfigtypes.Config{}
+	providerConfig := providerconfig.Config{}
 	err = json.Unmarshal(md.Spec.Template.Spec.ProviderSpec.Value.Raw, &providerConfig)
 	if err != nil {
 		return fmt.Errorf("failed to decode provider config: %w", err)
@@ -553,7 +553,7 @@ func validateMachineDeployment(ctx context.Context, md *clusterv1alpha1.MachineD
 	// Ensure that OSP supports the cloud provider
 	supportedCloudProvider := false
 	for _, cloudProvider := range osp.Spec.SupportedCloudProviders {
-		if providerconfigtypes.CloudProvider(cloudProvider.Name) == providerConfig.CloudProvider {
+		if providerconfig.CloudProvider(cloudProvider.Name) == providerConfig.CloudProvider {
 			supportedCloudProvider = true
 			break
 		}

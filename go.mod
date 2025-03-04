@@ -4,6 +4,8 @@ go 1.22.3
 
 toolchain go1.23.2
 
+replace github.com/ajeddeloh/go-json => github.com/coreos/go-json v0.0.0-20231102161613-e49c8866685a
+
 require (
 	github.com/BurntSushi/toml v1.4.0
 	github.com/Masterminds/semver/v3 v3.3.0
@@ -18,7 +20,8 @@ require (
 	go.uber.org/zap v1.27.0
 	gopkg.in/gcfg.v1 v1.2.3
 	gopkg.in/yaml.v3 v3.0.1
-	k8c.io/machine-controller v1.59.1-0.20241011055903-713b23c97a6c
+	k8c.io/machine-controller v1.61.1-0.20250228182911-047425fc6e94
+	k8c.io/machine-controller/sdk v0.0.0-20250228182911-047425fc6e94
 	k8c.io/reconciler v0.5.0
 	k8s.io/api v0.31.1
 	k8s.io/apimachinery v0.31.1
@@ -107,10 +110,7 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	k8s.io/apiextensions-apiserver v0.31.1 // indirect
 	k8s.io/gengo/v2 v2.0.0-20240826214909-a7b603a56eb7 // indirect
-	k8s.io/klog v1.0.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20240903163716-9e1beecbcb38 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 )
-
-replace github.com/ajeddeloh/go-json => github.com/coreos/go-json v0.0.0-20231102161613-e49c8866685a

@@ -16,25 +16,25 @@ limitations under the License.
 
 package types
 
-import "k8c.io/machine-controller/pkg/providerconfig/types"
+import "k8c.io/machine-controller/sdk/providerconfig"
 
 const AzureCloudProvider = "AZUREPUBLICCLOUD"
 
 // RawConfig is a direct representation of an Azure machine object's configuration
 type RawConfig struct {
-	SubscriptionID types.ConfigVarString `json:"subscriptionID,omitempty"`
-	TenantID       types.ConfigVarString `json:"tenantID,omitempty"`
-	ClientID       types.ConfigVarString `json:"clientID,omitempty"`
-	ClientSecret   types.ConfigVarString `json:"clientSecret,omitempty"`
+	SubscriptionID providerconfig.ConfigVarString `json:"subscriptionID,omitempty"`
+	TenantID       providerconfig.ConfigVarString `json:"tenantID,omitempty"`
+	ClientID       providerconfig.ConfigVarString `json:"clientID,omitempty"`
+	ClientSecret   providerconfig.ConfigVarString `json:"clientSecret,omitempty"`
 
-	Location              types.ConfigVarString `json:"location"`
-	ResourceGroup         types.ConfigVarString `json:"resourceGroup"`
-	VNetResourceGroup     types.ConfigVarString `json:"vnetResourceGroup"`
-	VNetName              types.ConfigVarString `json:"vnetName"`
-	SubnetName            types.ConfigVarString `json:"subnetName"`
-	LoadBalancerSku       types.ConfigVarString `json:"loadBalancerSku"`
-	RouteTableName        types.ConfigVarString `json:"routeTableName"`
-	AvailabilitySet       types.ConfigVarString `json:"availabilitySet"`
-	AssignAvailabilitySet *bool                 `json:"assignAvailabilitySet"`
-	SecurityGroupName     types.ConfigVarString `json:"securityGroupName"`
+	Location              providerconfig.ConfigVarString `json:"location"`
+	ResourceGroup         providerconfig.ConfigVarString `json:"resourceGroup"`
+	VNetResourceGroup     providerconfig.ConfigVarString `json:"vnetResourceGroup"`
+	VNetName              providerconfig.ConfigVarString `json:"vnetName"`
+	SubnetName            providerconfig.ConfigVarString `json:"subnetName"`
+	LoadBalancerSku       providerconfig.ConfigVarString `json:"loadBalancerSku"`
+	RouteTableName        providerconfig.ConfigVarString `json:"routeTableName"`
+	AvailabilitySet       providerconfig.ConfigVarString `json:"availabilitySet"`
+	AssignAvailabilitySet *bool                          `json:"assignAvailabilitySet"`
+	SecurityGroupName     providerconfig.ConfigVarString `json:"securityGroupName"`
 }

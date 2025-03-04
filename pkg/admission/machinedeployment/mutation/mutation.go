@@ -24,8 +24,8 @@ import (
 
 	"go.uber.org/zap"
 
-	clusterv1alpha1 "k8c.io/machine-controller/pkg/apis/cluster/v1alpha1"
-	providerconfigtypes "k8c.io/machine-controller/pkg/providerconfig/types"
+	clusterv1alpha1 "k8c.io/machine-controller/sdk/apis/cluster/v1alpha1"
+	"k8c.io/machine-controller/sdk/providerconfig"
 	"k8c.io/operating-system-manager/pkg/controllers/osc/resources"
 	"k8c.io/operating-system-manager/pkg/crd/osm/v1alpha1"
 	"k8c.io/operating-system-manager/pkg/generator"
@@ -87,7 +87,7 @@ func (h *AdmissionHandler) Handle(_ context.Context, req admission.Request) admi
 }
 
 func MutateMachineDeployment(md *clusterv1alpha1.MachineDeployment) error {
-	providerConfig, err := providerconfigtypes.GetConfig(md.Spec.Template.Spec.ProviderSpec)
+	providerConfig, err := providerconfig.GetConfig(md.Spec.Template.Spec.ProviderSpec)
 	if err != nil {
 		return fmt.Errorf("failed to read MachineDeployment.Spec.Template.Spec.ProviderSpec: %w", err)
 	}
@@ -99,7 +99,7 @@ func MutateMachineDeployment(md *clusterv1alpha1.MachineDeployment) error {
 			md.Annotations = make(map[string]string)
 		}
 
-		if providerConfig.CloudProvider == providerconfigtypes.CloudProviderAnexia && providerConfig.OperatingSystem == providerconfigtypes.OperatingSystemFlatcar {
+		if providerConfig.CloudProvider == providerconfig.CloudProviderAnexia && providerConfig.OperatingSystem == providerconfig.OperatingSystemFlatcar {
 			prov, err := generator.GetProvisioningUtility(v1alpha1.OperatingSystem(providerConfig.OperatingSystem), *md)
 			// We are intentionally ignoring any errors here since in that case the standard workflow should be used to determine the OSP.
 			if err == nil && prov == v1alpha1.ProvisioningUtilityCloudInit {
@@ -109,11 +109,11 @@ func MutateMachineDeployment(md *clusterv1alpha1.MachineDeployment) error {
 		}
 
 		switch providerConfig.OperatingSystem {
-		case providerconfigtypes.OperatingSystemUbuntu,
-			providerconfigtypes.OperatingSystemFlatcar,
-			providerconfigtypes.OperatingSystemAmazonLinux2,
-			providerconfigtypes.OperatingSystemRockyLinux,
-			providerconfigtypes.OperatingSystemRHEL:
+		case providerconfig.OperatingSystemUbuntu,
+			providerconfig.OperatingSystemFlatcar,
+			providerconfig.OperatingSystemAmazonLinux2,
+			providerconfig.OperatingSystemRockyLinux,
+			providerconfig.OperatingSystemRHEL:
 
 			md.Annotations[resources.MachineDeploymentOSPAnnotation] = fmt.Sprintf(ospNamePattern, providerConfig.OperatingSystem)
 		default:

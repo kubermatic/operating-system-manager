@@ -16,15 +16,12 @@ limitations under the License.
 
 package types
 
-import (
-	providerconfigtypes "k8c.io/machine-controller/pkg/providerconfig/types"
-)
+import "k8c.io/machine-controller/sdk/providerconfig"
 
 type RawConfig struct {
 	Auth Auth `json:"auth,omitempty"`
 }
 
-// Auth
 type Auth struct {
-	Kubeconfig providerconfigtypes.ConfigVarString `json:"kubeconfig,omitempty"`
+	Kubeconfig providerconfig.ConfigVarString `json:"kubeconfig,omitempty"`
 }
