@@ -31,6 +31,12 @@ spec:
             /etc/machine-id\nreboot\n"
       path: /opt/bin/bootstrap
       permissions: 755
+    - content:
+        inline:
+          data: |2+
+
+      path: /etc/systemd/network/static.network
+      permissions: 644
     units:
     - content: |
         [Install]
@@ -568,12 +574,6 @@ spec:
             ChallengeResponseAuthentication no
       path: /etc/ssh/sshd_config
       permissions: 600
-    - content:
-        inline:
-          data: |2+
-
-      path: /etc/systemd/system/systemd-networkd.service.d/10-static-network.conf
-      permissions: 644
     - content:
         inline:
           data: |
