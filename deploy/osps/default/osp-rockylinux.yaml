@@ -20,7 +20,7 @@ metadata:
 spec:
   osName: "rockylinux"
   osVersion: "8.6"
-  version: "v1.5.2"
+  version: "v1.5.5"
   provisioningUtility: "cloud-init"
   supportedCloudProviders:
     - name: "aws"
