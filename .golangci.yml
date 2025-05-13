@@ -11,11 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+version: "2"
 run:
-  timeout: 20m
   issues-exit-code: 1
 
 linters:
+  default: none
   enable:
     - asasalint
     - asciicheck
@@ -45,12 +46,10 @@ linters:
     - revive
     - staticcheck
     - tenv
-    - typecheck
     - unconvert
     - unused
     - wastedassign
     - whitespace
-  disable-all: true
 
 linters-settings:
   goimports:
