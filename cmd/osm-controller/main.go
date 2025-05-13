@@ -71,6 +71,7 @@ type options struct {
 	workerClusterKubeconfig string
 	kubeconfig              string
 	kubeletFeatureGates     string
+	disableDefaultOSPs      bool
 
 	healthProbeAddress       string
 	metricsAddress           string
@@ -121,6 +122,7 @@ func main() {
 	flag.StringVar(&opt.clusterDNSIPs, "cluster-dns", "10.10.10.10", "Comma-separated list of DNS server IP address.")
 	flag.StringVar(&opt.pauseImage, "pause-image", "", "pause image to use in Kubelet.")
 	flag.StringVar(&opt.initialTaints, "initial-taints", "", "taints to use when creating the node.")
+	flag.BoolVar(&opt.disableDefaultOSPs, "disable-default-osps", false, "disable the creation of the default osps and only rely on custom osps.")
 
 	flag.StringVar(&opt.kubeletFeatureGates, "node-kubelet-feature-gates", "RotateKubeletServerCertificate=true", "Feature gates to set on the kubelet")
 
@@ -291,7 +293,7 @@ func main() {
 	providerconfig.SetConfigVarResolver(context.Background(), workerMgr.GetClient(), opt.namespace)
 
 	// Setup OSP controller
-	if err := osp.Add(mgr, log, opt.namespace, opt.workerCount); err != nil {
+	if err := osp.Add(mgr, log, opt.namespace, opt.workerCount, opt.disableDefaultOSPs); err != nil {
 		log.Fatal(err)
 	}
 

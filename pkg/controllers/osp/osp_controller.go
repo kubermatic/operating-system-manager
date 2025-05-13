@@ -58,7 +58,13 @@ type Reconciler struct {
 	namespace string
 }
 
-func Add(mgr manager.Manager, log *zap.SugaredLogger, namespace string, workerCount int) error {
+func Add(mgr manager.Manager, log *zap.SugaredLogger, namespace string, workerCount int, disableDefaultOSPs bool) error {
+	// if the default osps creation is disabled then there is no need to load the default osps and only custom osps
+	// should be used.
+	if disableDefaultOSPs {
+		return nil
+	}
+
 	defaultOSPs, err := loadDefaultOSPs()
 	if err != nil {
 		return fmt.Errorf("failed to load default OSPs: %w", err)
