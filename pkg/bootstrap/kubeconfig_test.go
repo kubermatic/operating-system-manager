@@ -26,7 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
-	ctrlruntimefake "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	ctrlruntimefakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestUpdateSecretExpirationAndGetToken(t *testing.T) {
@@ -60,7 +60,7 @@ func TestUpdateSecretExpirationAndGetToken(t *testing.T) {
 		data[tokenIDKey] = []byte("tokenID")
 		data[expirationKey] = []byte(testCase.initialExpirationTime.Format(time.RFC3339))
 		secret.Data = data
-		b.client = ctrlruntimefake.
+		b.client = ctrlruntimefakeclient.
 			NewClientBuilder().
 			WithScheme(scheme.Scheme).
 			WithObjects(secret).

@@ -29,7 +29,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
-	controllerruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
+	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -38,7 +38,7 @@ const (
 	securePortName          = "https"
 )
 
-func New(client controllerruntimeclient.Client, caCert string) *KubeconfigProvider {
+func New(client ctrlruntimeclient.Client, caCert string) *KubeconfigProvider {
 	return &KubeconfigProvider{
 		client: client,
 		caCert: caCert,
@@ -47,7 +47,7 @@ func New(client controllerruntimeclient.Client, caCert string) *KubeconfigProvid
 
 type KubeconfigProvider struct {
 	caCert string
-	client controllerruntimeclient.Client
+	client ctrlruntimeclient.Client
 }
 
 func (p *KubeconfigProvider) GetKubeconfig(ctx context.Context) (*clientcmdapi.Config, error) {

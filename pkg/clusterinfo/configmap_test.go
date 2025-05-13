@@ -28,8 +28,8 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	controllerruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
-	ctrlruntimefake "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
+	ctrlruntimefakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 const (
@@ -62,14 +62,14 @@ users: null
 func TestKubeconfigProvider_GetKubeconfig(t *testing.T) {
 	tests := []struct {
 		name         string
-		objects      []controllerruntimeclient.Object
+		objects      []ctrlruntimeclient.Object
 		clientConfig *rest.Config
 		err          error
 		resConfig    string
 	}{
 		{
 			name: "successful from configmap",
-			objects: []controllerruntimeclient.Object{&corev1.ConfigMap{
+			objects: []ctrlruntimeclient.Object{&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "cluster-info",
 					Namespace: "kube-public",
@@ -82,7 +82,7 @@ func TestKubeconfigProvider_GetKubeconfig(t *testing.T) {
 		},
 		{
 			name: "successful from in-cluster via endpoints - clusterIP",
-			objects: []controllerruntimeclient.Object{&corev1.Endpoints{
+			objects: []ctrlruntimeclient.Object{&corev1.Endpoints{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "kubernetes",
 					Namespace: "default",
@@ -118,7 +118,7 @@ func TestKubeconfigProvider_GetKubeconfig(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
-			client := ctrlruntimefake.
+			client := ctrlruntimefakeclient.
 				NewClientBuilder().
 				WithScheme(scheme.Scheme).
 				WithObjects(test.objects...).

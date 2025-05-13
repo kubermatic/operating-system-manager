@@ -46,8 +46,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
-	controllerruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
-	fakectrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
+	ctrlruntimefakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/yaml"
 )
 
@@ -283,7 +283,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 		if err := loadFile(osp, testCase.ospFile); err != nil {
 			t.Fatalf("failed loading osp %s from testdata: %v", testCase.name, err)
 		}
-		objects := []controllerruntimeclient.Object{
+		objects := []ctrlruntimeclient.Object{
 			&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "cluster-info",
@@ -316,7 +316,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 
 		objects = append(objects, osp)
 
-		fakeClient := fakectrlruntimeclient.
+		fakeClient := ctrlruntimefakeclient.
 			NewClientBuilder().
 			WithScheme(scheme.Scheme).
 			WithObjects(objects...).
@@ -463,7 +463,7 @@ func TestOSCAndSecretRotation(t *testing.T) {
 			t.Fatalf("failed loading osp %s from testdata: %v", testCase.name, err)
 		}
 
-		objects := []controllerruntimeclient.Object{
+		objects := []ctrlruntimeclient.Object{
 			&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "cluster-info",
@@ -499,7 +499,7 @@ func TestOSCAndSecretRotation(t *testing.T) {
 		objects = append(objects, osp)
 		objects = append(objects, md)
 
-		fakeClient := fakectrlruntimeclient.
+		fakeClient := ctrlruntimefakeclient.
 			NewClientBuilder().
 			WithScheme(scheme.Scheme).
 			WithObjects(objects...).
@@ -659,7 +659,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 			t.Fatalf("failed loading osp %s from testdata: %v", testCase.name, err)
 		}
 
-		objects := []controllerruntimeclient.Object{
+		objects := []ctrlruntimeclient.Object{
 			&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "cluster-info",
@@ -695,7 +695,7 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 		objects = append(objects, osp)
 		objects = append(objects, md)
 
-		fakeClient := fakectrlruntimeclient.
+		fakeClient := ctrlruntimefakeclient.
 			NewClientBuilder().
 			WithScheme(scheme.Scheme).
 			WithObjects(objects...).
@@ -834,7 +834,7 @@ func loadFile(obj runtime.Object, name string) error {
 	return nil
 }
 
-func buildReconciler(fakeClient controllerruntimeclient.Client, config testConfig) Reconciler {
+func buildReconciler(fakeClient ctrlruntimeclient.Client, config testConfig) Reconciler {
 	kubeconfigProvider := clusterinfo.New(fakeClient, "foobar")
 	bootstrappingManager := bootstrap.New(fakeClient, kubeconfigProvider, nil, "")
 	featureGates := map[string]bool{"GracefulNodeShutdown": true, "IdentifyPodOS": false}
