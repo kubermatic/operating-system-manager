@@ -36,6 +36,7 @@ type Opts struct {
 	RegistryMirrors           string
 	RegistryCredentialsSecret string
 	PauseImage                string
+	GVisorRuntime             string
 	ContainerdRegistryMirrors RegistryMirrorsFlags
 }
 
@@ -98,6 +99,7 @@ func BuildConfig(opts Opts) (Config, error) {
 		withRegistryMirrors(opts.ContainerdRegistryMirrors),
 		withSandboxImage(opts.PauseImage),
 		withContainerdVersion(opts.ContainerdVersion),
+		withGVisor(opts.GVisorRuntime),
 	), nil
 }
 

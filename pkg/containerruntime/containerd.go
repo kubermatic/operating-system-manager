@@ -27,6 +27,7 @@ type Containerd struct {
 	registryMirrors     map[string][]string
 	sandboxImage        string
 	registryCredentials map[string]AuthConfig
+	gVisorRuntime       string
 	version             string
 }
 
@@ -119,6 +120,13 @@ func (eng *Containerd) Config() (string, error) {
 				},
 			},
 		},
+	}
+
+	// https://gvisor.dev/docs/user_guide/containerd/quick_start/
+	if eng.gVisorRuntime != "" {
+		criPlugin.Containerd.Runtimes["runsc"] = containerdCRIRuntime{
+			RuntimeType: eng.gVisorRuntime,
+		}
 	}
 
 	for registryName := range eng.registryMirrors {
