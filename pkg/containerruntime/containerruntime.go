@@ -55,6 +55,12 @@ func withContainerdVersion(version string) Opt {
 	}
 }
 
+func withGVisor(runtime string) Opt {
+	return func(cfg *Config) {
+		cfg.GVisorRuntime = runtime
+	}
+}
+
 func get(_ string, opts ...Opt) Config {
 	cfg := Config{}
 	cfg.Containerd = &Containerd{}
@@ -75,6 +81,7 @@ type Config struct {
 	ContainerLogMaxFiles string                `json:",omitempty"`
 	ContainerLogMaxSize  string                `json:",omitempty"`
 	ContainerdVersion    string                `json:",omitempty"`
+	GVisorRuntime        string                `json:",omitempty"`
 }
 
 // AuthConfig is a COPY of github.com/containerd/containerd/pkg/cri/config.AuthConfig.
@@ -103,6 +110,7 @@ func (cfg Config) Engine() Engine {
 		sandboxImage:        cfg.SandboxImage,
 		registryCredentials: cfg.RegistryCredentials,
 		version:             cfg.ContainerdVersion,
+		enableGVisor:        cfg.GVisorRuntime,
 	}
 	return containerd
 }
