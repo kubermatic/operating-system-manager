@@ -60,26 +60,26 @@ func getConfig(pconfig providerconfig.Config) (*types.CloudConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	opts.LocalZone, err = config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.Zone)
+	opts.LocalZone, err = config.GetConfigVarResolver().GetStringValue(rawConfig.Zone)
 	if err != nil {
 		return nil, fmt.Errorf("cannot retrieve zone: %w", err)
 	}
 
-	opts.MultiZone, _, err = config.GetConfigVarResolver().GetConfigVarBoolValue(rawConfig.MultiZone)
+	opts.MultiZone, _, err = config.GetConfigVarResolver().GetBoolValue(rawConfig.MultiZone)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve multizone: %w", err)
 	}
-	opts.Regional, _, err = config.GetConfigVarResolver().GetConfigVarBoolValue(rawConfig.Regional)
+	opts.Regional, _, err = config.GetConfigVarResolver().GetBoolValue(rawConfig.Regional)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve regional: %w", err)
 	}
 
-	opts.NetworkName, err = config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.Network)
+	opts.NetworkName, err = config.GetConfigVarResolver().GetStringValue(rawConfig.Network)
 	if err != nil {
 		return nil, fmt.Errorf("cannot retrieve network: %w", err)
 	}
 
-	opts.SubnetworkName, err = config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.Subnetwork)
+	opts.SubnetworkName, err = config.GetConfigVarResolver().GetStringValue(rawConfig.Subnetwork)
 	if err != nil {
 		return nil, fmt.Errorf("cannot retrieve subnetwork: %w", err)
 	}
@@ -97,7 +97,7 @@ func getConfig(pconfig providerconfig.Config) (*types.CloudConfig, error) {
 }
 
 func getProjectID(rawConfig types.RawConfig) (string, error) {
-	serviceAccount, err := config.GetConfigVarResolver().GetConfigVarStringValueOrEnv(rawConfig.ServiceAccount, "GOOGLE_SERVICE_ACCOUNT")
+	serviceAccount, err := config.GetConfigVarResolver().GetStringValueOrEnv(rawConfig.ServiceAccount, "GOOGLE_SERVICE_ACCOUNT")
 	if err != nil {
 		return "", fmt.Errorf("cannot retrieve service account: %w", err)
 	}

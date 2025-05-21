@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"k8c.io/machine-controller/sdk/providerconfig"
+	"k8c.io/machine-controller/sdk/providerconfig/configvar"
 
 	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -31,9 +32,9 @@ var (
 
 // SetConfigVarResolver will instantiate the global ConfigVarResolver Instance
 func SetConfigVarResolver(ctx context.Context, client ctrlruntimeclient.Client, _ string) {
-	instance = *providerconfig.NewConfigVarResolver(ctx, client)
+	instance = configvar.NewResolver(ctx, client)
 }
 
-func GetConfigVarResolver() *providerconfig.ConfigVarResolver {
-	return &instance
+func GetConfigVarResolver() providerconfig.ConfigVarResolver {
+	return instance
 }

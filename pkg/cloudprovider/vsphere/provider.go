@@ -62,42 +62,42 @@ func getConfig(pconfig providerconfig.Config) (*types.CloudConfig, error) {
 	}
 
 	opts.VCenterPort = vsphereURL.Port()
-	opts.User, err = config.GetConfigVarResolver().GetConfigVarStringValueOrEnv(rawConfig.Username, "VSPHERE_USERNAME")
+	opts.User, err = config.GetConfigVarResolver().GetStringValueOrEnv(rawConfig.Username, "VSPHERE_USERNAME")
 	if err != nil {
 		return nil, err
 	}
 
-	opts.Password, err = config.GetConfigVarResolver().GetConfigVarStringValueOrEnv(rawConfig.Password, "VSPHERE_PASSWORD")
+	opts.Password, err = config.GetConfigVarResolver().GetStringValueOrEnv(rawConfig.Password, "VSPHERE_PASSWORD")
 	if err != nil {
 		return nil, err
 	}
 
-	opts.InsecureFlag, err = config.GetConfigVarResolver().GetConfigVarBoolValueOrEnv(rawConfig.AllowInsecure, "VSPHERE_ALLOW_INSECURE")
+	opts.InsecureFlag, err = config.GetConfigVarResolver().GetBoolValueOrEnv(rawConfig.AllowInsecure, "VSPHERE_ALLOW_INSECURE")
 	if err != nil {
 		return nil, err
 	}
 
-	opts.ClusterID, err = config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.Cluster)
+	opts.ClusterID, err = config.GetConfigVarResolver().GetStringValue(rawConfig.Cluster)
 	if err != nil {
 		return nil, err
 	}
 
-	datacenter, err := config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.Datacenter)
+	datacenter, err := config.GetConfigVarResolver().GetStringValue(rawConfig.Datacenter)
 	if err != nil {
 		return nil, err
 	}
 
-	folder, err := config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.Folder)
+	folder, err := config.GetConfigVarResolver().GetStringValue(rawConfig.Folder)
 	if err != nil {
 		return nil, err
 	}
 
-	datastore, err := config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.Datastore)
+	datastore, err := config.GetConfigVarResolver().GetStringValue(rawConfig.Datastore)
 	if err != nil {
 		return nil, err
 	}
 
-	datastoreCluster, err := config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.DatastoreCluster)
+	datastoreCluster, err := config.GetConfigVarResolver().GetStringValue(rawConfig.DatastoreCluster)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +138,7 @@ func getConfig(pconfig providerconfig.Config) (*types.CloudConfig, error) {
 }
 
 func getURL(rawConfig types.RawConfig) (*url.URL, error) {
-	vsphereURL, err := config.GetConfigVarResolver().GetConfigVarStringValueOrEnv(rawConfig.VSphereURL, "VSPHERE_ADDRESS")
+	vsphereURL, err := config.GetConfigVarResolver().GetStringValueOrEnv(rawConfig.VSphereURL, "VSPHERE_ADDRESS")
 	if err != nil {
 		return nil, err
 	}

@@ -57,20 +57,20 @@ func getConfig(pconfig providerconfig.Config, kubeletVersion string) (*types.Clo
 	)
 
 	// Ignore Region not found as Region might not be found and we can default it later
-	opts.Region, err = config.GetConfigVarResolver().GetConfigVarStringValueOrEnv(rawConfig.Region, "OS_REGION_NAME")
+	opts.Region, err = config.GetConfigVarResolver().GetStringValueOrEnv(rawConfig.Region, "OS_REGION_NAME")
 	if err != nil {
 		klog.V(6).Infof("Region from configuration or environment variable not found")
 	}
 
 	// We ignore errors here because the OS domain is only required when using Identity API V3
-	opts.DomainName, _ = config.GetConfigVarResolver().GetConfigVarStringValueOrEnv(rawConfig.DomainName, "OS_DOMAIN_NAME")
+	opts.DomainName, _ = config.GetConfigVarResolver().GetStringValueOrEnv(rawConfig.DomainName, "OS_DOMAIN_NAME")
 
-	opts.AuthURL, err = config.GetConfigVarResolver().GetConfigVarStringValueOrEnv(rawConfig.IdentityEndpoint, "OS_AUTH_URL")
+	opts.AuthURL, err = config.GetConfigVarResolver().GetStringValueOrEnv(rawConfig.IdentityEndpoint, "OS_AUTH_URL")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get the value of \"identityEndpoint\" field, error = %w", err)
 	}
 
-	trustDevicePath, _, err := config.GetConfigVarResolver().GetConfigVarBoolValue(rawConfig.TrustDevicePath)
+	trustDevicePath, _, err := config.GetConfigVarResolver().GetBoolValue(rawConfig.TrustDevicePath)
 	if err != nil {
 		return nil, err
 	}
@@ -103,23 +103,23 @@ func getConfig(pconfig providerconfig.Config, kubeletVersion string) (*types.Clo
 
 func getConfigAuth(c *types.GlobalOpts, rawConfig *types.RawConfig) error {
 	var err error
-	c.ApplicationCredentialID, err = config.GetConfigVarResolver().GetConfigVarStringValueOrEnv(rawConfig.ApplicationCredentialID, "OS_APPLICATION_CREDENTIAL_ID")
+	c.ApplicationCredentialID, err = config.GetConfigVarResolver().GetStringValueOrEnv(rawConfig.ApplicationCredentialID, "OS_APPLICATION_CREDENTIAL_ID")
 	if err != nil {
 		return fmt.Errorf("failed to get the value of \"applicationCredentialID\" field, error = %w", err)
 	}
 	if c.ApplicationCredentialID != "" {
 		klog.V(6).Infof("applicationCredentialID from configuration or environment was found.")
-		c.ApplicationCredentialSecret, err = config.GetConfigVarResolver().GetConfigVarStringValueOrEnv(rawConfig.ApplicationCredentialSecret, "OS_APPLICATION_CREDENTIAL_SECRET")
+		c.ApplicationCredentialSecret, err = config.GetConfigVarResolver().GetStringValueOrEnv(rawConfig.ApplicationCredentialSecret, "OS_APPLICATION_CREDENTIAL_SECRET")
 		if err != nil {
 			return fmt.Errorf("failed to get the value of \"applicationCredentialSecret\" field, error = %w", err)
 		}
 		return nil
 	}
-	c.Username, err = config.GetConfigVarResolver().GetConfigVarStringValueOrEnv(rawConfig.Username, "OS_USER_NAME")
+	c.Username, err = config.GetConfigVarResolver().GetStringValueOrEnv(rawConfig.Username, "OS_USER_NAME")
 	if err != nil {
 		return fmt.Errorf("failed to get the value of \"username\" field, error = %w", err)
 	}
-	c.Password, err = config.GetConfigVarResolver().GetConfigVarStringValueOrEnv(rawConfig.Password, "OS_PASSWORD")
+	c.Password, err = config.GetConfigVarResolver().GetStringValueOrEnv(rawConfig.Password, "OS_PASSWORD")
 	if err != nil {
 		return fmt.Errorf("failed to get the value of \"password\" field, error = %w", err)
 	}
@@ -136,22 +136,22 @@ func getConfigAuth(c *types.GlobalOpts, rawConfig *types.RawConfig) error {
 
 // Get the Project name from config or env var. If not defined fallback to tenant name
 func getProjectNameOrTenantName(rawConfig *types.RawConfig) (string, error) {
-	projectName, err := config.GetConfigVarResolver().GetConfigVarStringValueOrEnv(rawConfig.ProjectName, "OS_PROJECT_NAME")
+	projectName, err := config.GetConfigVarResolver().GetStringValueOrEnv(rawConfig.ProjectName, "OS_PROJECT_NAME")
 	if err == nil && len(projectName) > 0 {
 		return projectName, nil
 	}
 
 	// fallback to tenantName
-	return config.GetConfigVarResolver().GetConfigVarStringValueOrEnv(rawConfig.TenantName, "OS_TENANT_NAME")
+	return config.GetConfigVarResolver().GetStringValueOrEnv(rawConfig.TenantName, "OS_TENANT_NAME")
 }
 
 // Get the Project id from config or env var. If not defined fallback to tenant id
 func getProjectIDOrTenantID(rawConfig *types.RawConfig) (string, error) {
-	projectID, err := config.GetConfigVarResolver().GetConfigVarStringValueOrEnv(rawConfig.ProjectID, "OS_PROJECT_ID")
+	projectID, err := config.GetConfigVarResolver().GetStringValueOrEnv(rawConfig.ProjectID, "OS_PROJECT_ID")
 	if err == nil && len(projectID) > 0 {
 		return projectID, nil
 	}
 
 	// fallback to tenantID
-	return config.GetConfigVarResolver().GetConfigVarStringValueOrEnv(rawConfig.TenantID, "OS_TENANT_ID")
+	return config.GetConfigVarResolver().GetStringValueOrEnv(rawConfig.TenantID, "OS_TENANT_ID")
 }
