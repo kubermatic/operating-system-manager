@@ -54,15 +54,15 @@ func getConfig(pconfig providerconfig.Config) (*types.CloudConfig, error) {
 		err  error
 	)
 
-	opts.Zone, err = config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.AvailabilityZone)
+	opts.Zone, err = config.GetConfigVarResolver().GetStringValue(rawConfig.AvailabilityZone)
 	if err != nil {
 		return nil, err
 	}
-	opts.VPC, err = config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.VpcID)
+	opts.VPC, err = config.GetConfigVarResolver().GetStringValue(rawConfig.VpcID)
 	if err != nil {
 		return nil, err
 	}
-	opts.SubnetID, err = config.GetConfigVarResolver().GetConfigVarStringValue(rawConfig.SubnetID)
+	opts.SubnetID, err = config.GetConfigVarResolver().GetStringValue(rawConfig.SubnetID)
 	if err != nil {
 		return nil, err
 	}

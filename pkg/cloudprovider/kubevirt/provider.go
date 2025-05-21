@@ -74,7 +74,7 @@ func getConfig(pconfig providerconfig.Config) (*types.CloudConfig, error) {
 	} else {
 		// Environment variable or secret reference was used for providing the value of kubeconfig
 		// We have to be lenient in this case and allow unencoded values as well.
-		opts.Kubeconfig, err = config.GetConfigVarResolver().GetConfigVarStringValueOrEnv(rawConfig.Auth.Kubeconfig, envKubevirtKubeconfig)
+		opts.Kubeconfig, err = config.GetConfigVarResolver().GetStringValueOrEnv(rawConfig.Auth.Kubeconfig, envKubevirtKubeconfig)
 		if err != nil {
 			return nil, fmt.Errorf(`failed to get value of "kubeconfig" field: %w`, err)
 		}
