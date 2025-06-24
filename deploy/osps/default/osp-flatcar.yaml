@@ -79,30 +79,43 @@ spec:
           local number_of_bits_from_conversion_table=$((len_right_stripped_conversion_table/4))
           echo $(( $number_of_bits_stripped + $number_of_bits_from_conversion_table ))
         }
+        
+        nicByMac () {
+          local MAC=$1
+          echo $(ip -br link | grep "${MAC}" | awk '{print $1}')
+        }
 
         PRIMARY_NIC=$(query_ovf "vCloud_primaryNic")
-        IP_MODE=$(query_ovf "vCloud_bootproto_${PRIMARY_NIC}")
+        NIC_COUNT=$(query_ovf "vCloud_numnics")
+        
+        
+        for i in $(seq 0 $((NIC_COUNT - 1))); do
+          IP_MODE=$(query_ovf "vCloud_bootproto_${PRIMARY_NIC}")
 
-        if [ "$IP_MODE" = "static" ]; then
-        IP=$(query_ovf "vCloud_ip_${PRIMARY_NIC}")
-        GATEWAY=$(query_ovf "vCloud_gateway_${PRIMARY_NIC}")
-        DNS1=$(query_ovf "vCloud_dns1_${PRIMARY_NIC}")
-        DNS2=$(query_ovf "vCloud_dns2_${PRIMARY_NIC}")
-        NETMASK=$(query_ovf "vCloud_netmask_${PRIMARY_NIC}")
-        CIDR=$(mask2cdr "$NETMASK")
-        cat <<EOF > /etc/systemd/network/00-ens192.network
+          if [ "$IP_MODE" = "static" ]; then
+            MAC=$(query_ovf "vCloud_macaddr_${i}")
+            INTERFACE=$(nicByName "${MAC}")
+            IP=$(query_ovf "vCloud_ip_${i}")
+            GATEWAY=$(query_ovf "vCloud_gateway_${i}")
+            NETMASK=$(query_ovf "vCloud_netmask_${i}")
+            CIDR=$(mask2cdr "$NETMASK")
+            cat <<EOF > /etc/systemd/network/0${i}-${INTERFACE}.network
         [Match]
-        Name=ens192
+        Name=${INTERFACE}
 
         [Network]
         Address=$IP/$CIDR
         Gateway=$GATEWAY
-        DNS=$DNS1 $DNS2
         EOF
 
-        systemctl restart systemd-networkd
-
-        fi
+            if [ "$PRIMARY_NIC" -eq "$i" ]; then
+              DNS1=$(query_ovf "vCloud_dns1_${PRIMARY_NIC}")
+              DNS2=$(query_ovf "vCloud_dns2_${PRIMARY_NIC}")
+              echo "DNS= ${DNS1} ${DNS2}" >> /etc/systemd/network/0${i}-${INTERFACE}.network
+            fi
+          fi
+          
+        done
 
       configureHostCABundle: |-
         {{- if .HostCACert }}
