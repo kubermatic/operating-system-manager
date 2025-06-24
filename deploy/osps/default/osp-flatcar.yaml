@@ -94,7 +94,7 @@ spec:
 
           if [ "$IP_MODE" = "static" ]; then
             MAC=$(query_ovf "vCloud_macaddr_${i}")
-            INTERFACE=$(nicByName "${MAC}")
+            INTERFACE=$(nicByMac "${MAC}")
             IP=$(query_ovf "vCloud_ip_${i}")
             GATEWAY=$(query_ovf "vCloud_gateway_${i}")
             NETMASK=$(query_ovf "vCloud_netmask_${i}")
