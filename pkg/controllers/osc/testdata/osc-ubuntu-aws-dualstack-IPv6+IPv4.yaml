@@ -335,7 +335,7 @@ spec:
             rm -f "$cni_filename"
             cd -
             chown -R root:root "$cni_bin_dir"
-            CRI_TOOLS_RELEASE="v1.31.1"
+            CRI_TOOLS_RELEASE="v1.33.0"
 
             cri_tools_base_url="https://github.com/kubernetes-sigs/cri-tools/releases/download/${CRI_TOOLS_RELEASE}"
             cri_tools_filename="crictl-${CRI_TOOLS_RELEASE}-linux-${arch}.tar.gz"
