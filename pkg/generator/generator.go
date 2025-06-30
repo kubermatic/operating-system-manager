@@ -258,7 +258,7 @@ coreos:
 {{ $unit.Content | indent 6 }}
 {{- end }}
 {{ if $unit.Content }}
-    drop-ins:
+    drop_ins:
 {{- range $_, $dropIn := $unit.DropIns }}
       - name: "{{ $dropIn.Name }}"
         content: |
