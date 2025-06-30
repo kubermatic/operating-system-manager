@@ -891,3 +891,12 @@ spec:
               PrintMotd no # handled by PAM
               PasswordAuthentication no
               ChallengeResponseAuthentication no
+      - path: /etc/systemd/timesyncd.conf
+        permissions: 644
+        content:
+          inline:
+            data: |
+              # ANXKUBE-1356 made us realise that we have to use our custom NTP servers,
+              # because the official Flatcar ones might be blocked by a firewall.
+              [Time]
+              NTP=ntp0101.anexia-it.net ntp0401.anexia-it.net ntp8201.anexia-it.net
