@@ -550,6 +550,7 @@ spec:
               After={{ .ContainerRuntime }}.service
               {{- if eq .CloudProviderName "anexia" }}
               Requires={{ .ContainerRuntime }}.service rpc-statd.service
+              Wants=apply-sysctl-settings.service
               {{- else }}
               Requires={{ .ContainerRuntime }}.service
               {{- end }}
