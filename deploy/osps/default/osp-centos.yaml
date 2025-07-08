@@ -20,7 +20,7 @@ metadata:
 spec:
   osName: "centos"
   osVersion: "7.7"
-  version: "v1.5.5"
+  version: "v1.5.6"
   provisioningUtility: "cloud-init"
   supportedCloudProviders:
     - name: "alibaba"
