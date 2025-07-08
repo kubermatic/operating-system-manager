@@ -242,7 +242,12 @@ spec:
             fi
 
             # get the full hostname
-            FULL_HOSTNAME=$(hostname -f)
+            if grep -q COREOS_EC2_HOSTNAME /run/metadata/flatcar; then
+              FULL_HOSTNAME=$(grep COREOS_EC2_HOSTNAME /run/metadata/flatcar | cut -d= -f2)
+            else
+              FULL_HOSTNAME=$(hostname -f)
+            fi
+
             # if /etc/machine-name is not empty then use the hostname from there
             if [ -s /etc/machine-name ]; then
                 FULL_HOSTNAME=$(cat /etc/machine-name)
