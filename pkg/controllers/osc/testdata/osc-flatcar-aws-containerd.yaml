@@ -209,6 +209,7 @@ spec:
             else
               modprobe nf_conntrack
             fi
+            modprobe br_netfilter
       path: /opt/load-kernel-modules.sh
       permissions: 755
     - content:
