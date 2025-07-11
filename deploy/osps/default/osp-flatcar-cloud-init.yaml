@@ -577,13 +577,7 @@ spec:
                 --kubeconfig=/var/lib/kubelet/kubeconfig \
                 --config=/etc/kubernetes/kubelet.conf \
                 --cert-dir=/etc/kubernetes/pki \
-                {{- if .ExternalCloudProvider }}
                 --cloud-provider=external \
-                {{- /* In-tree cloud providers have been disabled starting from k8s 1.29. For more information: https://github.com/kubernetes/kubernetes/pull/117503 */}}
-                {{- else if and (.InTreeCCMAvailable) (semverCompare "<1.29" .KubeVersion) }}
-                --cloud-provider={{- .CloudProviderName }} \
-                --cloud-config=/etc/kubernetes/cloud-config \
-                {{- end }}
                 {{- if ne .CloudProviderName "aws" }}
                 --hostname-override=${KUBELET_HOSTNAME} \
                 {{- else if and (eq .CloudProviderName "aws") (.ExternalCloudProvider) }}
@@ -600,8 +594,8 @@ spec:
                 {{- if eq .ContainerRuntime "containerd" }}
                 --container-runtime-endpoint=unix:///run/containerd/containerd.sock \
                 {{- end }}
-                {{- /* If external or in-tree CCM is in use we don't need to set --node-ip as the cloud provider will know what IPs to return.  */}}
-                {{- if not (and (or (eq .NetworkIPFamily "IPv4+IPv6") (eq .NetworkIPFamily "IPv6+IPv4")) (or (.InTreeCCMAvailable) (.ExternalCloudProvider))) }}
+                {{- /* Set the node IP unless the network family is dual-stack. */}}
+                {{- if not (or (eq .NetworkIPFamily "IPv4+IPv6") (eq .NetworkIPFamily "IPv6+IPv4")) }}
                 --node-ip ${KUBELET_NODE_IP}
                 {{- end }}
 
@@ -624,14 +618,6 @@ spec:
             data: |
               [Service]
               ExecStartPre=/opt/bin/setup_kernel_for_kubelet.sh
-
-      - path: /etc/kubernetes/cloud-config
-        permissions: 600
-        content:
-          inline:
-            encoding: b64
-            data: |
-              {{ .CloudConfig }}
 
       - path: /etc/kubernetes/kubelet.conf
         content:

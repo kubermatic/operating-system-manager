@@ -113,11 +113,10 @@ func init() {
 }
 
 type testConfig struct {
-	namespace             string
-	containerRuntime      string
-	clusterDNSIPs         []net.IP
-	featureGates          map[string]bool
-	externalCloudProvider bool
+	namespace        string
+	containerRuntime string
+	clusterDNSIPs    []net.IP
+	featureGates     map[string]bool
 }
 
 func TestReconciler_Reconcile(t *testing.T) {
@@ -148,10 +147,9 @@ func TestReconciler_Reconcile(t *testing.T) {
 			provisioningSecretFile: "secret-ubuntu-aws-containerd-provisioning.yaml",
 			bootstrapSecretFile:    "secret-ubuntu-aws-containerd-bootstrap.yaml",
 			config: testConfig{
-				namespace:             "kube-system",
-				containerRuntime:      "containerd",
-				externalCloudProvider: true,
-				clusterDNSIPs:         []net.IP{net.IPv4(10, 0, 0, 0)},
+				namespace:        "kube-system",
+				containerRuntime: "containerd",
+				clusterDNSIPs:    []net.IP{net.IPv4(10, 0, 0, 0)},
 			},
 			cloudProvider:     "aws",
 			cloudProviderSpec: runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
@@ -846,16 +844,15 @@ func buildReconciler(fakeClient ctrlruntimeclient.Client, config testConfig) Rec
 		Client:       fakeClient,
 		workerClient: fakeClient,
 
-		log:                   testUtil.DefaultLogger,
-		generator:             generator.NewDefaultCloudConfigGenerator(""),
-		namespace:             config.namespace,
-		caCert:                dummyCACert,
-		containerRuntime:      config.containerRuntime,
-		clusterDNSIPs:         config.clusterDNSIPs,
-		kubeletFeatureGates:   featureGates,
-		bootstrappingManager:  bootstrappingManager,
-		externalCloudProvider: config.externalCloudProvider,
-		nodeHTTPProxy:         "http://test-http-proxy.com",
-		nodeNoProxy:           "http://test-no-proxy.com",
+		log:                  testUtil.DefaultLogger,
+		generator:            generator.NewDefaultCloudConfigGenerator(""),
+		namespace:            config.namespace,
+		caCert:               dummyCACert,
+		containerRuntime:     config.containerRuntime,
+		clusterDNSIPs:        config.clusterDNSIPs,
+		kubeletFeatureGates:  featureGates,
+		bootstrappingManager: bootstrappingManager,
+		nodeHTTPProxy:        "http://test-http-proxy.com",
+		nodeNoProxy:          "http://test-no-proxy.com",
 	}
 }

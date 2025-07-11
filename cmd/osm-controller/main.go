@@ -118,7 +118,7 @@ func main() {
 	flag.IntVar(&opt.workerCount, "worker-count", 10, "Number of workers which process reconciliation in parallel.")
 	flag.StringVar(&opt.namespace, "namespace", "", "The namespace where the OSC controller will run.")
 	flag.StringVar(&opt.containerRuntime, "container-runtime", "containerd", "container runtime to deploy.")
-	flag.BoolVar(&opt.externalCloudProvider, "external-cloud-provider", false, "cloud-provider Kubelet flag set to external.")
+	flag.BoolVar(&opt.externalCloudProvider, "external-cloud-provider", false, "(deprecated) cloud-provider Kubelet flag set to external.")
 	flag.StringVar(&opt.clusterDNSIPs, "cluster-dns", "10.10.10.10", "Comma-separated list of DNS server IP address.")
 	flag.StringVar(&opt.pauseImage, "pause-image", "", "pause image to use in Kubelet.")
 	flag.StringVar(&opt.initialTaints, "initial-taints", "", "taints to use when creating the node.")
@@ -311,7 +311,6 @@ func main() {
 		parsedClusterDNSIPs,
 		generator.NewDefaultCloudConfigGenerator(""),
 		opt.containerRuntime,
-		opt.externalCloudProvider,
 		opt.pauseImage,
 		opt.initialTaints,
 		opt.nodeHTTPProxy,
