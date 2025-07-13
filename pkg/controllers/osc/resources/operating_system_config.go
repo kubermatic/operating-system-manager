@@ -72,7 +72,6 @@ func GenerateOperatingSystemConfig(
 	hostCACert string,
 	clusterDNSIPs []net.IP,
 	containerRuntime string,
-	externalCloudProvider bool,
 	pauseImage string,
 	initialTaints string,
 	nodeHTTPProxy string,
@@ -111,6 +110,11 @@ func GenerateOperatingSystemConfig(
 	kubeletVersionStr := kubeletVersion.String()
 	if !strings.HasPrefix(kubeletVersionStr, "v") {
 		kubeletVersionStr = fmt.Sprintf("v%s", kubeletVersionStr)
+	}
+
+	err = cloudprovider.ValidateCloudProvider(providerConfig)
+	if err != nil {
+		return nil, err
 	}
 
 	// Handling for kubelet configuration
@@ -157,31 +161,18 @@ func GenerateOperatingSystemConfig(
 		BootstrapKubeconfigSecretName: bootstrapKubeconfigSecretName,
 	}
 
-	inTreeCCM, external, err := cloudprovider.KubeletCloudProviderConfig(providerConfig.CloudProvider, externalCloudProvider)
-	if err != nil {
-		return nil, err
-	}
-
-	var cloudConfig string
-	if providerConfig.OverwriteCloudConfig != nil {
-		cloudConfig = *providerConfig.OverwriteCloudConfig
-	} else {
-		cloudConfig, err = cloudprovider.GetCloudConfig(external, providerConfig, md.Spec.Template.Spec.Versions.Kubelet)
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch cloud-config: %w", err)
-		}
-	}
-
 	data := filesData{
-		KubeVersion:                kubeletVersionStr,
-		ClusterDNSIPs:              clusterDNSIPs,
-		KubernetesCACert:           caCert,
-		HostCACert:                 hostCACert,
-		InTreeCCMAvailable:         inTreeCCM,
-		CloudConfig:                cloudConfig,
+		KubeVersion:      kubeletVersionStr,
+		ClusterDNSIPs:    clusterDNSIPs,
+		KubernetesCACert: caCert,
+		HostCACert:       hostCACert,
+		// In-tree integrations with cloud providers is not supported since Kubernetes v1.29
+		// reference: https://kubernetes.io/blog/2023/12/13/kubernetes-v1-29-release/#in-tree-cloud-provider-integration-removal
+		InTreeCCMAvailable: false,
+		// ExternalCloudProvider is set to true since the in-tree CCM is not supported for k8s cluster > 1.29.
+		ExternalCloudProvider:      true,
 		ContainerRuntime:           containerRuntime,
 		CloudProviderName:          osmv1alpha1.CloudProvider(providerConfig.CloudProvider),
-		ExternalCloudProvider:      external,
 		PauseImage:                 pauseImage,
 		InitialTaints:              initialTaints,
 		ContainerRuntimeConfig:     crConfig,
