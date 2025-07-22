@@ -83,6 +83,7 @@ type options struct {
 	nodeRegistryMirrors           string
 	nodeRegistryCredentialsSecret string
 	nodeContainerdRegistryMirrors containerruntime.RegistryMirrorsFlags
+	containerdGVisorRuntime       string
 
 	// Flags for proxy
 	nodeHTTPProxy string
@@ -130,6 +131,7 @@ func main() {
 	flag.StringVar(&opt.nodeNoProxy, "node-no-proxy", ".svc,.cluster.local,localhost,127.0.0.1", "If set, it configures the 'NO_PROXY' environment variable on the nodes.")
 	flag.StringVar(&opt.nodeInsecureRegistries, "node-insecure-registries", "", "Comma separated list of registries which should be configured as insecure on the container runtime")
 	flag.StringVar(&opt.nodeRegistryMirrors, "node-registry-mirrors", "", "Comma separated list of Docker image mirrors")
+	flag.StringVar(&opt.containerdGVisorRuntime, "containerd-gvisor-runtime", "", "Runtime to use for gVisor/runsc. Typically \"io.containerd.runsc.v1\". Omit to disable.")
 
 	if opt.nodeContainerdRegistryMirrors == nil {
 		opt.nodeContainerdRegistryMirrors = containerruntime.RegistryMirrorsFlags{}
@@ -222,6 +224,7 @@ func main() {
 		PauseImage:                opt.pauseImage,
 		RegistryMirrors:           opt.nodeRegistryMirrors,
 		RegistryCredentialsSecret: opt.nodeRegistryCredentialsSecret,
+		GVisorRuntime:             opt.containerdGVisorRuntime,
 	}
 	containerRuntimeConfig, err := containerruntime.BuildConfig(containerRuntimeOpts)
 	if err != nil {
