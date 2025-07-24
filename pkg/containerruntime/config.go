@@ -30,13 +30,14 @@ import (
 )
 
 type Opts struct {
-	ContainerRuntime          string
-	ContainerdVersion         string
-	InsecureRegistries        string
-	RegistryMirrors           string
-	RegistryCredentialsSecret string
-	PauseImage                string
-	ContainerdRegistryMirrors RegistryMirrorsFlags
+	ContainerRuntime                   string
+	ContainerdVersion                  string
+	InsecureRegistries                 string
+	RegistryMirrors                    string
+	RegistryCredentialsSecret          string
+	PauseImage                         string
+	ContainerdRegistryMirrors          RegistryMirrorsFlags
+	DeviceOwnershipFromSecurityContext bool
 }
 
 type DockerCfgJSON struct {
@@ -98,6 +99,7 @@ func BuildConfig(opts Opts) (Config, error) {
 		withRegistryMirrors(opts.ContainerdRegistryMirrors),
 		withSandboxImage(opts.PauseImage),
 		withContainerdVersion(opts.ContainerdVersion),
+		withDeviceOwnershipFromSecurityContext(opts.DeviceOwnershipFromSecurityContext),
 	), nil
 }
 
