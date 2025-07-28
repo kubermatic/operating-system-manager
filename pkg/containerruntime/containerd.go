@@ -23,11 +23,12 @@ import (
 )
 
 type Containerd struct {
-	insecureRegistries  []string
-	registryMirrors     map[string][]string
-	sandboxImage        string
-	registryCredentials map[string]AuthConfig
-	version             string
+	insecureRegistries                 []string
+	registryMirrors                    map[string][]string
+	sandboxImage                       string
+	registryCredentials                map[string]AuthConfig
+	version                            string
+	deviceOwnershipFromSecurityContext bool
 }
 
 func (eng *Containerd) ConfigFileName() string {
@@ -63,9 +64,10 @@ type containerdMetrics struct {
 }
 
 type containerdCRIPlugin struct {
-	Containerd   *containerdCRISettings `toml:"containerd"`
-	Registry     *containerdCRIRegistry `toml:"registry"`
-	SandboxImage string                 `toml:"sandbox_image,omitempty"`
+	Containerd                         *containerdCRISettings `toml:"containerd"`
+	Registry                           *containerdCRIRegistry `toml:"registry"`
+	SandboxImage                       string                 `toml:"sandbox_image,omitempty"`
+	DeviceOwnershipFromSecurityContext bool                   `toml:"device_ownership_from_security_context"`
 }
 
 type containerdCRISettings struct {
@@ -101,7 +103,8 @@ type containerdRegistryTLSConfig struct {
 
 func (eng *Containerd) Config() (string, error) {
 	criPlugin := containerdCRIPlugin{
-		SandboxImage: eng.sandboxImage,
+		SandboxImage:                       eng.sandboxImage,
+		DeviceOwnershipFromSecurityContext: eng.deviceOwnershipFromSecurityContext,
 		Containerd: &containerdCRISettings{
 			Runtimes: map[string]containerdCRIRuntime{
 				"runc": {

@@ -78,10 +78,11 @@ type options struct {
 	workerMetricsAddress     string
 
 	// Flags for configuring CRI
-	nodeInsecureRegistries        string
-	nodeRegistryMirrors           string
-	nodeRegistryCredentialsSecret string
-	nodeContainerdRegistryMirrors containerruntime.RegistryMirrorsFlags
+	nodeInsecureRegistries             string
+	nodeRegistryMirrors                string
+	nodeRegistryCredentialsSecret      string
+	nodeContainerdRegistryMirrors      containerruntime.RegistryMirrorsFlags
+	deviceOwnershipFromSecurityContext bool
 
 	// Flags for proxy
 	nodeHTTPProxy string
@@ -128,6 +129,7 @@ func main() {
 	flag.StringVar(&opt.nodeNoProxy, "node-no-proxy", ".svc,.cluster.local,localhost,127.0.0.1", "If set, it configures the 'NO_PROXY' environment variable on the nodes.")
 	flag.StringVar(&opt.nodeInsecureRegistries, "node-insecure-registries", "", "Comma separated list of registries which should be configured as insecure on the container runtime")
 	flag.StringVar(&opt.nodeRegistryMirrors, "node-registry-mirrors", "", "Comma separated list of Docker image mirrors")
+	flag.BoolVar(&opt.deviceOwnershipFromSecurityContext, "device-ownership-from-security-context", false, "Enable non-root device usage")
 
 	if opt.nodeContainerdRegistryMirrors == nil {
 		opt.nodeContainerdRegistryMirrors = containerruntime.RegistryMirrorsFlags{}
@@ -214,12 +216,13 @@ func main() {
 
 	// Build container-runtime configuration
 	containerRuntimeOpts := containerruntime.Opts{
-		ContainerRuntime:          opt.containerRuntime,
-		ContainerdRegistryMirrors: opt.nodeContainerdRegistryMirrors,
-		InsecureRegistries:        opt.nodeInsecureRegistries,
-		PauseImage:                opt.pauseImage,
-		RegistryMirrors:           opt.nodeRegistryMirrors,
-		RegistryCredentialsSecret: opt.nodeRegistryCredentialsSecret,
+		ContainerRuntime:                   opt.containerRuntime,
+		ContainerdRegistryMirrors:          opt.nodeContainerdRegistryMirrors,
+		InsecureRegistries:                 opt.nodeInsecureRegistries,
+		PauseImage:                         opt.pauseImage,
+		RegistryMirrors:                    opt.nodeRegistryMirrors,
+		RegistryCredentialsSecret:          opt.nodeRegistryCredentialsSecret,
+		DeviceOwnershipFromSecurityContext: opt.deviceOwnershipFromSecurityContext,
 	}
 	containerRuntimeConfig, err := containerruntime.BuildConfig(containerRuntimeOpts)
 	if err != nil {

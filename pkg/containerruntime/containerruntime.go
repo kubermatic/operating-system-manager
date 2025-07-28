@@ -55,6 +55,12 @@ func withContainerdVersion(version string) Opt {
 	}
 }
 
+func withDeviceOwnershipFromSecurityContext(deviceOwnershipFromSecurityContext bool) Opt {
+	return func(cfg *Config) {
+		cfg.DeviceOwnershipFromSecurityContext = deviceOwnershipFromSecurityContext
+	}
+}
+
 func get(_ string, opts ...Opt) Config {
 	cfg := Config{}
 	cfg.Containerd = &Containerd{}
@@ -67,14 +73,15 @@ func get(_ string, opts ...Opt) Config {
 }
 
 type Config struct {
-	Containerd           *Containerd           `json:",omitempty"`
-	InsecureRegistries   []string              `json:",omitempty"`
-	RegistryMirrors      map[string][]string   `json:",omitempty"`
-	RegistryCredentials  map[string]AuthConfig `json:",omitempty"`
-	SandboxImage         string                `json:",omitempty"`
-	ContainerLogMaxFiles string                `json:",omitempty"`
-	ContainerLogMaxSize  string                `json:",omitempty"`
-	ContainerdVersion    string                `json:",omitempty"`
+	Containerd                         *Containerd           `json:",omitempty"`
+	InsecureRegistries                 []string              `json:",omitempty"`
+	RegistryMirrors                    map[string][]string   `json:",omitempty"`
+	RegistryCredentials                map[string]AuthConfig `json:",omitempty"`
+	SandboxImage                       string                `json:",omitempty"`
+	ContainerLogMaxFiles               string                `json:",omitempty"`
+	ContainerLogMaxSize                string                `json:",omitempty"`
+	ContainerdVersion                  string                `json:",omitempty"`
+	DeviceOwnershipFromSecurityContext bool                  `json:",omitempty"`
 }
 
 // AuthConfig is a COPY of github.com/containerd/containerd/pkg/cri/config.AuthConfig.
@@ -98,11 +105,12 @@ func (cfg Config) String() string {
 
 func (cfg Config) Engine() Engine {
 	containerd := &Containerd{
-		insecureRegistries:  cfg.InsecureRegistries,
-		registryMirrors:     cfg.RegistryMirrors,
-		sandboxImage:        cfg.SandboxImage,
-		registryCredentials: cfg.RegistryCredentials,
-		version:             cfg.ContainerdVersion,
+		insecureRegistries:                 cfg.InsecureRegistries,
+		registryMirrors:                    cfg.RegistryMirrors,
+		sandboxImage:                       cfg.SandboxImage,
+		registryCredentials:                cfg.RegistryCredentials,
+		version:                            cfg.ContainerdVersion,
+		deviceOwnershipFromSecurityContext: cfg.DeviceOwnershipFromSecurityContext,
 	}
 	return containerd
 }

@@ -638,6 +638,7 @@ spec:
             [plugins]
             [plugins."io.containerd.grpc.v1.cri"]
             sandbox_image = "192.168.100.100:5000/kubernetes/pause:v3.1"
+            device_ownership_from_security_context = false
             [plugins."io.containerd.grpc.v1.cri".containerd]
             [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
             [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
