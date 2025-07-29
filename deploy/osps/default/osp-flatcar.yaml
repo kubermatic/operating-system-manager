@@ -90,7 +90,7 @@ spec:
         
         
         for i in $(seq 0 $((NIC_COUNT - 1))); do
-          IP_MODE=$(query_ovf "vCloud_bootproto_${PRIMARY_NIC}")
+          IP_MODE=$(query_ovf "vCloud_bootproto_${i}")
 
           if [ "$IP_MODE" = "static" ]; then
             MAC=$(query_ovf "vCloud_macaddr_${i}")
