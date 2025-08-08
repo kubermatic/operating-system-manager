@@ -83,10 +83,10 @@ spec:
         subnetAddress() {
           local ip="$1"
           local mask="$2"
-        
+
           IFS=. read -r ip1 ip2 ip3 ip4 <<< "$ip"
           IFS=. read -r m1 m2 m3 m4 <<< "$mask"
-          
+
           # Compute subnet address with bitwise AND
           printf "%d.%d.%d.%d\n" \
           $((ip1 & m1)) \
@@ -128,7 +128,7 @@ spec:
               DNS2=$(query_ovf "vCloud_dns2_${PRIMARY_NIC}")
               echo "Gateway= ${GATEWAY}" >> /etc/systemd/network/0${i}-${INTERFACE}.network
               echo "DNS= ${DNS1} ${DNS2}" >> /etc/systemd/network/0${i}-${INTERFACE}.network
-        
+
             else
               NETWORK=$(subnetAddress "$IP" "$NETMASK")
               cat <<EOF >> /etc/systemd/network/0${i}-${INTERFACE}.network
