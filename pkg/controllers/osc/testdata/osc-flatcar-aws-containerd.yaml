@@ -209,6 +209,7 @@ spec:
             else
               modprobe nf_conntrack
             fi
+            modprobe br_netfilter
       path: /opt/load-kernel-modules.sh
       permissions: 755
     - content:
@@ -242,7 +243,12 @@ spec:
             fi
 
             # get the full hostname
-            FULL_HOSTNAME=$(hostname -f)
+            if grep -q COREOS_EC2_HOSTNAME /run/metadata/flatcar; then
+              FULL_HOSTNAME=$(grep COREOS_EC2_HOSTNAME /run/metadata/flatcar | cut -d= -f2)
+            else
+              FULL_HOSTNAME=$(hostname -f)
+            fi
+
             # if /etc/machine-name is not empty then use the hostname from there
             if [ -s /etc/machine-name ]; then
                 FULL_HOSTNAME=$(cat /etc/machine-name)
@@ -586,6 +592,7 @@ spec:
             [plugins]
             [plugins."io.containerd.grpc.v1.cri"]
             sandbox_image = "192.168.100.100:5000/kubernetes/pause:v3.1"
+            device_ownership_from_security_context = false
             [plugins."io.containerd.grpc.v1.cri".containerd]
             [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
             [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]

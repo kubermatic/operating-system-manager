@@ -230,6 +230,7 @@ spec:
             else
               modprobe nf_conntrack
             fi
+            modprobe br_netfilter
           encoding: b64
       path: /opt/load-kernel-modules.sh
       permissions: 755
@@ -335,7 +336,7 @@ spec:
             rm -f "$cni_filename"
             cd -
             chown -R root:root "$cni_bin_dir"
-            CRI_TOOLS_RELEASE="v1.29.0"
+            CRI_TOOLS_RELEASE="v1.33.0"
 
             cri_tools_base_url="https://github.com/kubernetes-sigs/cri-tools/releases/download/${CRI_TOOLS_RELEASE}"
             cri_tools_filename="crictl-${CRI_TOOLS_RELEASE}-linux-${arch}.tar.gz"
@@ -641,6 +642,7 @@ spec:
             [plugins]
             [plugins."io.containerd.grpc.v1.cri"]
             sandbox_image = "192.168.100.100:5000/kubernetes/pause:v3.1"
+            device_ownership_from_security_context = false
             [plugins."io.containerd.grpc.v1.cri".containerd]
             [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
             [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]

@@ -273,15 +273,17 @@ spec:
         chown -R root:root "$cni_bin_dir"
 
         {{- /* # cri-tools variables */}}
-        {{- if semverCompare "~1.29.0" .KubeVersion }}
-        CRI_TOOLS_RELEASE="v1.29.0"
-        {{- else if semverCompare "~1.30.0" .KubeVersion }}
+        {{- if semverCompare "~1.30.0" .KubeVersion }}
         CRI_TOOLS_RELEASE="v1.30.1"
         {{- else if semverCompare "~1.31.0" .KubeVersion }}
         CRI_TOOLS_RELEASE="v1.31.1"
+        {{- else if semverCompare "~1.32.0" .KubeVersion }}
+        CRI_TOOLS_RELEASE="v1.32.0"
+        {{- else if semverCompare "~1.33.0" .KubeVersion }}
+        CRI_TOOLS_RELEASE="v1.33.0"
         {{- else }}
         {{- /* Fallback to the latest version */}}
-        CRI_TOOLS_RELEASE="v1.31.1"
+        CRI_TOOLS_RELEASE="v1.33.0"
         {{- end }}
 
         cri_tools_base_url="https://github.com/kubernetes-sigs/cri-tools/releases/download/${CRI_TOOLS_RELEASE}"
@@ -486,6 +488,7 @@ spec:
               else
                 modprobe nf_conntrack
               fi
+              modprobe br_netfilter
 
       - path: /etc/sysctl.d/k8s.conf
         content:

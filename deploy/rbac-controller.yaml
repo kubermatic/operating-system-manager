@@ -62,6 +62,7 @@ rules:
       - secrets
     verbs:
       - get
+      - update
       - list
       - create
       - delete
