@@ -80,6 +80,22 @@ spec:
           echo $(( $number_of_bits_stripped + $number_of_bits_from_conversion_table ))
         }
 
+        subnetAddress() {
+          local ip="$1"
+          local mask="$2"
+
+          IFS=. read -r ip1 ip2 ip3 ip4 <<< "$ip"
+          IFS=. read -r m1 m2 m3 m4 <<< "$mask"
+
+          # Compute subnet address with bitwise AND
+          printf "%d.%d.%d.%d\n" \
+          $((ip1 & m1)) \
+          $((ip2 & m2)) \
+          $((ip3 & m3)) \
+          $((ip4 & m4))
+        }
+
+
         nicByMac () {
           local MAC=$1
           echo $(ip -br link | grep "${MAC}" | awk '{print $1}')
@@ -105,13 +121,23 @@ spec:
 
         [Network]
         Address=$IP/$CIDR
-        Gateway=$GATEWAY
         EOF
 
             if [ "$PRIMARY_NIC" -eq "$i" ]; then
               DNS1=$(query_ovf "vCloud_dns1_${PRIMARY_NIC}")
               DNS2=$(query_ovf "vCloud_dns2_${PRIMARY_NIC}")
+              echo "Gateway= ${GATEWAY}" >> /etc/systemd/network/0${i}-${INTERFACE}.network
               echo "DNS= ${DNS1} ${DNS2}" >> /etc/systemd/network/0${i}-${INTERFACE}.network
+
+            else
+              NETWORK=$(subnetAddress "$IP" "$NETMASK")
+              cat <<EOF >> /etc/systemd/network/0${i}-${INTERFACE}.network
+
+        [Route]
+        Destination=${NETWORK}/${CIDR}
+        Gateway=$GATEWAY
+        EOF
+
             fi
           fi
 
@@ -167,6 +193,7 @@ spec:
               {{- if eq .CloudProviderName "vmware-cloud-director" }}
               {{- template "configureVCloudNetworkStatic" }}
               systemctl restart systemd-networkd
+              sleep 5
               {{- end }}
 
 
