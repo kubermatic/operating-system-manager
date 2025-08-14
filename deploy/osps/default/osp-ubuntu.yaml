@@ -75,6 +75,19 @@ spec:
         sudo update-ca-certificates
         {{- end }}
 
+      configureHetznerNetplanOverlay: |-
+        # Overlay YAML so systemd-generator always finds a file
+        cat >/etc/netplan/99-hetzner-fallback-default.yaml <<'EOF'
+        network:
+          version: 2
+          renderer: networkd
+          ethernets:
+            eth0:
+              set-name: eth0
+              dhcp4: true
+              dhcp6: true
+        EOF
+
     files:
       - path: /opt/bin/supervise.sh
         permissions: 755
@@ -112,6 +125,16 @@ spec:
               {{- if eq .CloudProviderName "hetzner" }}
               sed -i '/\[Resolve\]/a FallbackDNS=1.1.1.1#cloudflare-dns.com 1.0.0.1#cloudflare-dns.com 2606:4700:4700::1111#cloudflare-dns.com 2606:4700:4700::1001#cloudflare-dns.com' /etc/systemd/resolved.conf
               systemctl restart systemd-resolved
+
+              # Remove default netplan config so we prevent dualstack and DHCP conflicts
+              rm /etc/netplan/50-cloud-init.yaml
+              echo "network: {config: disabled}" > /etc/cloud/cloud.cfg.d/99-custom-networking.cfg
+              # Write netplan fallback overlay file
+              {{- template "configureHetznerNetplanOverlay" }}
+
+              netplan generate
+              netplan apply
+              systemctl restart systemd-networkd
               {{- end }}
 
               export DEBIAN_FRONTEND=noninteractive
@@ -124,8 +147,8 @@ spec:
               cloud-init init --local
               {{- end }}
 
-              {{- /* The default cloud-init configurations files have a bug on Digital Ocean that causes the machine to be in-accessible on the 2nd cloud-init and in case of Hetzner, ipv6 addresses are missing. Hence we disable network configuration. */}}
-              {{- if (or (eq .CloudProviderName "digitalocean") (eq .CloudProviderName "hetzner")) }}
+              {{- /* The default cloud-init configurations files have a bug on Digital Ocean that causes the machine to be in-accessible on the 2nd cloud-init run. */}}
+              {{- if (eq .CloudProviderName "digitalocean") }}
               rm /etc/netplan/50-cloud-init.yaml
               echo "network: {config: disabled}" > /etc/cloud/cloud.cfg.d/99-custom-networking.cfg
               {{- end }}
