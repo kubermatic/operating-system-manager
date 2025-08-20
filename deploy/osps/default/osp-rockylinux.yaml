@@ -19,7 +19,7 @@ metadata:
   namespace: kube-system
 spec:
   osName: "rockylinux"
-  osVersion: "8.6"
+  osVersion: "9.6"
   version: "v1.7.0"
   provisioningUtility: "cloud-init"
   supportedCloudProviders:
@@ -105,6 +105,15 @@ spec:
               else
                   cloud-init --file /etc/cloud/cloud.cfg.d/{{ .SecretName }}.cfg init
               fi
+
+              {{- /* Prevent cloud-init from generating network files. */}}
+              {{- if (eq .CloudProviderName "hetzner") }}
+              echo "network: {config: disabled}" > /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg
+
+              # Let NetworkManager manage resolv.conf
+              # Ensure resolv.conf keeps following NetworkManager
+              ln -sf /var/run/NetworkManager/resolv.conf /etc/resolv.conf || true
+              {{- end }}
 
               systemctl daemon-reload
 
