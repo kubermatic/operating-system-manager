@@ -19,7 +19,7 @@ metadata:
   namespace: kube-system
 spec:
   osName: "rhel"
-  osVersion: "8.5"
+  osVersion: "9.6"
   version: "v1.7.0"
   provisioningUtility: "cloud-init"
   supportedCloudProviders:
