@@ -3,7 +3,6 @@ kind: OperatingSystemConfig
 metadata:
   annotations:
     k8c.io/machine-deployment-revision: "1"
-  creationTimestamp: null
   name: osp-rhel-aws-kube-system-config
   namespace: kube-system
   resourceVersion: "1"
