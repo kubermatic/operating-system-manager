@@ -74,8 +74,6 @@ func (p *KubeconfigProvider) getKubeconfigFromConfigMap(ctx context.Context) (*c
 }
 
 func (p *KubeconfigProvider) buildKubeconfigFromEndpoint(ctx context.Context) (*clientcmdapi.Config, error) {
-	//nolint:staticcheck
-	//lint:ignore SA1019: corev1.Endpoints is deprecated: This API is deprecated in v1.33+. Use discoveryv1.EndpointSlice. (staticcheck)
 	endpoint := &corev1.Endpoints{}
 	if err := p.client.Get(ctx, types.NamespacedName{Name: kubernetesEndpointsName, Namespace: metav1.NamespaceDefault}, endpoint); err != nil {
 		return nil, err
@@ -96,8 +94,6 @@ func (p *KubeconfigProvider) buildKubeconfigFromEndpoint(ctx context.Context) (*
 		return nil, errors.New("could not parse ip from ")
 	}
 
-	//nolint:staticcheck
-	//lint:ignore SA1019: corev1.EndpointSubset is deprecated: This API is deprecated in v1.33+. (staticcheck)
 	getSecurePort := func(_ corev1.EndpointSubset) *corev1.EndpointPort {
 		for _, p := range subset.Ports {
 			if p.Name == securePortName {
