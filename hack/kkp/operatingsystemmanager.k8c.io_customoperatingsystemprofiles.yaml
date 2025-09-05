@@ -201,7 +201,7 @@ spec:
                             description: Content is the unit's content.
                             type: string
                           dropIns:
-                            description: DropIns is a list of drop-ins for this unit.
+                            description: DropIns is a list of drop_ins for this unit.
                             items:
                               description: DropIn is a drop-in configuration for a systemd unit.
                               properties:
@@ -387,7 +387,7 @@ spec:
                             description: Content is the unit's content.
                             type: string
                           dropIns:
-                            description: DropIns is a list of drop-ins for this unit.
+                            description: DropIns is a list of drop_ins for this unit.
                             items:
                               description: DropIn is a drop-in configuration for a systemd unit.
                               properties:
