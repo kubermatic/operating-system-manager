@@ -77,13 +77,15 @@ spec:
 
       configureHetznerNetplanOverlay: |-
         # Overlay YAML so systemd-generator always finds a file
+        install -m 600 -o root -g root /dev/null /etc/netplan/99-hetzner-fallback-default.yaml
         cat >/etc/netplan/99-hetzner-fallback-default.yaml <<'EOF'
         network:
           version: 2
           renderer: networkd
           ethernets:
-            eth0:
-              set-name: eth0
+            fallback:
+              match:
+                name: "e*"
               dhcp4: true
               dhcp6: true
         EOF
@@ -127,7 +129,7 @@ spec:
               systemctl restart systemd-resolved
 
               # Remove default netplan config so we prevent dualstack and DHCP conflicts
-              rm /etc/netplan/50-cloud-init.yaml
+              rm /etc/netplan/50-cloud-init.yaml || true
               echo "network: {config: disabled}" > /etc/cloud/cloud.cfg.d/99-custom-networking.cfg
               # Write netplan fallback overlay file
               {{- template "configureHetznerNetplanOverlay" }}
