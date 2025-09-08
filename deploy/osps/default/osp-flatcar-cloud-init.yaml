@@ -589,8 +589,6 @@ spec:
                 {{- else if and (eq .CloudProviderName "aws") (.ExternalCloudProvider) }}
                 --hostname-override=${KUBELET_HOSTNAME} \
                 {{- end }}
-                --exit-on-lock-contention \
-                --lock-file=/tmp/kubelet.lock \
                 {{- if .PauseImage }}
                 --pod-infra-container-image={{ .PauseImage }} \
                 {{- end }}
