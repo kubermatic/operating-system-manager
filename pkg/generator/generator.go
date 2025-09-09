@@ -253,13 +253,13 @@ coreos:
 	command: start
 	{{- end }}
     mask: {{or $unit.Mask false}}
-{{ if $unit.Content }}
+{{ with $unit.Content }}
     content: |
-{{ $unit.Content | indent 6 }}
+{{ . | indent 6 }}
 {{- end }}
-{{ if $unit.Content }}
-    drop-ins:
-{{- range $_, $dropIn := $unit.DropIns }}
+{{ with $unit.DropIns }}
+    drop_ins:
+{{- range $_, $dropIn := . }}
       - name: "{{ $dropIn.Name }}"
         content: |
 {{ $dropIn.Content | indent 10 }}
@@ -341,13 +341,13 @@ systemd:
   - name: {{ $unit.Name }}
     enabled: {{or $unit.Enable false}}
     mask: {{or $unit.Mask false}}
-{{ if $unit.Content }}
+{{ with $unit.Content }}
     contents: |
-{{ $unit.Content | indent 6 }}
+{{ . | indent 6 }}
 {{- end }}
-{{ if $unit.Content }}
+{{ with $unit.DropIns }}
     dropins:
-{{- range $_, $dropIn := $unit.DropIns }}
+{{- range $_, $dropIn := . }}
       - name: {{ $dropIn.Name }}
         contents: |
 {{ $dropIn.Content | indent 10 }}
