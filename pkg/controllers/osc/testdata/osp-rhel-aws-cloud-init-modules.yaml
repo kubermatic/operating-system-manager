@@ -20,7 +20,7 @@ metadata:
 spec:
   osName: "rhel"
   osVersion: "8.5"
-  version: "v1.6.8"
+  version: "v1.6.9"
   provisioningUtility: "cloud-init"
   supportedCloudProviders:
     - name: "aws"
