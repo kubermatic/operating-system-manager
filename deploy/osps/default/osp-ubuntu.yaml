@@ -20,7 +20,7 @@ metadata:
 spec:
   osName: "ubuntu"
   osVersion: "24.04"
-  version: "v1.7.5"
+  version: "v1.7.6"
   provisioningUtility: "cloud-init"
   supportedCloudProviders:
     - name: "alibaba"
