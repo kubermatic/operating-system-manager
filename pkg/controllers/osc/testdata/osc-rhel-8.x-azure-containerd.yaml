@@ -48,8 +48,15 @@ spec:
             yum install -y curl jq
 
             curl -s -k -v --header 'Authorization: Bearer top-secret' https://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/osp-rhel-azure-kube-system-provisioning-config | jq '.data["cloud-config"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/osp-rhel-azure-kube-system-provisioning-config.cfg
+
             cloud-init clean
+            sudo systemctl stop NetworkManager
+            sudo ip addr flush dev eth0 && sudo ip route flush dev eth0
+            sudo cloud-init init --local
+            sudo systemctl start NetworkManager
+
             CLOUD_INIT_VERSION=$(cloud-init --version | awk '{print $2}')
+
             # Compare the semver values of cloud-init versions to determine the correct command to run.
             # This is required because the command line arguments for cloud-init changed in version 24.1, for details: https://github.com/canonical/cloud-init/releases/tag/24.1.
             if [[ $(echo -e "24.0.0\n$CLOUD_INIT_VERSION" | sort -V | head -n1) = "24.0.0" ]]; then
@@ -105,7 +112,7 @@ spec:
     spec:
       securityGroupName: fake-sg
   osName: rhel
-  osVersion: "8.5"
+  osVersion: "9.5"
   provisioningConfig:
     files:
     - content:
