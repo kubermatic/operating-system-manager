@@ -234,7 +234,17 @@ func GenerateOperatingSystemConfig(
 	// Render files for provisioning config
 	renderedProvisioningFiles, err := renderedFiles(osp.Spec.ProvisioningConfig, containerRuntime, data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to render bootstrapping file templates: %w", err)
+		return nil, fmt.Errorf("failed to render provisioning file templates: %w", err)
+	}
+
+	renderedBootstrappingUnits, err := renederedUnits(osp.Spec.BootstrapConfig, data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to render bootstrapping Unit templates: %w", err)
+	}
+
+	renderedProvisioningUnits, err := renederedUnits(osp.Spec.ProvisioningConfig, data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to render provisioning Unit templates: %w", err)
 	}
 
 	osc.Spec = osmv1alpha1.OperatingSystemConfigSpec{
@@ -245,13 +255,13 @@ func GenerateOperatingSystemConfig(
 			Spec: providerConfig.CloudProviderSpec,
 		},
 		BootstrapConfig: osmv1alpha1.OSCConfig{
-			Units:            ospOriginal.Spec.BootstrapConfig.Units,
+			Units:            renderedBootstrappingUnits,
 			Files:            renderedBootstrappingFiles,
 			UserSSHKeys:      providerConfig.SSHPublicKeys,
 			CloudInitModules: osp.Spec.BootstrapConfig.CloudInitModules,
 		},
 		ProvisioningConfig: osmv1alpha1.OSCConfig{
-			Units:            ospOriginal.Spec.ProvisioningConfig.Units,
+			Units:            renderedProvisioningUnits,
 			Files:            renderedProvisioningFiles,
 			UserSSHKeys:      providerConfig.SSHPublicKeys,
 			CloudInitModules: osp.Spec.ProvisioningConfig.CloudInitModules,
@@ -409,6 +419,38 @@ func selectAdditionalTemplates(config osmv1alpha1.OSPConfig, containerRuntime st
 	}
 
 	return templates, nil
+}
+
+func renederedUnits(config osmv1alpha1.OSPConfig, data filesData) ([]osmv1alpha1.Unit, error) {
+	populatedUnits, err := populateUnitList(config.Units, data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to populate OSP Unit template: %w", err)
+	}
+	return populatedUnits, nil
+}
+
+func populateUnitList(units []osmv1alpha1.Unit, d filesData) ([]osmv1alpha1.Unit, error) {
+	funcMap := fm.ExtraTxtFuncMap()
+	var punits []osmv1alpha1.Unit
+	for _, unit := range units {
+		content := unit.Content
+		tmpl, err := template.New(unit.Name).Funcs(funcMap).Parse(*content)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse OSP Unit [%s] template: %w", unit.Name, err)
+		}
+
+		buff := bytes.Buffer{}
+		if err := tmpl.Execute(&buff, &d); err != nil {
+			return nil, err
+		}
+		pcontent := buff.String()
+		punit := unit.DeepCopy()
+		punit.Content = &pcontent
+
+		punits = append(punits, *punit)
+	}
+
+	return punits, nil
 }
 
 func addTemplatingSequence(templateName, template string) string {
