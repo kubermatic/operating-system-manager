@@ -96,7 +96,7 @@ type Unit struct {
 	Mask *bool `json:"mask,omitempty"`
 	// Content is the unit's content.
 	Content *string `json:"content,omitempty"`
-	// DropIns is a list of drop-ins for this unit.
+	// DropIns is a list of drop_ins for this unit.
 	DropIns []DropIn `json:"dropIns,omitempty"`
 }
 
