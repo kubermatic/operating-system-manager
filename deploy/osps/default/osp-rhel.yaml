@@ -295,7 +295,7 @@ spec:
         sha256sum -c "$kube_sum_file"
 
         for bin in kubelet kubeadm kubectl; do
-            {{- /* link kube binaries from verioned dir to $opt_bin */}}
+            {{- /* link kube binaries from versioned dir to $opt_bin */}}
             ln -sf "$kube_dir/$bin" "$opt_bin"/$bin
         done
 
