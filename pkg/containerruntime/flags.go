@@ -56,5 +56,5 @@ func (fl RegistryMirrorsFlags) String() string {
 		}
 	}
 
-	return fmt.Sprintf("%v", result)
+	return fmt.Sprintf("%s", result)
 }

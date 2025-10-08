@@ -17,6 +17,8 @@ limitations under the License.
 package containerruntime
 
 import (
+	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -54,9 +56,9 @@ func (eng *Containerd) String() string {
 }
 
 type containerdConfigManifest struct {
-	Version int                    `toml:"version"`
-	Metrics *containerdMetrics     `toml:"metrics"`
-	Plugins map[string]interface{} `toml:"plugins"`
+	Version int                `toml:"version"`
+	Metrics *containerdMetrics `toml:"metrics"`
+	Plugins map[string]any     `toml:"plugins"`
 }
 
 type containerdMetrics struct {
@@ -75,8 +77,8 @@ type containerdCRISettings struct {
 }
 
 type containerdCRIRuntime struct {
-	RuntimeType string      `toml:"runtime_type"`
-	Options     interface{} `toml:"options"`
+	RuntimeType string `toml:"runtime_type"`
+	Options     any    `toml:"options"`
 }
 
 type containerdCRIRuncOptions struct {
@@ -89,7 +91,8 @@ type containerdCRIRegistry struct {
 }
 
 type containerdRegistryMirror struct {
-	Endpoint []string `toml:"endpoint"`
+	Endpoint     []string `toml:"endpoint"`
+	OverridePath bool     `toml:"override_path,omitempty"`
 }
 
 type containerdRegistryConfig struct {
@@ -127,6 +130,35 @@ func (eng *Containerd) Config() (string, error) {
 	for registryName := range eng.registryMirrors {
 		registry := criPlugin.Registry.Mirrors[registryName]
 		registry.Endpoint = eng.registryMirrors[registryName]
+		var overridePath bool
+		for i, endpoint := range registry.Endpoint {
+			endpointURL, err := url.Parse(endpoint)
+			if err != nil {
+				continue
+			}
+
+			endpointQS := endpointURL.Query()
+			if kubermaticParams := endpointQS.Get("kubermatic"); endpointQS.Has("kubermatic") {
+				endpointQS.Del("kubermatic")
+				endpointURL.RawQuery = endpointQS.Encode()
+				registry.Endpoint[i] = endpointURL.String()
+				params, err := url.QueryUnescape(kubermaticParams)
+				if err != nil {
+					continue
+				}
+
+				paramsValues, err := url.ParseQuery(params)
+				if err != nil {
+					continue
+				}
+
+				if !overridePath {
+					overridePath, _ = strconv.ParseBool(paramsValues.Get("override_path"))
+				}
+			}
+		}
+
+		registry.OverridePath = overridePath
 		criPlugin.Registry.Mirrors[registryName] = registry
 	}
 

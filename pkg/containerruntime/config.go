@@ -46,7 +46,7 @@ type DockerCfgJSON struct {
 
 func BuildConfig(opts Opts) (Config, error) {
 	var insecureRegistries []string
-	for _, registry := range strings.Split(opts.InsecureRegistries, ",") {
+	for registry := range strings.SplitSeq(opts.InsecureRegistries, ",") {
 		if trimmedRegistry := strings.TrimSpace(registry); trimmedRegistry != "" {
 			insecureRegistries = append(insecureRegistries, trimmedRegistry)
 		}
@@ -60,7 +60,7 @@ func BuildConfig(opts Opts) (Config, error) {
 		opts.ContainerdRegistryMirrors = make(RegistryMirrorsFlags)
 	}
 
-	for _, mirror := range strings.Split(opts.RegistryMirrors, ",") {
+	for mirror := range strings.SplitSeq(opts.RegistryMirrors, ",") {
 		if trimmedMirror := strings.TrimSpace(mirror); trimmedMirror != "" {
 			registry := "docker.io"
 
