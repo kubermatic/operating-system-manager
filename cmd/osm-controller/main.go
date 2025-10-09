@@ -95,9 +95,7 @@ type options struct {
 	caBundleFile                      string
 }
 
-var (
-	scheme = runtime.NewScheme()
-)
+var scheme = runtime.NewScheme()
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
@@ -110,7 +108,9 @@ func main() {
 	logFlags := osmlog.NewDefaultOptions()
 	logFlags.AddFlags(flag.CommandLine)
 
-	opt := &options{}
+	opt := &options{
+		nodeContainerdRegistryMirrors: containerruntime.RegistryMirrorsFlags{},
+	}
 
 	if flag.Lookup("kubeconfig") == nil {
 		flag.StringVar(&opt.kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
@@ -126,17 +126,12 @@ func main() {
 	flag.BoolVar(&opt.disableDefaultOSPs, "disable-default-osps", false, "disable the creation of the default osps and only rely on custom osps.")
 
 	flag.StringVar(&opt.kubeletFeatureGates, "node-kubelet-feature-gates", "RotateKubeletServerCertificate=true", "Feature gates to set on the kubelet")
-
 	flag.StringVar(&opt.nodeHTTPProxy, "node-http-proxy", "", "If set, it configures the 'HTTP_PROXY' & 'HTTPS_PROXY' environment variable on the nodes.")
 	flag.StringVar(&opt.nodeNoProxy, "node-no-proxy", ".svc,.cluster.local,localhost,127.0.0.1", "If set, it configures the 'NO_PROXY' environment variable on the nodes.")
 	flag.StringVar(&opt.nodeInsecureRegistries, "node-insecure-registries", "", "Comma separated list of registries which should be configured as insecure on the container runtime")
 	flag.StringVar(&opt.nodeRegistryMirrors, "node-registry-mirrors", "", "Comma separated list of Docker image mirrors")
 	flag.BoolVar(&opt.deviceOwnershipFromSecurityContext, "device-ownership-from-security-context", false, "Enable non-root device usage")
-
-	if opt.nodeContainerdRegistryMirrors == nil {
-		opt.nodeContainerdRegistryMirrors = containerruntime.RegistryMirrorsFlags{}
-	}
-	flag.Var(&opt.nodeContainerdRegistryMirrors, "node-containerd-registry-mirrors", "Configure registry mirrors endpoints. Can be used multiple times to specify multiple mirrors")
+	flag.Var(&opt.nodeContainerdRegistryMirrors, "node-containerd-registry-mirrors", "Configure registry mirrors endpoints. Can be used multiple times to specify multiple mirrors. Example: `-node-containerd-registry-mirrors myregistry.tld=https://another.host.tld/v2/project?kubermatic=override_path%3Dtrue`")
 	flag.StringVar(&opt.nodeRegistryCredentialsSecret, "node-registry-credentials-secret", "", "A Secret object reference, that contains auth info for image registry in namespace/secret-name form, example: kube-system/registry-credentials. See doc at https://github.com/kubermaric/machine-controller/blob/main/docs/registry-authentication.md")
 
 	flag.StringVar(&opt.healthProbeAddress, "health-probe-address", "127.0.0.1:8085", "The address on which the liveness check on /healthz and readiness check on /readyz will be available")

@@ -19,10 +19,23 @@ package utils
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/pmezard/go-difflib/difflib"
 )
+
+func fsName(t *testing.T, ext ...string) string {
+	t.Helper()
+
+	return strings.Join(append([]string{strings.ReplaceAll(t.Name(), "/", "-")}, ext...), "")
+}
+
+func FSGoldenName(t *testing.T) string {
+	t.Helper()
+
+	return fsName(t, ".golden")
+}
 
 func CompareOutput(t *testing.T, name, output string, update bool) {
 	golden, err := filepath.Abs(filepath.Join("testdata", name))
@@ -30,7 +43,7 @@ func CompareOutput(t *testing.T, name, output string, update bool) {
 		t.Fatalf("failed to get absolute path to testdata file: %v", err)
 	}
 	if update {
-		if err := os.WriteFile(golden, []byte(output), 0600); err != nil {
+		if err := os.WriteFile(golden, []byte(output), 0o600); err != nil {
 			t.Fatalf("failed to write updated fixture: %v", err)
 		}
 	}
