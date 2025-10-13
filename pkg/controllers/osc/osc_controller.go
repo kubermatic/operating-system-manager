@@ -24,7 +24,7 @@ import (
 
 	"go.uber.org/zap"
 
-	machinecontrollerutil "k8c.io/machine-controller/pkg/controller/util"
+	mcsdkcommon "k8c.io/machine-controller/sdk/apis/cluster/common"
 	clusterv1alpha1 "k8c.io/machine-controller/sdk/apis/cluster/v1alpha1"
 	mcbootstrap "k8c.io/machine-controller/sdk/bootstrap"
 	"k8c.io/machine-controller/sdk/providerconfig"
@@ -101,7 +101,8 @@ func Add(
 	nodeNoProxy string,
 	containerRuntimeConfig containerruntime.Config,
 	nodeRegistryCredentialsSecret string,
-	kubeletFeatureGates map[string]bool) error {
+	kubeletFeatureGates map[string]bool,
+) error {
 	reconciler := &Reconciler{
 		log:                           log,
 		workerClient:                  workerClient,
@@ -282,7 +283,7 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 	}
 
 	// Add machine deployment revision to OSC
-	revision := md.Annotations[machinecontrollerutil.RevisionAnnotation]
+	revision := md.Annotations[mcsdkcommon.RevisionAnnotation]
 	osc.Annotations = addMachineDeploymentRevision(revision, osc.Annotations)
 	osc.Spec.ProvisioningUtility = osp.Spec.ProvisioningUtility
 
@@ -336,7 +337,7 @@ func (r *Reconciler) ensureCloudConfigSecret(ctx context.Context, config osmv1al
 	secret = resources.GenerateCloudConfigSecret(secretName, mcbootstrap.CloudInitSettingsNamespace, provisionData)
 
 	// Add machine deployment revision to secret
-	revision := md.Annotations[machinecontrollerutil.RevisionAnnotation]
+	revision := md.Annotations[mcsdkcommon.RevisionAnnotation]
 	secret.Annotations = addMachineDeploymentRevision(revision, secret.Annotations)
 
 	// Create resource in cluster
@@ -441,7 +442,7 @@ func (r *Reconciler) handleOSCAndSecretsRotation(ctx context.Context, md *cluste
 
 	// OSC already exists, we need to check if the template in machine deployment was updated. If it's updated then we need to rotate
 	// the OSC and secrets.
-	currentRevision := md.Annotations[machinecontrollerutil.RevisionAnnotation]
+	currentRevision := md.Annotations[mcsdkcommon.RevisionAnnotation]
 	existingRevision := osc.Annotations[mcbootstrap.MachineDeploymentRevision]
 
 	if currentRevision == existingRevision {
@@ -460,7 +461,6 @@ func (r *Reconciler) handleOSCAndSecretsRotation(ctx context.Context, md *cluste
 
 func (r *Reconciler) checkOSP(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
 	err := validateMachineDeployment(ctx, md, r.Client, r.namespace)
-
 	if err != nil {
 		r.recorder.Event(md, corev1.EventTypeWarning, "OperatingSystemProfileError", err.Error())
 	}
