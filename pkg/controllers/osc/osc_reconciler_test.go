@@ -27,7 +27,7 @@ import (
 	"testing"
 	"time"
 
-	machinecontrollerutil "k8c.io/machine-controller/pkg/controller/util"
+	mcsdkcommon "k8c.io/machine-controller/sdk/apis/cluster/common"
 	"k8c.io/machine-controller/sdk/apis/cluster/v1alpha1"
 	mcbootstrap "k8c.io/machine-controller/sdk/bootstrap"
 	mcnet "k8c.io/machine-controller/sdk/net"
@@ -99,9 +99,7 @@ users: null
 `
 )
 
-var (
-	update = flag.Bool("update", false, "update testdata files")
-)
+var update = flag.Bool("update", false, "update testdata files")
 
 func init() {
 	if err := osmv1alpha1.SchemeBuilder.AddToScheme(scheme.Scheme); err != nil {
@@ -121,7 +119,7 @@ type testConfig struct {
 }
 
 func TestReconciler_Reconcile(t *testing.T) {
-	var testCases = []struct {
+	testCases := []struct {
 		name                   string
 		kubeletVersion         string
 		ospFile                string
@@ -355,7 +353,8 @@ func TestReconciler_Reconcile(t *testing.T) {
 			osc := &osmv1alpha1.OperatingSystemConfig{}
 			if err := fakeClient.Get(ctx, types.NamespacedName{
 				Namespace: testCase.config.namespace,
-				Name:      oscName},
+				Name:      oscName,
+			},
 				osc); err != nil {
 				t.Fatalf("failed to get osc: %v", err)
 			}
@@ -375,7 +374,8 @@ func TestReconciler_Reconcile(t *testing.T) {
 			secret := &corev1.Secret{}
 			if err := fakeClient.Get(ctx, types.NamespacedName{
 				Namespace: mcbootstrap.CloudInitSettingsNamespace,
-				Name:      bootstrapSecretName},
+				Name:      bootstrapSecretName,
+			},
 				secret); err != nil {
 				t.Fatalf("failed to get bootstrap secret: %v", err)
 			}
@@ -400,7 +400,8 @@ func TestReconciler_Reconcile(t *testing.T) {
 			secret = &corev1.Secret{}
 			if err := fakeClient.Get(ctx, types.NamespacedName{
 				Namespace: mcbootstrap.CloudInitSettingsNamespace,
-				Name:      provisioningSecretName},
+				Name:      provisioningSecretName,
+			},
 				secret); err != nil {
 				t.Fatalf("failed to get provisioning secret: %v", err)
 			}
@@ -424,7 +425,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 }
 
 func TestOSCAndSecretRotation(t *testing.T) {
-	var testCases = []struct {
+	testCases := []struct {
 		name              string
 		kubeletVersion    string
 		ospFile           string
@@ -519,7 +520,8 @@ func TestOSCAndSecretRotation(t *testing.T) {
 			osc := &osmv1alpha1.OperatingSystemConfig{}
 			if err := fakeClient.Get(ctx, types.NamespacedName{
 				Namespace: testCase.config.namespace,
-				Name:      oscName},
+				Name:      oscName,
+			},
 				osc); err != nil {
 				t.Fatalf("failed to get osc: %v", err)
 			}
@@ -529,7 +531,8 @@ func TestOSCAndSecretRotation(t *testing.T) {
 			bootstrapSecret := &corev1.Secret{}
 			if err := fakeClient.Get(ctx, types.NamespacedName{
 				Namespace: mcbootstrap.CloudInitSettingsNamespace,
-				Name:      bootstrapSecretName},
+				Name:      bootstrapSecretName,
+			},
 				bootstrapSecret); err != nil {
 				t.Fatalf("failed to get secret: %v", err)
 			}
@@ -538,7 +541,8 @@ func TestOSCAndSecretRotation(t *testing.T) {
 			provisioningSecret := &corev1.Secret{}
 			if err := fakeClient.Get(ctx, types.NamespacedName{
 				Namespace: mcbootstrap.CloudInitSettingsNamespace,
-				Name:      provisioningSecretName},
+				Name:      provisioningSecretName,
+			},
 				provisioningSecret); err != nil {
 				t.Fatalf("failed to get secret: %v", err)
 			}
@@ -546,7 +550,7 @@ func TestOSCAndSecretRotation(t *testing.T) {
 			oscRevision := osc.Annotations[mcbootstrap.MachineDeploymentRevision]
 			bootstrapSecretRevision := bootstrapSecret.Annotations[mcbootstrap.MachineDeploymentRevision]
 			provisioningSecretRevision := provisioningSecret.Annotations[mcbootstrap.MachineDeploymentRevision]
-			revision := md.Annotations[machinecontrollerutil.RevisionAnnotation]
+			revision := md.Annotations[mcsdkcommon.RevisionAnnotation]
 
 			if revision != oscRevision {
 				t.Fatal("revision for machine deployment and OSC didn't match")
@@ -561,7 +565,7 @@ func TestOSCAndSecretRotation(t *testing.T) {
 			}
 
 			// Change the revision manually to trigger OSC and secret rotation
-			md.Annotations[machinecontrollerutil.RevisionAnnotation] = "2"
+			md.Annotations[mcsdkcommon.RevisionAnnotation] = "2"
 
 			// Reconcile to trigger delete workflow
 			if err := reconciler.reconcile(ctx, md); err != nil {
@@ -571,7 +575,8 @@ func TestOSCAndSecretRotation(t *testing.T) {
 			// Ensure that OperatingSystemConfig exists
 			if err := fakeClient.Get(ctx, types.NamespacedName{
 				Namespace: testCase.config.namespace,
-				Name:      oscName},
+				Name:      oscName,
+			},
 				osc); err != nil {
 				t.Fatalf("failed to get osc: %v", err)
 			}
@@ -581,7 +586,8 @@ func TestOSCAndSecretRotation(t *testing.T) {
 			bootstrapSecret = &corev1.Secret{}
 			if err := fakeClient.Get(ctx, types.NamespacedName{
 				Namespace: mcbootstrap.CloudInitSettingsNamespace,
-				Name:      bootstrapSecretName},
+				Name:      bootstrapSecretName,
+			},
 				bootstrapSecret); err != nil {
 				t.Fatalf("failed to get secret: %v", err)
 			}
@@ -590,7 +596,8 @@ func TestOSCAndSecretRotation(t *testing.T) {
 			provisioningSecret = &corev1.Secret{}
 			if err := fakeClient.Get(ctx, types.NamespacedName{
 				Namespace: mcbootstrap.CloudInitSettingsNamespace,
-				Name:      provisioningSecretName},
+				Name:      provisioningSecretName,
+			},
 				provisioningSecret); err != nil {
 				t.Fatalf("failed to get secret: %v", err)
 			}
@@ -598,7 +605,7 @@ func TestOSCAndSecretRotation(t *testing.T) {
 			oscRevision = osc.Annotations[mcbootstrap.MachineDeploymentRevision]
 			bootstrapSecretRevision = bootstrapSecret.Annotations[mcbootstrap.MachineDeploymentRevision]
 			provisioningSecretRevision = provisioningSecret.Annotations[mcbootstrap.MachineDeploymentRevision]
-			updatedRevision := md.Annotations[machinecontrollerutil.RevisionAnnotation]
+			updatedRevision := md.Annotations[mcsdkcommon.RevisionAnnotation]
 
 			if updatedRevision == revision {
 				t.Fatal("revision for machine deployment was not updated")
@@ -620,7 +627,7 @@ func TestOSCAndSecretRotation(t *testing.T) {
 }
 
 func TestMachineDeploymentDeletion(t *testing.T) {
-	var testCases = []struct {
+	testCases := []struct {
 		name              string
 		kubeletVersion    string
 		ospFile           string
@@ -715,7 +722,8 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 			osc := &osmv1alpha1.OperatingSystemConfig{}
 			if err := fakeClient.Get(ctx, types.NamespacedName{
 				Namespace: testCase.config.namespace,
-				Name:      oscName},
+				Name:      oscName,
+			},
 				osc); err != nil {
 				t.Fatalf("failed to get osc: %v", err)
 			}
@@ -725,7 +733,8 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 			bootstrapSecretName := fmt.Sprintf(mcbootstrap.CloudConfigSecretNamePattern, md.Name, md.Namespace, mcbootstrap.BootstrapCloudConfig)
 			if err := fakeClient.Get(ctx, types.NamespacedName{
 				Namespace: mcbootstrap.CloudInitSettingsNamespace,
-				Name:      bootstrapSecretName},
+				Name:      bootstrapSecretName,
+			},
 				secret); err != nil {
 				t.Fatalf("failed to get bootstrap secret: %v", err)
 			}
@@ -733,7 +742,8 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 			provisioningSecretName := fmt.Sprintf(mcbootstrap.CloudConfigSecretNamePattern, md.Name, md.Namespace, resources.ProvisioningCloudConfig)
 			if err := fakeClient.Get(ctx, types.NamespacedName{
 				Namespace: mcbootstrap.CloudInitSettingsNamespace,
-				Name:      provisioningSecretName},
+				Name:      provisioningSecretName,
+			},
 				secret); err != nil {
 				t.Fatalf("failed to get provisioning secret: %v", err)
 			}
@@ -747,7 +757,8 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 			// Ensure that OperatingSystemConfig was deleted
 			if err := fakeClient.Get(ctx, types.NamespacedName{
 				Namespace: mcbootstrap.CloudInitSettingsNamespace,
-				Name:      oscName},
+				Name:      oscName,
+			},
 				osc); err == nil || !kerrors.IsNotFound(err) {
 				t.Fatalf("failed to ensure that osc is deleted: %v", err)
 			}
@@ -755,14 +766,16 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 			// Ensure that corresponding secret was deleted
 			if err := fakeClient.Get(ctx, types.NamespacedName{
 				Namespace: mcbootstrap.CloudInitSettingsNamespace,
-				Name:      bootstrapSecretName},
+				Name:      bootstrapSecretName,
+			},
 				secret); err == nil || !kerrors.IsNotFound(err) {
 				t.Fatalf("failed to ensure that secret is deleted: %s", err)
 			}
 
 			if err := fakeClient.Get(ctx, types.NamespacedName{
 				Namespace: mcbootstrap.CloudInitSettingsNamespace,
-				Name:      provisioningSecretName},
+				Name:      provisioningSecretName,
+			},
 				secret); err == nil || !kerrors.IsNotFound(err) {
 				t.Fatalf("failed to ensure that secret is deleted: %s", err)
 			}
@@ -787,7 +800,7 @@ func generateMachineDeployment(t *testing.T, name, namespace, osp, kubeletVersio
 	}
 
 	annotations := make(map[string]string)
-	annotations[machinecontrollerutil.RevisionAnnotation] = "1"
+	annotations[mcsdkcommon.RevisionAnnotation] = "1"
 	annotations[resources.MachineDeploymentOSPAnnotation] = osp
 	for k, v := range additionalAnnotations {
 		annotations[k] = v
