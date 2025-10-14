@@ -712,8 +712,20 @@ spec:
                 nodefs.available: 10%
                 nodefs.inodesFree: 5%
               {{- end }}
-              {{- if .MaxPods }}
-              maxPods: {{ .MaxPods }}
+              {{- with .MaxPods }}
+              maxPods: {{ . }}
+              {{- end }}
+              {{- with .ImageGCHighThresholdPercent }}
+              imageGCHighThresholdPercent: {{ . }}
+              {{- end }}
+              {{- with .ImageGCLowThresholdPercent }}
+              imageGCLowThresholdPercent: {{ . }}
+              {{- end }}
+              {{- with .ImageMinimumGCAge }}
+              imageMinimumGCAge: {{ . }}
+              {{- end }}
+              {{- with .ImageMaximumGCAge }}
+              imageMaximumGCAge: {{ . }}
               {{- end }}
               tlsCipherSuites:
               - TLS_AES_128_GCM_SHA256

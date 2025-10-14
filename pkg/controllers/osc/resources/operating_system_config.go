@@ -24,10 +24,11 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 
-	"k8c.io/machine-controller/sdk/apis/cluster/common"
+	mcsdkcommon "k8c.io/machine-controller/sdk/apis/cluster/common"
 	"k8c.io/machine-controller/sdk/apis/cluster/v1alpha1"
 	mcbootstrap "k8c.io/machine-controller/sdk/bootstrap"
 	"k8c.io/machine-controller/sdk/providerconfig"
@@ -300,12 +301,16 @@ type operatingSystemConfig struct {
 }
 
 type kubeletConfig struct {
-	KubeReserved         *map[string]string
-	SystemReserved       *map[string]string
-	EvictionHard         *map[string]string
-	MaxPods              *int32
-	ContainerLogMaxSize  *string
-	ContainerLogMaxFiles *string
+	KubeReserved                *map[string]string
+	SystemReserved              *map[string]string
+	EvictionHard                *map[string]string
+	MaxPods                     *int32
+	ContainerLogMaxSize         *string
+	ContainerLogMaxFiles        *string
+	ImageGCHighThresholdPercent *int32
+	ImageGCLowThresholdPercent  *int32
+	ImageMinimumGCAge           *metav1.Duration
+	ImageMaximumGCAge           *metav1.Duration
 }
 
 type bootstrapConfig struct {
@@ -459,45 +464,82 @@ func setOperatingSystemConfig(os providerconfig.OperatingSystem, operatingSystem
 
 func getKubeletConfigs(annotations map[string]string) (kubeletConfig, error) {
 	var cfg kubeletConfig
+
 	kubeletConfigs := getKubeletConfigMap(annotations)
 	if len(kubeletConfigs) == 0 {
 		return cfg, nil
 	}
 
-	if val, ok := kubeletConfigs[common.KubeReservedKubeletConfig]; ok {
+	if val, ok := kubeletConfigs[mcsdkcommon.KubeReservedKubeletConfig]; ok {
 		cfg.KubeReserved = getKeyValueMap(val, "=")
 	}
 
-	if val, ok := kubeletConfigs[common.SystemReservedKubeletConfig]; ok {
+	if val, ok := kubeletConfigs[mcsdkcommon.SystemReservedKubeletConfig]; ok {
 		cfg.SystemReserved = getKeyValueMap(val, "=")
 	}
 
-	if val, ok := kubeletConfigs[common.EvictionHardKubeletConfig]; ok {
+	if val, ok := kubeletConfigs[mcsdkcommon.EvictionHardKubeletConfig]; ok {
 		cfg.EvictionHard = getKeyValueMap(val, "<")
 	}
 
-	if val, ok := kubeletConfigs[common.MaxPodsKubeletConfig]; ok {
+	if val, ok := kubeletConfigs[mcsdkcommon.MaxPodsKubeletConfig]; ok {
 		mp, err := strconv.ParseInt(val, 10, 32)
 		if err != nil {
-			return kubeletConfig{}, fmt.Errorf("failed to parse maxPods")
+			return kubeletConfig{}, fmt.Errorf("parsing maxPods: %w", err)
 		}
+
 		cfg.MaxPods = ptr.To(int32(mp))
 	}
 
-	if val, ok := kubeletConfigs[common.ContainerLogMaxSizeKubeletConfig]; ok {
+	if val, ok := kubeletConfigs[mcsdkcommon.ContainerLogMaxSizeKubeletConfig]; ok {
 		cfg.ContainerLogMaxSize = &val
 	}
 
-	if val, ok := kubeletConfigs[common.ContainerLogMaxFilesKubeletConfig]; ok {
+	if val, ok := kubeletConfigs[mcsdkcommon.ContainerLogMaxFilesKubeletConfig]; ok {
 		cfg.ContainerLogMaxFiles = &val
 	}
+
+	if val, ok := kubeletConfigs[mcsdkcommon.ImageGCHighThresholdPercent]; ok {
+		mp, err := strconv.ParseInt(val, 10, 32)
+		if err != nil {
+			return kubeletConfig{}, fmt.Errorf("parsing imageGCHighThresholdPercent: %w", err)
+		}
+		cfg.ImageGCHighThresholdPercent = ptr.To(int32(mp))
+	}
+
+	if val, ok := kubeletConfigs[mcsdkcommon.ImageGCLowThresholdPercent]; ok {
+		mp, err := strconv.ParseInt(val, 10, 32)
+		if err != nil {
+			return kubeletConfig{}, fmt.Errorf("parsing imageGCLowThresholdPercent: %w", err)
+		}
+		cfg.ImageGCLowThresholdPercent = ptr.To(int32(mp))
+	}
+
+	if val, ok := kubeletConfigs[mcsdkcommon.ImageMinimumGCAge]; ok {
+		dur, err := time.ParseDuration(val)
+		if err != nil {
+			return kubeletConfig{}, fmt.Errorf("parsing imageMinimumGCAge: %w", err)
+		}
+
+		cfg.ImageMinimumGCAge = &metav1.Duration{Duration: dur}
+	}
+
+	if val, ok := kubeletConfigs[mcsdkcommon.ImageMaximumGCAge]; ok {
+		dur, err := time.ParseDuration(val)
+		if err != nil {
+			return kubeletConfig{}, fmt.Errorf("parsing imageMaximumGCAge: %w", err)
+		}
+
+		cfg.ImageMaximumGCAge = &metav1.Duration{Duration: dur}
+	}
+
 	return cfg, nil
 }
 
 func getKubeletConfigMap(annotations map[string]string) map[string]string {
 	configs := map[string]string{}
 	for name, value := range annotations {
-		if strings.HasPrefix(name, common.KubeletConfigAnnotationPrefixV1) {
+		if strings.HasPrefix(name, mcsdkcommon.KubeletConfigAnnotationPrefixV1) {
 			nameConfigValue := strings.SplitN(name, "/", 2)
 			if len(nameConfigValue) != 2 {
 				continue
@@ -510,12 +552,14 @@ func getKubeletConfigMap(annotations map[string]string) map[string]string {
 
 func getKeyValueMap(value string, kvDelimiter string) *map[string]string {
 	res := make(map[string]string)
-	for _, pair := range strings.Split(value, ",") {
+
+	for pair := range strings.SplitSeq(value, ",") {
 		kvPair := strings.SplitN(pair, kvDelimiter, 2)
 		if len(kvPair) != 2 {
 			continue
 		}
 		res[kvPair[0]] = kvPair[1]
 	}
+
 	return &res
 }
