@@ -606,7 +606,7 @@ spec:
             data: |
               [Unit]
               After={{ .ContainerRuntime }}.service
-              Requires={{ .ContainerRuntime }}.service
+              Wants={{ .ContainerRuntime }}.service
 
               Description=kubelet: The Kubernetes Node Agent
               Documentation=https://kubernetes.io/docs/home/
