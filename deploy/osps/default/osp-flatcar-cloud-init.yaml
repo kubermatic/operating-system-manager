@@ -550,9 +550,9 @@ spec:
               [Unit]
               After={{ .ContainerRuntime }}.service
               {{- if eq .CloudProviderName "anexia" }}
-              Requires={{ .ContainerRuntime }}.service rpc-statd.service
+              Wants={{ .ContainerRuntime }}.service rpc-statd.service
               {{- else }}
-              Requires={{ .ContainerRuntime }}.service
+              Wants={{ .ContainerRuntime }}.service
               {{- end }}
 
               Description=kubelet: The Kubernetes Node Agent
