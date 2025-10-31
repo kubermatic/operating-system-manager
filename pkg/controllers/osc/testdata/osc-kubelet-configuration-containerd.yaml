@@ -383,7 +383,7 @@ spec:
           data: |
             [Unit]
             After=containerd.service
-            Requires=containerd.service
+            Wants=containerd.service
 
             Description=kubelet: The Kubernetes Node Agent
             Documentation=https://kubernetes.io/docs/home/
