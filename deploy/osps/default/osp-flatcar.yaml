@@ -343,7 +343,7 @@ spec:
         content: |
           [Install]
           WantedBy=multi-user.target
-          
+
           {{- if not (eq .CloudProviderName "vmware-cloud-director") }}
 
           [Unit]
