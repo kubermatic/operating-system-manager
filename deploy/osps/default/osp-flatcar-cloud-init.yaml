@@ -48,9 +48,9 @@ spec:
         source /etc/environment
 
       configureHostCABundle: |-
-        {{- if .HostCACert }}
+        {{- with .HostCACert }}
         cat <<EOF | tee /etc/ssl/certs/custom.pem
-        {{ .HostCACert }}
+        {{ . }}
         EOF
         update-ca-certificates
         {{- end }}

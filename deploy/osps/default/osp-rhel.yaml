@@ -50,14 +50,6 @@ spec:
 
         source /etc/environment
 
-      configureHostCABundle: |-
-        {{- if .HostCACert }}
-        cat <<EOF | tee /etc/pki/ca-trust/source/whitelist/custom.crt
-        {{ .HostCACert }}
-        EOF
-        update-ca-trust
-        {{- end }}
-
     files:
       - path: /opt/bin/supervise.sh
         permissions: 755
@@ -88,7 +80,6 @@ spec:
 
               {{- /* Configure proxy as the first step to ensure that all the phases of provisioning respect the proxy environment. */}}
               {{- template "configureProxyScript" }}
-              {{- template "configureHostCABundle" }}
 
               yum install -y curl jq
 
@@ -299,6 +290,14 @@ spec:
             ln -sf "$kube_dir/$bin" "$opt_bin"/$bin
         done
 
+      configureHostCABundle: |-
+        {{- with .HostCACert }}
+        cat <<EOF | tee /etc/pki/ca-trust/source/whitelist/custom.crt
+        {{ . }}
+        EOF
+        update-ca-trust
+        {{- end }}
+
     files:
       - path: /opt/bin/health-monitor.sh
         permissions: 755
@@ -501,6 +500,8 @@ spec:
               set -xeuo pipefail
 
               setenforce 0 || true
+
+              {{- template "configureHostCABundle" }}
 
               {{- /* As we added some modules and don't want to reboot, restart the service */}}
               systemctl restart systemd-modules-load.service

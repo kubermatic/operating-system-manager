@@ -143,14 +143,6 @@ spec:
 
         done
 
-      configureHostCABundle: |-
-        {{- if .HostCACert }}
-        cat <<EOF | tee /etc/ssl/certs/custom.pem
-        {{ .HostCACert }}
-        EOF
-        update-ca-certificates
-        {{- end }}
-
     units:
       - name: bootstrap.service
         enable: true
@@ -199,7 +191,6 @@ spec:
 
               {{- /* Configure proxy as the first step to ensure that all the phases of provisioning respect the proxy environment. */}}
               {{- template "configureProxyScript" }}
-              {{- template "configureHostCABundle" }}
 
               curl -s -k -v --header 'Authorization: Bearer {{ .Token }}'	{{ .ServerURL }}/api/v1/namespaces/cloud-init-settings/secrets/{{ .SecretName }} | jq '.data["cloud-config"]' -r| base64 -d > /usr/share/oem/config.ign
 
@@ -378,6 +369,14 @@ spec:
             {{- /* link kube binaries from versioned dir to $opt_bin */}}
             ln -sf "$kube_dir/$bin" "$opt_bin"/$bin
         done
+
+      configureHostCABundle: |-
+        {{- with .HostCACert }}
+        cat <<EOF | tee /etc/ssl/certs/custom.pem
+        {{ . }}
+        EOF
+        update-ca-certificates
+        {{- end }}
 
     units:
       - name: setup.service
@@ -639,6 +638,7 @@ spec:
             data: |
               [Network]
               IPv6AcceptRA=true
+
       - path: /opt/bin/setup
         permissions: 755
         content:
@@ -646,6 +646,8 @@ spec:
             data: |
               #!/bin/bash
               set -xeuo pipefail
+
+              {{- template "configureHostCABundle" }}
 
               {{- if not .FlatcarConfig.DisableAutoUpdate }}
               cat << EOF | tee /etc/polkit-1/rules.d/60-noreboot_norestart.rules
