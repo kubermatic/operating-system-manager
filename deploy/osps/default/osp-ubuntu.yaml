@@ -67,14 +67,6 @@ spec:
 
         source /etc/environment
 
-      configureHostCABundle: |-
-        {{- if .HostCACert }}
-        cat <<EOF | sudo tee /usr/local/share/ca-certificates/custom.crt
-        {{ .HostCACert }}
-        EOF
-        sudo update-ca-certificates
-        {{- end }}
-
     files:
       - path: /opt/bin/supervise.sh
         permissions: 755
@@ -105,7 +97,6 @@ spec:
 
               {{- /* Configure proxy as the first step to ensure that all the phases of provisioning respect the proxy environment. */}}
               {{- template "configureProxyScript" }}
-              {{- template "configureHostCABundle" }}
 
               {{- /* Starting with Ubuntu 24.04, there is an issue with DNS resolution that leaves machines without connectivity consistently. We even observed this issue on machines
               where the netplan wasn't executed in the second cloud-init run. To fix this we are adding Cloudfare as fallback for DNS resolution */}}
@@ -348,6 +339,14 @@ spec:
             ln -sf "$kube_dir/$bin" "$opt_bin"/$bin
         done
 
+      configureHostCABundle: |-
+        {{- with .HostCACert }}
+        cat <<EOF | sudo tee /usr/local/share/ca-certificates/custom.crt
+        {{ . }}
+        EOF
+        sudo update-ca-certificates
+        {{- end }}
+
     files:
       - path: /opt/bin/health-monitor.sh
         permissions: 755
@@ -552,6 +551,8 @@ spec:
                 machine_name=$(cat /etc/machine-name)
                 hostnamectl set-hostname ${machine_name}
               fi
+
+              {{- template "configureHostCABundle" }}
 
               apt-get update
 
