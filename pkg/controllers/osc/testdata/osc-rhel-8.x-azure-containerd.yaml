@@ -461,7 +461,7 @@ spec:
             WantedBy=multi-user.target
           encoding: b64
       path: /etc/systemd/system/kubelet.service
-      permissions: 644
+      permissions: 600
     - content:
         inline:
           data: |2+
@@ -624,7 +624,7 @@ spec:
             volumePluginDir: /var/lib/kubelet/volumeplugins
           encoding: b64
       path: /etc/kubernetes/kubelet.conf
-      permissions: 644
+      permissions: 600
     - content:
         inline:
           data: |

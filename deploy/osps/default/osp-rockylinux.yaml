@@ -575,6 +575,7 @@ spec:
               systemctl disable setup.service
 
       - path: /etc/systemd/system/kubelet.service
+        permissions: 600
         content:
           inline:
             encoding: b64
@@ -739,6 +740,7 @@ spec:
               export PATH="/opt/bin:$PATH"
 
       - path: /etc/kubernetes/kubelet.conf
+        permissions: 600
         content:
           inline:
             encoding: b64

@@ -446,7 +446,7 @@ spec:
             [Install]
             WantedBy=multi-user.target
       path: /etc/systemd/system/kubelet.service
-      permissions: 644
+      permissions: 600
     - content:
         inline:
           data: |2+
@@ -516,7 +516,7 @@ spec:
             volumePluginDir: /var/lib/kubelet/volumeplugins
             resolvConf: /run/systemd/resolve/resolv.conf
       path: /etc/kubernetes/kubelet.conf
-      permissions: 644
+      permissions: 600
     - content:
         inline:
           data: |
