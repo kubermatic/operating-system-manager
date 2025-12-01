@@ -722,6 +722,7 @@ spec:
               {{ .KubernetesCACert }}
 
       - path: /etc/systemd/system/kubelet.service
+        permissions: 600
         content:
           inline:
             data: |
@@ -789,6 +790,7 @@ spec:
               {{ .CloudConfig }}
 
       - path: /etc/kubernetes/kubelet.conf
+        permissions: 600
         content:
           inline:
             data: |
