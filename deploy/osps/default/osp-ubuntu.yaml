@@ -639,11 +639,6 @@ spec:
                 --cloud-provider={{- .CloudProviderName }} \
                 --cloud-config=/etc/kubernetes/cloud-config \
                 {{- end }}
-                {{- if ne .CloudProviderName "aws" }}
-                --hostname-override=${KUBELET_HOSTNAME} \
-                {{- else if and (eq .CloudProviderName "aws") (.ExternalCloudProvider) }}
-                --hostname-override=${KUBELET_HOSTNAME} \
-                {{- end }}
                 {{- if .PauseImage }}
                 --pod-infra-container-image={{ .PauseImage }} \
                 {{- end }}
