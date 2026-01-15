@@ -385,9 +385,12 @@ spec:
           [Install]
           WantedBy=multi-user.target
 
+          {{- if not (eq .CloudProviderName "vmware-cloud-director") }}
+
           [Unit]
           Requires=network-online.target
           After=network-online.target
+          {{- end }}
 
           [Service]
           Type=oneshot
