@@ -24,6 +24,7 @@ import (
 	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd"
@@ -33,9 +34,9 @@ import (
 )
 
 const (
-	configMapName           = "cluster-info"
-	kubernetesEndpointsName = "kubernetes"
-	securePortName          = "https"
+	configMapName     = "cluster-info"
+	kubernetesService = "kubernetes"
+	securePortName    = "https"
 )
 
 func New(client ctrlruntimeclient.Client, caCert string) *KubeconfigProvider {
@@ -54,8 +55,8 @@ func (p *KubeconfigProvider) GetKubeconfig(ctx context.Context) (*clientcmdapi.C
 	cm, err := p.getKubeconfigFromConfigMap(ctx)
 	if err != nil {
 		klog.V(6).Infof("could not get cluster-info kubeconfig from configmap: %v", err)
-		klog.V(6).Info("falling back to retrieval via endpoint")
-		return p.buildKubeconfigFromEndpoint(ctx)
+		klog.V(6).Info("falling back to retrieval via endpointslice")
+		return p.buildKubeconfigFromEndpointSlice(ctx)
 	}
 	return cm, nil
 }
@@ -73,50 +74,61 @@ func (p *KubeconfigProvider) getKubeconfigFromConfigMap(ctx context.Context) (*c
 	return clientcmd.Load([]byte(data))
 }
 
-func (p *KubeconfigProvider) buildKubeconfigFromEndpoint(ctx context.Context) (*clientcmdapi.Config, error) {
-	endpoint := &corev1.Endpoints{}
-	if err := p.client.Get(ctx, types.NamespacedName{Name: kubernetesEndpointsName, Namespace: metav1.NamespaceDefault}, endpoint); err != nil {
-		return nil, err
+func (p *KubeconfigProvider) buildKubeconfigFromEndpointSlice(ctx context.Context) (*clientcmdapi.Config, error) {
+	slices := &discoveryv1.EndpointSliceList{}
+	if err := p.client.List(ctx, slices,
+		ctrlruntimeclient.InNamespace(metav1.NamespaceDefault),
+		ctrlruntimeclient.MatchingLabels{discoveryv1.LabelServiceName: kubernetesService}); err != nil {
+		return nil, fmt.Errorf("failed to list endpointslices: %w", err)
 	}
 
-	if len(endpoint.Subsets) == 0 {
-		return nil, errors.New("no subsets in the kubernetes endpoints resource")
-	}
-	subset := endpoint.Subsets[0]
-
-	if len(subset.Addresses) == 0 {
-		return nil, errors.New("no addresses in the first subset of the kubernetes endpoints resource")
-	}
-	address := subset.Addresses[0]
-
-	ip := net.ParseIP(address.IP)
-	if ip == nil {
-		return nil, errors.New("could not parse ip from ")
+	if len(slices.Items) == 0 {
+		return nil, errors.New("no endpointslices found for kubernetes service")
 	}
 
-	getSecurePort := func(_ corev1.EndpointSubset) *corev1.EndpointPort {
-		for _, p := range subset.Ports {
-			if p.Name == securePortName {
-				return &p
-			}
+	for _, slice := range slices.Items {
+		port := getSecurePortFromSlice(slice.Ports)
+		if port == nil {
+			continue
 		}
-		return nil
+
+		for _, endpoint := range slice.Endpoints {
+			if endpoint.Conditions.Ready == nil || !*endpoint.Conditions.Ready {
+				continue
+			}
+
+			if len(endpoint.Addresses) == 0 {
+				continue
+			}
+
+			ip := net.ParseIP(endpoint.Addresses[0])
+			if ip == nil {
+				continue
+			}
+
+			url := fmt.Sprintf("https://%s", net.JoinHostPort(ip.String(), strconv.Itoa(int(*port.Port))))
+
+			return &clientcmdapi.Config{
+				Kind:       "Config",
+				APIVersion: "v1",
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"": {
+						Server:                   url,
+						CertificateAuthorityData: []byte(p.caCert),
+					},
+				},
+			}, nil
+		}
 	}
 
-	port := getSecurePort(subset)
-	if port == nil {
-		return nil, errors.New("no secure port in the subset")
-	}
-	url := fmt.Sprintf("https://%s", net.JoinHostPort(ip.String(), strconv.Itoa(int(port.Port))))
+	return nil, errors.New("no ready endpoint found in kubernetes endpointslices")
+}
 
-	return &clientcmdapi.Config{
-		Kind:       "Config",
-		APIVersion: "v1",
-		Clusters: map[string]*clientcmdapi.Cluster{
-			"": {
-				Server:                   url,
-				CertificateAuthorityData: []byte(p.caCert),
-			},
-		},
-	}, nil
+func getSecurePortFromSlice(ports []discoveryv1.EndpointPort) *discoveryv1.EndpointPort {
+	for _, p := range ports {
+		if p.Name != nil && *p.Name == securePortName && p.Port != nil {
+			return &p
+		}
+	}
+	return nil
 }
