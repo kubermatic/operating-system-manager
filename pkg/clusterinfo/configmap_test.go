@@ -24,10 +24,12 @@ import (
 	"github.com/pmezard/go-difflib/difflib"
 
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/utils/ptr"
 	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	ctrlruntimefakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -79,25 +81,72 @@ func TestKubeconfigProvider_GetKubeconfig(t *testing.T) {
 			resConfig:    clusterInfoKubeconfig1,
 		},
 		{
-			name: "successful from in-cluster via endpoints - clusterIP",
-			objects: []ctrlruntimeclient.Object{&corev1.Endpoints{
+			name: "successful from in-cluster via endpointslice - clusterIP",
+			objects: []ctrlruntimeclient.Object{&discoveryv1.EndpointSlice{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "kubernetes",
+					Name:      "kubernetes-abc",
 					Namespace: "default",
+					Labels: map[string]string{
+						discoveryv1.LabelServiceName: "kubernetes",
+					},
 				},
-				Subsets: []corev1.EndpointSubset{
+				AddressType: discoveryv1.AddressTypeIPv4,
+				Endpoints: []discoveryv1.Endpoint{
 					{
-						Addresses: []corev1.EndpointAddress{
-							{
-								IP: "192.168.1.2",
-							},
+						Addresses: []string{"192.168.1.2"},
+						Conditions: discoveryv1.EndpointConditions{
+							Ready: ptr.To(true),
 						},
-						Ports: []corev1.EndpointPort{
-							{
-								Name: "https",
-								Port: 8443,
-							},
+					},
+				},
+				Ports: []discoveryv1.EndpointPort{
+					{
+						Name:     ptr.To("https"),
+						Port:     ptr.To(int32(8443)),
+						Protocol: ptr.To(corev1.ProtocolTCP),
+					},
+				},
+			}},
+			clientConfig: &rest.Config{
+				TLSClientConfig: rest.TLSClientConfig{
+					CAData: []byte(
+						"foo",
+					),
+				},
+			},
+			err:       nil,
+			resConfig: clusterInfoKubeconfig2,
+		},
+		{
+			name: "skips not-ready endpoint and uses ready one",
+			objects: []ctrlruntimeclient.Object{&discoveryv1.EndpointSlice{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "kubernetes-abc",
+					Namespace: "default",
+					Labels: map[string]string{
+						discoveryv1.LabelServiceName: "kubernetes",
+					},
+				},
+				AddressType: discoveryv1.AddressTypeIPv4,
+				Endpoints: []discoveryv1.Endpoint{
+					{
+						Addresses: []string{"192.168.1.99"},
+						Conditions: discoveryv1.EndpointConditions{
+							Ready: ptr.To(false),
 						},
+					},
+					{
+						Addresses: []string{"192.168.1.2"},
+						Conditions: discoveryv1.EndpointConditions{
+							Ready: ptr.To(true),
+						},
+					},
+				},
+				Ports: []discoveryv1.EndpointPort{
+					{
+						Name:     ptr.To("https"),
+						Port:     ptr.To(int32(8443)),
+						Protocol: ptr.To(corev1.ProtocolTCP),
 					},
 				},
 			}},

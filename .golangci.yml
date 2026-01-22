@@ -111,12 +111,6 @@ linters:
       - std-error-handling
       - common-false-positives
       - legacy
-    rules:
-      # TODO: Should be fixed via https://github.com/kubermatic/operating-system-manager/issues/513
-      - path: (.+)\.go$
-        text: 'SA1019: corev1.Endpoints is deprecated: This API is deprecated in v1.33+.'
-      - path: (.+)\.go$
-        text: 'SA1019: corev1.EndpointSubset is deprecated: This API is deprecated in v1.33+.'
     paths:
       - zz_generated.*.go
 
