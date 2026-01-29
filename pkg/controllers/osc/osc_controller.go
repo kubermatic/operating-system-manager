@@ -68,7 +68,6 @@ type Reconciler struct {
 	namespace                     string
 	containerRuntime              string
 	externalCloudProvider         bool
-	pauseImage                    string
 	initialTaints                 string
 	generator                     generator.CloudConfigGenerator
 	clusterDNSIPs                 []net.IP
@@ -95,7 +94,6 @@ func Add(
 	generator generator.CloudConfigGenerator,
 	containerRuntime string,
 	externalCloudProvider bool,
-	pauseImage string,
 	initialTaints string,
 	nodeHTTPProxy string,
 	nodeNoProxy string,
@@ -115,7 +113,6 @@ func Add(
 		generator:                     generator,
 		clusterDNSIPs:                 clusterDNSIPs,
 		containerRuntime:              containerRuntime,
-		pauseImage:                    pauseImage,
 		initialTaints:                 initialTaints,
 		externalCloudProvider:         externalCloudProvider,
 		nodeHTTPProxy:                 nodeHTTPProxy,
@@ -265,7 +262,6 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 		r.clusterDNSIPs,
 		r.containerRuntime,
 		r.externalCloudProvider,
-		r.pauseImage,
 		r.initialTaints,
 		r.nodeHTTPProxy,
 		r.nodeNoProxy,
