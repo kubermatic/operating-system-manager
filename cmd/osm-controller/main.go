@@ -310,7 +310,6 @@ func main() {
 		generator.NewDefaultCloudConfigGenerator(""),
 		opt.containerRuntime,
 		opt.externalCloudProvider,
-		opt.pauseImage,
 		opt.initialTaints,
 		opt.nodeHTTPProxy,
 		opt.nodeNoProxy,

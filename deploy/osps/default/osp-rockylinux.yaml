@@ -618,9 +618,6 @@ spec:
                 {{- else if and (eq .CloudProviderName "aws") (.ExternalCloudProvider) }}
                 --hostname-override=${KUBELET_HOSTNAME} \
                 {{- end }}
-                {{- if .PauseImage }}
-                --pod-infra-container-image={{ .PauseImage }} \
-                {{- end }}
                 {{- if .InitialTaints }}
                 --register-with-taints={{- .InitialTaints }} \
                 {{- end }}
