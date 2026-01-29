@@ -593,9 +593,6 @@ spec:
                 {{- end }}
                 --exit-on-lock-contention \
                 --lock-file=/tmp/kubelet.lock \
-                {{- if .PauseImage }}
-                --pod-infra-container-image={{ .PauseImage }} \
-                {{- end }}
                 {{- if .InitialTaints }}
                 --register-with-taints={{- .InitialTaints }} \
                 {{- end }}

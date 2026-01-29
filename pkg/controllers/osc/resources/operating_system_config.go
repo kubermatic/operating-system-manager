@@ -74,7 +74,6 @@ func GenerateOperatingSystemConfig(
 	clusterDNSIPs []net.IP,
 	containerRuntime string,
 	externalCloudProvider bool,
-	pauseImage string,
 	initialTaints string,
 	nodeHTTPProxy string,
 	nodeNoProxy string,
@@ -183,7 +182,6 @@ func GenerateOperatingSystemConfig(
 		ContainerRuntime:           containerRuntime,
 		CloudProviderName:          osmv1alpha1.CloudProvider(providerConfig.CloudProvider),
 		ExternalCloudProvider:      external,
-		PauseImage:                 pauseImage,
 		InitialTaints:              initialTaints,
 		ContainerRuntimeConfig:     crConfig,
 		ContainerRuntimeAuthConfig: crAuthConfig,
@@ -277,7 +275,6 @@ type filesData struct {
 	CloudProviderName          osmv1alpha1.CloudProvider
 	NetworkConfig              *providerconfig.NetworkConfig
 	ExternalCloudProvider      bool
-	PauseImage                 string
 	InitialTaints              string
 	HTTPProxy                  *string
 	NoProxy                    *string
