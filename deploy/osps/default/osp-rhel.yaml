@@ -234,9 +234,11 @@ spec:
         CRI_TOOLS_RELEASE="v1.33.0"
         {{- else if semverCompare "~1.34.0" .KubeVersion }}
         CRI_TOOLS_RELEASE="v1.34.0"
+        {{- else if semverCompare "~1.35.0" .KubeVersion }}
+        CRI_TOOLS_RELEASE="v1.35.0"
         {{- else }}
         {{- /* Fallback to the latest version */}}
-        CRI_TOOLS_RELEASE="v1.34.0"
+        CRI_TOOLS_RELEASE="v1.35.0"
         {{- end }}
 
         cri_tools_base_url="https://github.com/kubernetes-sigs/cri-tools/releases/download/${CRI_TOOLS_RELEASE}"
