@@ -950,3 +950,13 @@ spec:
               PrintMotd no # handled by PAM
               PasswordAuthentication no
               ChallengeResponseAuthentication no
+
+      - path: /etc/systemd/system/bootstrap.service.d/10-no-network-wait.conf
+        content:
+          inline:
+            data: |
+              {{- if eq .CloudProviderName "vmware-cloud-director" }}                      
+              [Unit]                                                                       
+              Requires=                                                                    
+              After=                                                                       
+              {{- end }}
