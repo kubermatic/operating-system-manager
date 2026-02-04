@@ -36,14 +36,22 @@ spec:
 
       path: /etc/systemd/network/static.network
       permissions: 644
+    - content:
+        inline:
+          data: |
+            [Unit]
+            Requires=network-online.target
+            After=network-online.target
+      path: /etc/systemd/system/bootstrap.service.d/10-network-wait.conf
+      permissions: 644
     units:
     - content: |
         [Install]
         WantedBy=multi-user.target
 
         [Unit]
-        Requires=network-online.target
-        After=network-online.target
+        Requires=
+        After=
 
         [Service]
         Type=oneshot
