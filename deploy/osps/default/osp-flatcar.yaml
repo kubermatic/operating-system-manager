@@ -151,8 +151,8 @@ spec:
           WantedBy=multi-user.target
 
           [Unit]
-          Requires=network-online.target
-          After=network-online.target
+          Requires=
+          After=
 
           [Service]
           Type=oneshot
@@ -217,6 +217,16 @@ spec:
               Gateway={{ .NetworkConfig.Gateway }}
               {{ range .NetworkConfig.DNS.Servers }}DNS={{ . }}
               {{ end }}
+              {{- end }}
+
+      - path: /etc/systemd/system/bootstrap.service.d/10-network-wait.conf
+        content:
+          inline:
+            data: |
+              {{- if not (eq .CloudProviderName "vmware-cloud-director") -}}
+              [Unit]
+              Requires=network-online.target
+              After=network-online.target
               {{- end }}
 
   provisioningConfig:
