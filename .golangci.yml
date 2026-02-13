@@ -105,6 +105,7 @@ linters:
         - '-ST1000'
         - '-QF1008'
         - '-ST1020'
+        - '-SA1019'
   exclusions:
     presets:
       - comments
