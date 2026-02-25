@@ -67,16 +67,33 @@ type containerdMetrics struct {
 	Address string `toml:"address"`
 }
 
-type containerdCRIPlugin struct {
-	Containerd                         *containerdCRISettings `toml:"containerd"`
-	Registry                           *containerdCRIRegistry `toml:"registry"`
-	SandboxImage                       string                 `toml:"sandbox_image,omitempty"`
-	DeviceOwnershipFromSecurityContext bool                   `toml:"device_ownership_from_security_context"`
+// containerdCRIImagesPlugin represents the "io.containerd.cri.v1.images" plugin in containerd 2.x.
+type containerdCRIImagesPlugin struct {
+	DiscardUnpackedLayers bool                    `toml:"discard_unpacked_layers"`
+	PinnedImages          *containerdPinnedImages `toml:"pinned_images,omitempty"`
+	Registry              *containerdCRIRegistry  `toml:"registry"`
+}
+
+// containerdPinnedImages represents the pinned_images config in containerd 2.x.
+type containerdPinnedImages struct {
+	Sandbox string `toml:"sandbox,omitempty"`
+}
+
+// containerdCRIRuntimePlugin represents the "io.containerd.cri.v1.runtime" plugin in containerd 2.x.
+type containerdCRIRuntimePlugin struct {
+	Containerd                         *containerdCRISettings  `toml:"containerd"`
+	DeviceOwnershipFromSecurityContext bool                    `toml:"device_ownership_from_security_context"`
+	CNI                                *containerdCRICNIConfig `toml:"cni"`
+}
+
+// containerdCRICNIConfig represents the CNI config under the runtime plugin in containerd 2.x.
+type containerdCRICNIConfig struct {
+	BinDirs []string `toml:"bin_dirs"`
+	ConfDir string   `toml:"conf_dir"`
 }
 
 type containerdCRISettings struct {
-	DiscardUnpackedLayers bool                            `toml:"discard_unpacked_layers"`
-	Runtimes              map[string]containerdCRIRuntime `toml:"runtimes"`
+	Runtimes map[string]containerdCRIRuntime `toml:"runtimes"`
 }
 
 type containerdCRIRuntime struct {
@@ -85,7 +102,7 @@ type containerdCRIRuntime struct {
 }
 
 type containerdCRIRuncOptions struct {
-	SystemdCgroup bool
+	SystemdCgroup bool `toml:"SystemdCgroup"`
 }
 
 type containerdCRIRegistry struct {
@@ -102,11 +119,22 @@ type registryHostConfig struct {
 }
 
 func (eng *Containerd) Config() (string, error) {
-	criPlugin := containerdCRIPlugin{
-		SandboxImage:                       eng.sandboxImage,
+	criImagesPlugin := containerdCRIImagesPlugin{
+		DiscardUnpackedLayers: false,
+		Registry: &containerdCRIRegistry{
+			ConfigPath: "/etc/containerd/certs.d",
+		},
+	}
+
+	if eng.sandboxImage != "" {
+		criImagesPlugin.PinnedImages = &containerdPinnedImages{
+			Sandbox: eng.sandboxImage,
+		}
+	}
+
+	criRuntimePlugin := containerdCRIRuntimePlugin{
 		DeviceOwnershipFromSecurityContext: eng.deviceOwnershipFromSecurityContext,
 		Containerd: &containerdCRISettings{
-			DiscardUnpackedLayers: false,
 			Runtimes: map[string]containerdCRIRuntime{
 				"runc": {
 					RuntimeType: "io.containerd.runc.v2",
@@ -116,20 +144,22 @@ func (eng *Containerd) Config() (string, error) {
 				},
 			},
 		},
-		Registry: &containerdCRIRegistry{
-			ConfigPath: "/etc/containerd/certs.d",
+		CNI: &containerdCRICNIConfig{
+			BinDirs: []string{"/opt/cni/bin"},
+			ConfDir: "/etc/cni/net.d",
 		},
 	}
 
 	cfg := containerdConfigManifest{
-		Version: 2,
+		Version: 3,
 		Metrics: &containerdMetrics{
 			// metrics available at http://127.0.0.1:1338/v1/metrics
 			Address: "127.0.0.1:1338",
 		},
 
 		Plugins: map[string]interface{}{
-			"io.containerd.grpc.v1.cri": criPlugin,
+			"io.containerd.cri.v1.images":  criImagesPlugin,
+			"io.containerd.cri.v1.runtime": criRuntimePlugin,
 		},
 	}
 
