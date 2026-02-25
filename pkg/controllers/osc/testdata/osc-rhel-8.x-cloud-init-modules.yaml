@@ -667,25 +667,46 @@ spec:
             sandbox_image = "192.168.100.100:5000/kubernetes/pause:v3.1"
             device_ownership_from_security_context = false
             [plugins."io.containerd.grpc.v1.cri".containerd]
+            discard_unpacked_layers = false
             [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
             [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
             runtime_type = "io.containerd.runc.v2"
             [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
             SystemdCgroup = true
             [plugins."io.containerd.grpc.v1.cri".registry]
-            [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
-            [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
-            endpoint = ["https://registry.docker-cn.com"]
-            [plugins."io.containerd.grpc.v1.cri".registry.configs]
-            [plugins."io.containerd.grpc.v1.cri".registry.configs."10.0.0.1:5000"]
-            [plugins."io.containerd.grpc.v1.cri".registry.configs."10.0.0.1:5000".tls]
-            insecure_skip_verify = true
-            [plugins."io.containerd.grpc.v1.cri".registry.configs."192.168.100.100:5000"]
-            [plugins."io.containerd.grpc.v1.cri".registry.configs."192.168.100.100:5000".tls]
-            insecure_skip_verify = true
+            config_path = "/etc/containerd/certs.d"
 
           encoding: b64
       path: /etc/containerd/config.toml
+      permissions: 600
+    - content:
+        inline:
+          data: |
+            server = "https://10.0.0.1:5000"
+
+            [host."https://10.0.0.1:5000"]
+              capabilities = ["pull", "resolve", "push"]
+              skip_verify = true
+      path: /etc/containerd/certs.d/10.0.0.1:5000/hosts.toml
+      permissions: 600
+    - content:
+        inline:
+          data: |
+            server = "https://192.168.100.100:5000"
+
+            [host."https://192.168.100.100:5000"]
+              capabilities = ["pull", "resolve", "push"]
+              skip_verify = true
+      path: /etc/containerd/certs.d/192.168.100.100:5000/hosts.toml
+      permissions: 600
+    - content:
+        inline:
+          data: |
+            server = "https://registry-1.docker.io"
+
+            [host."https://registry.docker-cn.com"]
+              capabilities = ["pull", "resolve"]
+      path: /etc/containerd/certs.d/docker.io/hosts.toml
       permissions: 600
     modules:
       rh_subscription:

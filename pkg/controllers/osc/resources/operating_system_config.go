@@ -81,7 +81,6 @@ func GenerateOperatingSystemConfig(
 	containerRuntimeConfig containerruntime.Config,
 	kubeletFeatureGates map[string]bool,
 ) (*osmv1alpha1.OperatingSystemConfig, error) {
-	var err error
 	ospOriginal := osp.DeepCopy()
 
 	// Set metadata for OSC
@@ -92,33 +91,96 @@ func GenerateOperatingSystemConfig(
 		},
 	}
 
-	// Get providerConfig from machineDeployment
-	if len(md.Spec.Template.Spec.ProviderSpec.Value.Raw) == 0 {
-		return nil, fmt.Errorf("providerSpec cannot be empty")
-	}
-	providerConfig := providerconfig.Config{}
-	if err = jsonutil.StrictUnmarshal(md.Spec.Template.Spec.ProviderSpec.Value.Raw, &providerConfig); err != nil {
-		return nil, fmt.Errorf("failed to decode provider configs: %w", err)
-	}
-
-	networkIPFamily := providerConfig.Network.GetIPFamily()
-
-	// Ensure that Kubelet version is prefixed by "v"
-	kubeletVersion, err := semver.NewVersion(md.Spec.Template.Spec.Versions.Kubelet)
-	if err != nil {
-		return nil, fmt.Errorf("invalid kubelet version: %w", err)
-	}
-
-	kubeletVersionStr := kubeletVersion.String()
-	if !strings.HasPrefix(kubeletVersionStr, "v") {
-		kubeletVersionStr = fmt.Sprintf("v%s", kubeletVersionStr)
-	}
-
-	// Handling for kubelet configuration
-	kubeletConfigs, err := getKubeletConfigs(md.Annotations)
+	// Parse provider config
+	providerConfig, err := parseProviderConfig(md)
 	if err != nil {
 		return nil, err
 	}
+
+	// Prepare container runtime configuration
+	crConfig, crAuthConfig, registryHostConfigs, err := prepareContainerRuntimeConfig(md, containerRuntimeConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	// Prepare kubeconfig and bootstrap config
+	bc, bootstrapKubeconfigString, err := prepareBootstrapConfig(md, bootstrapKubeconfig, bootstrapKubeconfigSecretName, apiServerToken)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get cloud provider configuration
+	cloudConfig, inTreeCCM, external, err := prepareCloudProviderConfig(providerConfig, md.Spec.Template.Spec.Versions.Kubelet, externalCloudProvider)
+	if err != nil {
+		return nil, err
+	}
+
+	// Prepare kubelet version string
+	kubeletVersionStr, err := formatKubeletVersion(md.Spec.Template.Spec.Versions.Kubelet)
+	if err != nil {
+		return nil, err
+	}
+
+	// Build files data
+	data, err := buildFilesData(
+		kubeletVersionStr,
+		clusterDNSIPs,
+		caCert,
+		hostCACert,
+		inTreeCCM,
+		cloudConfig,
+		containerRuntime,
+		providerConfig,
+		external,
+		initialTaints,
+		crConfig,
+		crAuthConfig,
+		kubeletFeatureGates,
+		bootstrapKubeconfigString,
+		bc,
+		nodeHTTPProxy,
+		nodeNoProxy,
+		md.Annotations,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Configure RHEL subscription if needed
+	configureRHELSubscription(providerConfig, osp, data)
+
+	// Render files and build OSC spec
+	renderedBootstrappingFiles, renderedProvisioningFiles, err := renderOSPFiles(osp, containerRuntime, data, registryHostConfigs)
+	if err != nil {
+		return nil, err
+	}
+
+	buildOSCSpec(osc, ospOriginal, osp, providerConfig, renderedBootstrappingFiles, renderedProvisioningFiles)
+
+	return osc, nil
+}
+
+// parseProviderConfig extracts and validates the provider config from machine deployment
+func parseProviderConfig(md *v1alpha1.MachineDeployment) (providerconfig.Config, error) {
+	if len(md.Spec.Template.Spec.ProviderSpec.Value.Raw) == 0 {
+		return providerconfig.Config{}, fmt.Errorf("providerSpec cannot be empty")
+	}
+
+	var providerConfig providerconfig.Config
+	if err := jsonutil.StrictUnmarshal(md.Spec.Template.Spec.ProviderSpec.Value.Raw, &providerConfig); err != nil {
+		return providerconfig.Config{}, fmt.Errorf("failed to decode provider configs: %w", err)
+	}
+
+	return providerConfig, nil
+}
+
+// prepareContainerRuntimeConfig prepares container runtime configuration and returns configs
+func prepareContainerRuntimeConfig(md *v1alpha1.MachineDeployment, containerRuntimeConfig containerruntime.Config) (string, string, map[string]string, error) {
+	kubeletConfigs, err := getKubeletConfigs(md.Annotations)
+	if err != nil {
+		return "", "", nil, err
+	}
+
 	if kubeletConfigs.ContainerLogMaxSize != nil && len(*kubeletConfigs.ContainerLogMaxSize) > 0 {
 		containerRuntimeConfig.ContainerLogMaxSize = *kubeletConfigs.ContainerLogMaxSize
 	}
@@ -130,21 +192,26 @@ func GenerateOperatingSystemConfig(
 	crEngine := containerRuntimeConfig.Engine()
 	crConfig, err := crEngine.Config()
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate container runtime config: %w", err)
+		return "", "", nil, fmt.Errorf("failed to generate container runtime config: %w", err)
 	}
 
 	crAuthConfig, err := crEngine.AuthConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate container runtime auth config: %w", err)
+		return "", "", nil, fmt.Errorf("failed to generate container runtime auth config: %w", err)
 	}
 
-	// Generate registry host configuration files (hosts.toml) for containerd certs.d
 	registryHostConfigs := crEngine.RegistryHostConfigs()
 
+	return crConfig, crAuthConfig, registryHostConfigs, nil
+}
+
+// prepareBootstrapConfig prepares bootstrap configuration and kubeconfig string
+func prepareBootstrapConfig(md *v1alpha1.MachineDeployment, bootstrapKubeconfig *clientcmdapi.Config, bootstrapKubeconfigSecretName, apiServerToken string) (bootstrapConfig, string, error) {
 	bootstrapKubeconfigString, err := kubeconfigutil.StringifyKubeconfig(bootstrapKubeconfig)
 	if err != nil {
-		return nil, err
+		return bootstrapConfig{}, "", err
 	}
+
 	provisioningSecretName := fmt.Sprintf(mcbootstrap.CloudConfigSecretNamePattern, md.Name, md.Namespace, ProvisioningCloudConfig)
 
 	var clusterName string
@@ -161,20 +228,71 @@ func GenerateOperatingSystemConfig(
 		BootstrapKubeconfigSecretName: bootstrapKubeconfigSecretName,
 	}
 
+	return bc, bootstrapKubeconfigString, nil
+}
+
+// prepareCloudProviderConfig prepares cloud provider configuration
+func prepareCloudProviderConfig(providerConfig providerconfig.Config, kubeletVersion string, externalCloudProvider bool) (string, bool, bool, error) {
 	inTreeCCM, external, err := cloudprovider.KubeletCloudProviderConfig(providerConfig.CloudProvider, externalCloudProvider)
 	if err != nil {
-		return nil, err
+		return "", false, false, err
 	}
 
 	var cloudConfig string
 	if providerConfig.OverwriteCloudConfig != nil {
 		cloudConfig = *providerConfig.OverwriteCloudConfig
 	} else {
-		cloudConfig, err = cloudprovider.GetCloudConfig(external, providerConfig, md.Spec.Template.Spec.Versions.Kubelet)
+		cloudConfig, err = cloudprovider.GetCloudConfig(external, providerConfig, kubeletVersion)
 		if err != nil {
-			return nil, fmt.Errorf("failed to fetch cloud-config: %w", err)
+			return "", false, false, fmt.Errorf("failed to fetch cloud-config: %w", err)
 		}
 	}
+
+	return cloudConfig, inTreeCCM, external, nil
+}
+
+// formatKubeletVersion ensures kubelet version is prefixed with "v"
+func formatKubeletVersion(version string) (string, error) {
+	kubeletVersion, err := semver.NewVersion(version)
+	if err != nil {
+		return "", fmt.Errorf("invalid kubelet version: %w", err)
+	}
+
+	kubeletVersionStr := kubeletVersion.String()
+	if !strings.HasPrefix(kubeletVersionStr, "v") {
+		kubeletVersionStr = fmt.Sprintf("v%s", kubeletVersionStr)
+	}
+
+	return kubeletVersionStr, nil
+}
+
+// buildFilesData constructs the filesData structure
+func buildFilesData(
+	kubeletVersionStr string,
+	clusterDNSIPs []net.IP,
+	caCert string,
+	hostCACert string,
+	inTreeCCM bool,
+	cloudConfig string,
+	containerRuntime string,
+	providerConfig providerconfig.Config,
+	external bool,
+	initialTaints string,
+	crConfig string,
+	crAuthConfig string,
+	kubeletFeatureGates map[string]bool,
+	bootstrapKubeconfigString string,
+	bc bootstrapConfig,
+	nodeHTTPProxy string,
+	nodeNoProxy string,
+	annotations map[string]string,
+) (filesData, error) {
+	kubeletConfigs, err := getKubeletConfigs(annotations)
+	if err != nil {
+		return filesData{}, err
+	}
+
+	networkIPFamily := providerConfig.Network.GetIPFamily()
 
 	data := filesData{
 		KubeVersion:                kubeletVersionStr,
@@ -194,7 +312,6 @@ func GenerateOperatingSystemConfig(
 		BootstrapKubeconfig:        bootstrapKubeconfigString,
 		bootstrapConfig:            bc,
 		NetworkIPFamily:            string(networkIPFamily),
-		PauseImage:                 containerRuntimeConfig.SandboxImage,
 	}
 
 	if len(nodeHTTPProxy) > 0 {
@@ -208,61 +325,82 @@ func GenerateOperatingSystemConfig(
 	}
 
 	if providerConfig.Network.IsStaticIPConfig() && providerConfig.OperatingSystem != providerconfig.OperatingSystemFlatcar {
-		return nil, fmt.Errorf("static IP config is not supported with: %s", providerConfig.OperatingSystem)
+		return filesData{}, fmt.Errorf("static IP config is not supported with: %s", providerConfig.OperatingSystem)
 	}
 
 	err = setOperatingSystemConfig(providerConfig.OperatingSystem, providerConfig.OperatingSystemSpec, &data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to add operating system spec: %w", err)
+		return filesData{}, fmt.Errorf("failed to add operating system spec: %w", err)
 	}
 
-	if providerConfig.OperatingSystem == providerconfig.OperatingSystemRHEL {
-		rhSubscription := rhel.RHSubscription(data.RhelConfig)
+	return data, nil
+}
 
-		if osp.Spec.BootstrapConfig.CloudInitModules == nil {
-			osp.Spec.BootstrapConfig.CloudInitModules = &osmv1alpha1.CloudInitModule{}
-		}
-		osp.Spec.BootstrapConfig.CloudInitModules.RHSubscription = rhSubscription
-
-		if osp.Spec.ProvisioningConfig.CloudInitModules == nil {
-			osp.Spec.ProvisioningConfig.CloudInitModules = &osmv1alpha1.CloudInitModule{}
-		}
-		osp.Spec.ProvisioningConfig.CloudInitModules.RHSubscription = rhSubscription
+// configureRHELSubscription configures RHEL subscription if operating system is RHEL
+func configureRHELSubscription(providerConfig providerconfig.Config, osp *osmv1alpha1.OperatingSystemProfile, data filesData) {
+	if providerConfig.OperatingSystem != providerconfig.OperatingSystemRHEL {
+		return
 	}
 
-	// Render files for bootstrapping config
+	rhSubscription := rhel.RHSubscription(data.RhelConfig)
+
+	if osp.Spec.BootstrapConfig.CloudInitModules == nil {
+		osp.Spec.BootstrapConfig.CloudInitModules = &osmv1alpha1.CloudInitModule{}
+	}
+	osp.Spec.BootstrapConfig.CloudInitModules.RHSubscription = rhSubscription
+
+	if osp.Spec.ProvisioningConfig.CloudInitModules == nil {
+		osp.Spec.ProvisioningConfig.CloudInitModules = &osmv1alpha1.CloudInitModule{}
+	}
+	osp.Spec.ProvisioningConfig.CloudInitModules.RHSubscription = rhSubscription
+}
+
+// renderOSPFiles renders OSP files and injects registry host configs
+func renderOSPFiles(osp *osmv1alpha1.OperatingSystemProfile, containerRuntime string, data filesData, registryHostConfigs map[string]string) ([]osmv1alpha1.File, []osmv1alpha1.File, error) {
 	renderedBootstrappingFiles, err := renderedFiles(osp.Spec.BootstrapConfig, containerRuntime, data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to render bootstrapping file templates: %w", err)
+		return nil, nil, fmt.Errorf("failed to render bootstrapping file templates: %w", err)
 	}
-	// Render files for provisioning config
+
 	renderedProvisioningFiles, err := renderedFiles(osp.Spec.ProvisioningConfig, containerRuntime, data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to render bootstrapping file templates: %w", err)
+		return nil, nil, fmt.Errorf("failed to render provisioning file templates: %w", err)
 	}
 
 	// Inject registry host configuration files (hosts.toml) into provisioning files
 	if len(registryHostConfigs) > 0 {
-		// Sort paths for deterministic output
-		paths := make([]string, 0, len(registryHostConfigs))
-		for path := range registryHostConfigs {
-			paths = append(paths, path)
-		}
-		sort.Strings(paths)
-
-		for _, path := range paths {
-			renderedProvisioningFiles = append(renderedProvisioningFiles, osmv1alpha1.File{
-				Path:        path,
-				Permissions: 600,
-				Content: osmv1alpha1.FileContent{
-					Inline: &osmv1alpha1.FileContentInline{
-						Data: registryHostConfigs[path],
-					},
-				},
-			})
-		}
+		renderedProvisioningFiles = injectRegistryHostConfigs(renderedProvisioningFiles, registryHostConfigs)
 	}
 
+	return renderedBootstrappingFiles, renderedProvisioningFiles, nil
+}
+
+// injectRegistryHostConfigs injects registry host configuration files into provisioning files
+func injectRegistryHostConfigs(files []osmv1alpha1.File, registryHostConfigs map[string]string) []osmv1alpha1.File {
+	// Sort paths for deterministic output
+	paths := make([]string, 0, len(registryHostConfigs))
+	for path := range registryHostConfigs {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+
+	for _, path := range paths {
+		files = append(files, osmv1alpha1.File{
+			Path:        path,
+			Permissions: 600,
+			Content: osmv1alpha1.FileContent{
+				Inline: &osmv1alpha1.FileContentInline{
+					Data: registryHostConfigs[path],
+				},
+			},
+		})
+	}
+
+	return files
+}
+
+// buildOSCSpec builds the OSC spec with rendered files
+func buildOSCSpec(osc *osmv1alpha1.OperatingSystemConfig, ospOriginal *osmv1alpha1.OperatingSystemProfile, osp *osmv1alpha1.OperatingSystemProfile, providerConfig providerconfig.Config, renderedBootstrappingFiles, renderedProvisioningFiles []osmv1alpha1.File) {
 	osc.Spec = osmv1alpha1.OperatingSystemConfigSpec{
 		OSName:    ospOriginal.Spec.OSName,
 		OSVersion: ospOriginal.Spec.OSVersion,
@@ -283,7 +421,6 @@ func GenerateOperatingSystemConfig(
 			CloudInitModules: osp.Spec.ProvisioningConfig.CloudInitModules,
 		},
 	}
-	return osc, nil
 }
 
 type filesData struct {
@@ -310,7 +447,6 @@ type filesData struct {
 	KubeletFeatureGates        map[string]bool
 	RHSubscription             map[string]string
 	NetworkIPFamily            string
-	PauseImage                 string
 
 	kubeletConfig
 	operatingSystemConfig
