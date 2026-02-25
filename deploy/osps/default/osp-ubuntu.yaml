@@ -222,7 +222,7 @@ spec:
             apt-mark hold containerd.io
 
             systemctl daemon-reload
-            systemctl enable containerd
+            systemctl enable --now containerd
 
     templates:
       safeDownloadBinariesScript: |-
@@ -588,11 +588,9 @@ spec:
               systemctl enable --now iscsid
               {{ end }}
 
-              {{- template "containerRuntimeInstallation" }}
-
               {{- template "safeDownloadBinariesScript" }}
 
-              systemctl restart containerd
+              {{- template "containerRuntimeInstallation" }}
 
               # set kubelet nodeip environment variable
               /opt/bin/setup_net_env.sh

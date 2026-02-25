@@ -176,7 +176,7 @@ spec:
             yum versionlock add containerd.io
 
             systemctl daemon-reload
-            systemctl enable containerd
+            systemctl enable --now containerd
 
     templates:
       safeDownloadBinariesScript: |-
@@ -546,9 +546,9 @@ spec:
               systemctl enable --now iscsid
               {{ end }}
 
-              {{- template "containerRuntimeInstallation" }}
-
               {{- template "safeDownloadBinariesScript" }}
+              
+              {{- template "containerRuntimeInstallation" }}
 
               systemctl restart containerd
 

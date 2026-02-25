@@ -717,8 +717,6 @@ spec:
 
               {{- template "safeDownloadBinariesScript" }}
 
-              systemctl restart containerd
-
               # set kubelet nodeip environment variable
               /opt/bin/setup_net_env.sh
 

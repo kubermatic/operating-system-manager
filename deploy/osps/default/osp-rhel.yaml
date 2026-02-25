@@ -173,7 +173,7 @@ spec:
             yum versionlock add containerd.io
 
             systemctl daemon-reload
-            systemctl enable containerd
+            systemctl enable --now containerd
 
     templates:
       safeDownloadBinariesScript: |-
@@ -541,11 +541,9 @@ spec:
               systemctl enable --now iscsid
               {{ end }}
 
-              {{- template "containerRuntimeInstallation" }}
-
               {{- template "safeDownloadBinariesScript" }}
 
-              systemctl restart containerd
+              {{- template "containerRuntimeInstallation" }}
 
               DEFAULT_IFC_NAME=$(ip -o route get 1  | grep -oP "dev \K\S+")
               IFC_CFG_FILE=/etc/sysconfig/network-scripts/ifcfg-$DEFAULT_IFC_NAME

@@ -510,11 +510,9 @@ spec:
 
               systemctl disable --now firewalld || true
 
-              {{- template "containerRuntimeInstallation" }}
-
               {{- template "safeDownloadBinariesScript" }}
 
-              systemctl restart containerd
+              {{- template "containerRuntimeInstallation" }}
 
               mkdir -p /etc/systemd/system/kubelet.service.d/
               # set kubelet nodeip environment variable
