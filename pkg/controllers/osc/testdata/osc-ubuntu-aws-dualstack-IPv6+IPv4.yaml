@@ -298,11 +298,11 @@ spec:
             echo "deb [signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$(lsb_release -si | tr '[:upper:]' '[:lower:]') $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list
 
             apt-get update
-            apt-get install -y --allow-downgrades -o Dpkg::Options::="--force-confold" containerd.io=1.7*
+            apt-get install -y --allow-downgrades -o Dpkg::Options::="--force-confold" containerd.io=2.2*
             apt-mark hold containerd.io
 
             systemctl daemon-reload
-            systemctl enable --now containerd
+            systemctl enable containerd
 
             opt_bin=/opt/bin
             usr_local_bin=/usr/local/bin
@@ -366,6 +366,8 @@ spec:
             for bin in kubelet kubeadm kubectl; do
                 ln -sf "$kube_dir/$bin" "$opt_bin"/$bin
             done
+
+            systemctl restart containerd
 
             # set kubelet nodeip environment variable
             /opt/bin/setup_net_env.sh
@@ -632,24 +634,29 @@ spec:
     - content:
         inline:
           data: |+
-            version = 2
+            version = 3
 
             [metrics]
             address = "127.0.0.1:1338"
 
             [plugins]
-            [plugins."io.containerd.grpc.v1.cri"]
-            sandbox_image = "192.168.100.100:5000/kubernetes/pause:v3.1"
-            device_ownership_from_security_context = false
-            [plugins."io.containerd.grpc.v1.cri".containerd]
+            [plugins."io.containerd.cri.v1.images"]
             discard_unpacked_layers = false
-            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
-            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-            runtime_type = "io.containerd.runc.v2"
-            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
-            SystemdCgroup = true
-            [plugins."io.containerd.grpc.v1.cri".registry]
+            [plugins."io.containerd.cri.v1.images".pinned_images]
+            sandbox = "192.168.100.100:5000/kubernetes/pause:v3.1"
+            [plugins."io.containerd.cri.v1.images".registry]
             config_path = "/etc/containerd/certs.d"
+            [plugins."io.containerd.cri.v1.runtime"]
+            device_ownership_from_security_context = false
+            [plugins."io.containerd.cri.v1.runtime".containerd]
+            [plugins."io.containerd.cri.v1.runtime".containerd.runtimes]
+            [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
+            runtime_type = "io.containerd.runc.v2"
+            [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
+            SystemdCgroup = true
+            [plugins."io.containerd.cri.v1.runtime".cni]
+            bin_dirs = ["/opt/cni/bin"]
+            conf_dir = "/etc/cni/net.d"
 
           encoding: b64
       path: /etc/containerd/config.toml

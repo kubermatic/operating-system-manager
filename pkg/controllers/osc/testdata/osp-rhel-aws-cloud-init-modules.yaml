@@ -158,7 +158,7 @@ spec:
             */}}
             yum-config-manager --save --setopt=docker-ce-stable.module_hotfixes=true
 
-            yum install -y containerd.io-1.6* yum-plugin-versionlock
+            yum install -y containerd.io-2.* yum-plugin-versionlock
             yum versionlock add containerd.io
 
             systemctl daemon-reload

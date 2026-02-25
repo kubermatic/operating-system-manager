@@ -140,6 +140,7 @@ func GenerateOperatingSystemConfig(
 		bc,
 		nodeHTTPProxy,
 		nodeNoProxy,
+		containerRuntimeConfig.SandboxImage,
 		md.Annotations,
 	)
 	if err != nil {
@@ -285,6 +286,7 @@ func buildFilesData(
 	bc bootstrapConfig,
 	nodeHTTPProxy string,
 	nodeNoProxy string,
+	sandboxImage string,
 	annotations map[string]string,
 ) (filesData, error) {
 	kubeletConfigs, err := getKubeletConfigs(annotations)
@@ -312,6 +314,7 @@ func buildFilesData(
 		BootstrapKubeconfig:        bootstrapKubeconfigString,
 		bootstrapConfig:            bc,
 		NetworkIPFamily:            string(networkIPFamily),
+		PauseImage:                 sandboxImage,
 	}
 
 	if len(nodeHTTPProxy) > 0 {
@@ -447,6 +450,7 @@ type filesData struct {
 	KubeletFeatureGates        map[string]bool
 	RHSubscription             map[string]string
 	NetworkIPFamily            string
+	PauseImage                 string
 
 	kubeletConfig
 	operatingSystemConfig

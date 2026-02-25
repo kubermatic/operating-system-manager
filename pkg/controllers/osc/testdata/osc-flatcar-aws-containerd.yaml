@@ -379,6 +379,8 @@ spec:
                 ln -sf "$kube_dir/$bin" "$opt_bin"/$bin
             done
 
+            systemctl restart containerd
+
             # set kubelet nodeip environment variable
             /opt/bin/setup_net_env.sh
             curl -s -k -v --header 'Authorization: Bearer top-secret' https://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/kube-system-flatcar-aws-containerd-kubelet-bootstrap-config | jq '.data["kubeconfig"]' -r| base64 -d > /etc/kubernetes/bootstrap-kubelet.conf
@@ -589,24 +591,29 @@ spec:
     - content:
         inline:
           data: |+
-            version = 2
+            version = 3
 
             [metrics]
             address = "127.0.0.1:1338"
 
             [plugins]
-            [plugins."io.containerd.grpc.v1.cri"]
-            sandbox_image = "192.168.100.100:5000/kubernetes/pause:v3.1"
-            device_ownership_from_security_context = false
-            [plugins."io.containerd.grpc.v1.cri".containerd]
+            [plugins."io.containerd.cri.v1.images"]
             discard_unpacked_layers = false
-            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
-            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-            runtime_type = "io.containerd.runc.v2"
-            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
-            SystemdCgroup = true
-            [plugins."io.containerd.grpc.v1.cri".registry]
+            [plugins."io.containerd.cri.v1.images".pinned_images]
+            sandbox = "192.168.100.100:5000/kubernetes/pause:v3.1"
+            [plugins."io.containerd.cri.v1.images".registry]
             config_path = "/etc/containerd/certs.d"
+            [plugins."io.containerd.cri.v1.runtime"]
+            device_ownership_from_security_context = false
+            [plugins."io.containerd.cri.v1.runtime".containerd]
+            [plugins."io.containerd.cri.v1.runtime".containerd.runtimes]
+            [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
+            runtime_type = "io.containerd.runc.v2"
+            [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
+            SystemdCgroup = true
+            [plugins."io.containerd.cri.v1.runtime".cni]
+            bin_dirs = ["/opt/cni/bin"]
+            conf_dir = "/etc/cni/net.d"
 
       path: /etc/containerd/config.toml
       permissions: 600

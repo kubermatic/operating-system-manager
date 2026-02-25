@@ -293,7 +293,7 @@ spec:
               curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --no-tty --dearmor -o /etc/apt/keyrings/docker.gpg
               echo "deb [signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list
 
-              apt-get install -y --allow-downgrades containerd.io=1.6*
+              apt-get install -y --allow-downgrades containerd.io=2.*
               apt-mark hold containerd.io
 
               systemctl daemon-reload
@@ -640,31 +640,25 @@ spec:
       - content:
           inline:
             data: |+
-              version = 2
+              version = 3
 
               [metrics]
               address = "127.0.0.1:1338"
 
               [plugins]
-              [plugins."io.containerd.grpc.v1.cri"]
+              [plugins."io.containerd.cri.v1.images"]
               sandbox_image = "192.168.100.100:5000/kubernetes/pause:v3.1"
-              [plugins."io.containerd.grpc.v1.cri".containerd]
-              [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
-              [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+              [plugins."io.containerd.cri.v1.images".registry]
+              config_path = "/etc/containerd/certs.d"
+              [plugins."io.containerd.cri.v1.runtime"]
+              device_ownership_from_security_context = false
+              [plugins."io.containerd.cri.v1.runtime".containerd]
+              discard_unpacked_layers = false
+              [plugins."io.containerd.cri.v1.runtime".containerd.runtimes]
+              [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
               runtime_type = "io.containerd.runc.v2"
-              [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+              [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
               SystemdCgroup = true
-              [plugins."io.containerd.grpc.v1.cri".registry]
-              [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
-              [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
-              endpoint = ["https://registry.docker-cn.com"]
-              [plugins."io.containerd.grpc.v1.cri".registry.configs]
-              [plugins."io.containerd.grpc.v1.cri".registry.configs."10.0.0.1:5000"]
-              [plugins."io.containerd.grpc.v1.cri".registry.configs."10.0.0.1:5000".tls]
-              insecure_skip_verify = true
-              [plugins."io.containerd.grpc.v1.cri".registry.configs."192.168.100.100:5000"]
-              [plugins."io.containerd.grpc.v1.cri".registry.configs."192.168.100.100:5000".tls]
-              insecure_skip_verify = true
 
             encoding: b64
         path: /etc/containerd/config.toml
