@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"sort"
 	"strconv"
 	"strings"
 	"text/template"
@@ -137,6 +138,9 @@ func GenerateOperatingSystemConfig(
 		return nil, fmt.Errorf("failed to generate container runtime auth config: %w", err)
 	}
 
+	// Generate registry host configuration files (hosts.toml) for containerd certs.d
+	registryHostConfigs := crEngine.RegistryHostConfigs()
+
 	bootstrapKubeconfigString, err := kubeconfigutil.StringifyKubeconfig(bootstrapKubeconfig)
 	if err != nil {
 		return nil, err
@@ -190,6 +194,7 @@ func GenerateOperatingSystemConfig(
 		BootstrapKubeconfig:        bootstrapKubeconfigString,
 		bootstrapConfig:            bc,
 		NetworkIPFamily:            string(networkIPFamily),
+		PauseImage:                 containerRuntimeConfig.SandboxImage,
 	}
 
 	if len(nodeHTTPProxy) > 0 {
@@ -234,6 +239,28 @@ func GenerateOperatingSystemConfig(
 	renderedProvisioningFiles, err := renderedFiles(osp.Spec.ProvisioningConfig, containerRuntime, data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to render bootstrapping file templates: %w", err)
+	}
+
+	// Inject registry host configuration files (hosts.toml) into provisioning files
+	if len(registryHostConfigs) > 0 {
+		// Sort paths for deterministic output
+		paths := make([]string, 0, len(registryHostConfigs))
+		for path := range registryHostConfigs {
+			paths = append(paths, path)
+		}
+		sort.Strings(paths)
+
+		for _, path := range paths {
+			renderedProvisioningFiles = append(renderedProvisioningFiles, osmv1alpha1.File{
+				Path:        path,
+				Permissions: 600,
+				Content: osmv1alpha1.FileContent{
+					Inline: &osmv1alpha1.FileContentInline{
+						Data: registryHostConfigs[path],
+					},
+				},
+			})
+		}
 	}
 
 	osc.Spec = osmv1alpha1.OperatingSystemConfigSpec{
@@ -283,6 +310,7 @@ type filesData struct {
 	KubeletFeatureGates        map[string]bool
 	RHSubscription             map[string]string
 	NetworkIPFamily            string
+	PauseImage                 string
 
 	kubeletConfig
 	operatingSystemConfig

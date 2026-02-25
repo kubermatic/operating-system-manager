@@ -17,7 +17,9 @@ limitations under the License.
 package containerruntime
 
 import (
+	"fmt"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -73,7 +75,8 @@ type containerdCRIPlugin struct {
 }
 
 type containerdCRISettings struct {
-	Runtimes map[string]containerdCRIRuntime `toml:"runtimes"`
+	DiscardUnpackedLayers bool                            `toml:"discard_unpacked_layers"`
+	Runtimes              map[string]containerdCRIRuntime `toml:"runtimes"`
 }
 
 type containerdCRIRuntime struct {
@@ -86,22 +89,16 @@ type containerdCRIRuncOptions struct {
 }
 
 type containerdCRIRegistry struct {
-	Mirrors map[string]containerdRegistryMirror `toml:"mirrors"`
-	Configs map[string]containerdRegistryConfig `toml:"configs"`
+	ConfigPath string `toml:"config_path"`
 }
 
-type containerdRegistryMirror struct {
-	Endpoint     []string `toml:"endpoint"`
-	OverridePath bool     `toml:"override_path,omitempty"`
-}
-
-type containerdRegistryConfig struct {
-	TLS  *containerdRegistryTLSConfig `toml:"tls"`
-	Auth *AuthConfig                  `toml:"auth"`
-}
-
-type containerdRegistryTLSConfig struct {
-	InsecureSkipVerify bool `toml:"insecure_skip_verify"`
+// registryHostConfig holds the parsed mirror configuration for a single registry,
+// used internally when building hosts.toml files.
+type registryHostConfig struct {
+	endpoints    []string
+	overridePath bool
+	insecure     bool
+	auth         *AuthConfig
 }
 
 func (eng *Containerd) Config() (string, error) {
@@ -109,6 +106,7 @@ func (eng *Containerd) Config() (string, error) {
 		SandboxImage:                       eng.sandboxImage,
 		DeviceOwnershipFromSecurityContext: eng.deviceOwnershipFromSecurityContext,
 		Containerd: &containerdCRISettings{
+			DiscardUnpackedLayers: false,
 			Runtimes: map[string]containerdCRIRuntime{
 				"runc": {
 					RuntimeType: "io.containerd.runc.v2",
@@ -119,66 +117,8 @@ func (eng *Containerd) Config() (string, error) {
 			},
 		},
 		Registry: &containerdCRIRegistry{
-			Mirrors: map[string]containerdRegistryMirror{
-				"docker.io": {
-					Endpoint: []string{"https://registry-1.docker.io"},
-				},
-			},
+			ConfigPath: "/etc/containerd/certs.d",
 		},
-	}
-
-	for registryName := range eng.registryMirrors {
-		registry := criPlugin.Registry.Mirrors[registryName]
-		registry.Endpoint = eng.registryMirrors[registryName]
-		var overridePath bool
-		for i, endpoint := range registry.Endpoint {
-			endpointURL, err := url.Parse(endpoint)
-			if err != nil {
-				continue
-			}
-
-			endpointQS := endpointURL.Query()
-			if kubermaticParams := endpointQS.Get("kubermatic"); endpointQS.Has("kubermatic") {
-				endpointQS.Del("kubermatic")
-				endpointURL.RawQuery = endpointQS.Encode()
-				registry.Endpoint[i] = endpointURL.String()
-				params, err := url.QueryUnescape(kubermaticParams)
-				if err != nil {
-					continue
-				}
-
-				paramsValues, err := url.ParseQuery(params)
-				if err != nil {
-					continue
-				}
-
-				if !overridePath {
-					overridePath, _ = strconv.ParseBool(paramsValues.Get("override_path"))
-				}
-			}
-		}
-
-		registry.OverridePath = overridePath
-		criPlugin.Registry.Mirrors[registryName] = registry
-	}
-
-	if len(eng.insecureRegistries) != 0 || len(eng.registryCredentials) != 0 {
-		criPlugin.Registry.Configs = map[string]containerdRegistryConfig{}
-	}
-
-	for _, registry := range eng.insecureRegistries {
-		criPlugin.Registry.Configs[registry] = containerdRegistryConfig{
-			TLS: &containerdRegistryTLSConfig{
-				InsecureSkipVerify: true,
-			},
-		}
-	}
-
-	for registry, auth := range eng.registryCredentials {
-		regConfig := criPlugin.Registry.Configs[registry]
-		auth := auth
-		regConfig.Auth = &auth
-		criPlugin.Registry.Configs[registry] = regConfig
 	}
 
 	cfg := containerdConfigManifest{
@@ -199,4 +139,131 @@ func (eng *Containerd) Config() (string, error) {
 	err := enc.Encode(cfg)
 
 	return buf.String(), err
+}
+
+// buildRegistryHostConfigs processes the registry mirrors, insecure registries,
+// and registry credentials using the same logic that was previously used to
+// build the inline mirrors config, and returns a per-registry configuration.
+func (eng *Containerd) buildRegistryHostConfigs() map[string]*registryHostConfig {
+	configs := make(map[string]*registryHostConfig)
+
+	// Start with default docker.io entry
+	configs["docker.io"] = &registryHostConfig{
+		endpoints: []string{"https://registry-1.docker.io"},
+	}
+
+	// Process registry mirrors — same logic as the original Config() method
+	for registryName := range eng.registryMirrors {
+		if _, ok := configs[registryName]; !ok {
+			configs[registryName] = &registryHostConfig{}
+		}
+		rc := configs[registryName]
+		rc.endpoints = eng.registryMirrors[registryName]
+
+		var overridePath bool
+		for i, endpoint := range rc.endpoints {
+			endpointURL, err := url.Parse(endpoint)
+			if err != nil {
+				continue
+			}
+
+			endpointQS := endpointURL.Query()
+			if kubermaticParams := endpointQS.Get("kubermatic"); endpointQS.Has("kubermatic") {
+				endpointQS.Del("kubermatic")
+				endpointURL.RawQuery = endpointQS.Encode()
+				rc.endpoints[i] = endpointURL.String()
+				params, err := url.QueryUnescape(kubermaticParams)
+				if err != nil {
+					continue
+				}
+
+				paramsValues, err := url.ParseQuery(params)
+				if err != nil {
+					continue
+				}
+
+				if !overridePath {
+					overridePath, _ = strconv.ParseBool(paramsValues.Get("override_path"))
+				}
+			}
+		}
+		rc.overridePath = overridePath
+	}
+
+	// Process insecure registries
+	for _, registry := range eng.insecureRegistries {
+		if _, ok := configs[registry]; !ok {
+			configs[registry] = &registryHostConfig{}
+		}
+		configs[registry].insecure = true
+	}
+
+	// Process registry credentials
+	for registry, auth := range eng.registryCredentials {
+		if _, ok := configs[registry]; !ok {
+			configs[registry] = &registryHostConfig{}
+		}
+		auth := auth
+		configs[registry].auth = &auth
+	}
+
+	return configs
+}
+
+// RegistryHostConfigs returns a map of file path to file content for containerd
+// registry host configuration files. Each key is a path like
+// "/etc/containerd/certs.d/<registry>/hosts.toml" and the value is the TOML content.
+// This preserves all the existing logic for kubermatic params, override_path,
+// insecure registries, and registry credentials.
+func (eng *Containerd) RegistryHostConfigs() map[string]string {
+	result := make(map[string]string)
+	configs := eng.buildRegistryHostConfigs()
+
+	// Sort registry names for deterministic output
+	registryNames := make([]string, 0, len(configs))
+	for name := range configs {
+		registryNames = append(registryNames, name)
+	}
+	sort.Strings(registryNames)
+
+	for _, registryName := range registryNames {
+		rc := configs[registryName]
+		var buf strings.Builder
+
+		// Determine the server URL (the upstream registry)
+		serverURL := fmt.Sprintf("https://%s", registryName)
+		if registryName == "docker.io" {
+			serverURL = "https://registry-1.docker.io"
+		}
+		buf.WriteString(fmt.Sprintf("server = %q\n", serverURL))
+
+		// Add mirror host entries
+		for _, endpoint := range rc.endpoints {
+			if !strings.HasPrefix(endpoint, "http") {
+				endpoint = "https://" + endpoint
+			}
+			buf.WriteString(fmt.Sprintf("\n[host.%q]\n", endpoint))
+			if rc.overridePath {
+				buf.WriteString("  capabilities = [\"pull\", \"resolve\"]\n")
+				buf.WriteString("  override_path = true\n")
+			} else {
+				buf.WriteString("  capabilities = [\"pull\", \"resolve\"]\n")
+			}
+			if rc.insecure {
+				buf.WriteString("  skip_verify = true\n")
+			}
+		}
+
+		// If insecure registry has no endpoints, add its own endpoint
+		if rc.insecure && len(rc.endpoints) == 0 {
+			buf.WriteString(fmt.Sprintf("\n[host.%q]\n", serverURL))
+			buf.WriteString("  capabilities = [\"pull\", \"resolve\", \"push\"]\n")
+			buf.WriteString("  skip_verify = true\n")
+		}
+
+		filePath := fmt.Sprintf("/etc/containerd/certs.d/%s/hosts.toml", registryName)
+		result[filePath] = buf.String()
+	}
+
+	return result
 }

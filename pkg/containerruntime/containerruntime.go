@@ -27,6 +27,9 @@ type Engine interface {
 	AuthConfigFileName() string
 	AuthConfig() (string, error)
 	String() string
+	// RegistryHostConfigs returns a map of file path to file content
+	// for containerd registry host configuration files under /etc/containerd/certs.d/.
+	RegistryHostConfigs() map[string]string
 }
 
 type Opt func(*Config)
