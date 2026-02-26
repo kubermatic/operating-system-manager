@@ -19,6 +19,7 @@ package generator
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 
 	clusterv1alpha1 "k8c.io/machine-controller/sdk/apis/cluster/v1alpha1"
@@ -838,4 +839,104 @@ func generateMachineDeployment(t *testing.T, os providerconfig.OperatingSystem, 
 		},
 	}
 	return md
+}
+
+func TestDeduplicateSSHKeys(t *testing.T) {
+	testCases := []struct {
+		name     string
+		input    []string
+		expected []string
+	}{
+		{
+			name:     "no duplicates",
+			input:    []string{"ssh-rsa AAAA1", "ssh-rsa AAAA2"},
+			expected: []string{"ssh-rsa AAAA1", "ssh-rsa AAAA2"},
+		},
+		{
+			name:     "exact duplicates",
+			input:    []string{"ssh-rsa AAAA1", "ssh-rsa AAAA1"},
+			expected: []string{"ssh-rsa AAAA1"},
+		},
+		{
+			name:     "duplicates with trailing newline",
+			input:    []string{"ssh-rsa AAAA1", "ssh-rsa AAAA1\n"},
+			expected: []string{"ssh-rsa AAAA1"},
+		},
+		{
+			name:     "duplicates with trailing whitespace",
+			input:    []string{"ssh-rsa AAAA1", "ssh-rsa AAAA1 "},
+			expected: []string{"ssh-rsa AAAA1"},
+		},
+		{
+			name:     "empty list",
+			input:    []string{},
+			expected: []string{},
+		},
+		{
+			name:     "nil list",
+			input:    nil,
+			expected: []string{},
+		},
+		{
+			name:     "three keys with one duplicate",
+			input:    []string{"ssh-rsa AAAA1", "ssh-rsa AAAA2\n", "ssh-rsa AAAA1\n"},
+			expected: []string{"ssh-rsa AAAA1", "ssh-rsa AAAA2"},
+		},
+		{
+			name:     "ignores whitespace-only and empty keys",
+			input:    []string{"ssh-rsa AAAA1", "   ", "", "\n", "\t", "ssh-rsa AAAA1\n"},
+			expected: []string{"ssh-rsa AAAA1"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := deduplicateSSHKeys(tc.input)
+			if len(result) != len(tc.expected) {
+				t.Fatalf("expected %d keys, got %d: %v", len(tc.expected), len(result), result)
+			}
+			for i, key := range result {
+				if key != tc.expected[i] {
+					t.Errorf("key %d: expected %q, got %q", i, tc.expected[i], key)
+				}
+			}
+		})
+	}
+}
+
+func TestDefaultCloudConfigGenerator_Generate_IgnoresEmptySSHKeys(t *testing.T) {
+	generator := NewDefaultCloudConfigGenerator("")
+	osSpec := runtime.RawExtension{Raw: []byte(`{"distUpgradeOnBoot":false}`)}
+	md := generateMachineDeployment(t, providerconfig.OperatingSystemUbuntu, "aws", &osSpec)
+
+	userData, err := generator.Generate(
+		&osmv1alpha1.OSCConfig{
+			UserSSHKeys: []string{
+				"ssh-rsa AAAA1",
+				" ",
+				"\n",
+				"ssh-rsa AAAA1\n",
+				"ssh-rsa AAAA2 ",
+			},
+		},
+		osmv1alpha1.ProvisioningUtilityCloudInit,
+		osmv1alpha1.OperatingSystemUbuntu,
+		osmv1alpha1.CloudProviderAzure,
+		md,
+		resources.ProvisioningCloudConfig,
+	)
+	if err != nil {
+		t.Fatalf("failed to generate cloud config: %v", err)
+	}
+
+	generated := string(userData)
+	if strings.Contains(generated, "- ''") {
+		t.Fatalf("expected no empty SSH key entry in generated cloud config:\n%s", generated)
+	}
+	if strings.Count(generated, "ssh-rsa AAAA1") != 1 {
+		t.Fatalf("expected ssh-rsa AAAA1 to appear once in generated cloud config:\n%s", generated)
+	}
+	if strings.Count(generated, "ssh-rsa AAAA2") != 1 {
+		t.Fatalf("expected ssh-rsa AAAA2 to appear once in generated cloud config:\n%s", generated)
+	}
 }

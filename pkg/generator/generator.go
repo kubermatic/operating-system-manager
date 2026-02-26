@@ -148,7 +148,7 @@ func (d *DefaultCloudConfigGenerator) Generate(config *osmv1alpha1.OSCConfig, pr
 	}{
 		Files:             files,
 		Units:             units,
-		UserSSHKeys:       config.UserSSHKeys,
+		UserSSHKeys:       deduplicateSSHKeys(config.UserSSHKeys),
 		CloudInitModules:  config.CloudInitModules,
 		CloudProviderName: string(cloudProvider),
 		OperatingSystem:   string(operatingSystem),
@@ -163,6 +163,26 @@ func (d *DefaultCloudConfigGenerator) Generate(config *osmv1alpha1.OSCConfig, pr
 	}
 
 	return toIgnition(buf.String())
+}
+
+// deduplicateSSHKeys normalizes and deduplicates SSH public keys while
+// preserving the first-seen order.
+// This prevents Ignition from rejecting configs with duplicate sshAuthorizedKeys entries.
+func deduplicateSSHKeys(keys []string) []string {
+	seen := make(map[string]struct{})
+	result := []string{}
+	for _, key := range keys {
+		trimmed := strings.TrimSpace(key)
+		if trimmed == "" {
+			continue
+		}
+		if _, exists := seen[trimmed]; exists {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		result = append(result, trimmed)
+	}
+	return result
 }
 
 func getUserDataTemplate(p osmv1alpha1.ProvisioningUtility, mdName, cloudProvider string) string {
