@@ -167,7 +167,7 @@ func (d *DefaultCloudConfigGenerator) Generate(config *osmv1alpha1.OSCConfig, pr
 
 // deduplicateSSHKeys normalizes and deduplicates SSH public keys while
 // preserving the first-seen order.
-// This prevents Ignition from rejecting configs with duplicates sshAuthorizedKeys entries.
+// This prevents Ignition from rejecting configs with duplicate sshAuthorizedKeys entries.
 func deduplicateSSHKeys(keys []string) []string {
 	seen := make(map[string]struct{})
 	result := []string{}

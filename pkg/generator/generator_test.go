@@ -873,6 +873,11 @@ func TestDeduplicateSSHKeys(t *testing.T) {
 			expected: []string{},
 		},
 		{
+			name:     "nil list",
+			input:    nil,
+			expected: []string{},
+		},
+		{
 			name:     "three keys with one duplicate",
 			input:    []string{"ssh-rsa AAAA1", "ssh-rsa AAAA2\n", "ssh-rsa AAAA1\n"},
 			expected: []string{"ssh-rsa AAAA1", "ssh-rsa AAAA2"},
