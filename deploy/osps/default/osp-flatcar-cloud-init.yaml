@@ -272,6 +272,13 @@ spec:
 
               systemctl daemon-reload
 
+              {{- /* Since both container runtimes are enabled/started by default in flatcar, disable the one that is not required */}}
+              {{- if eq .ContainerRuntime "containerd" }}
+              systemctl stop docker
+              systemctl disable docker
+              systemctl restart containerd
+              {{- end }}
+
               # Override hostname if /etc/machine-name exists
               if [ -x "$(command -v hostnamectl)" ] && [ -s /etc/machine-name ]; then
                 machine_name=$(cat /etc/machine-name)
@@ -279,13 +286,6 @@ spec:
               fi
 
               {{- template "safeDownloadBinariesScript" }}
-
-              {{- /* Since both container runtimes are enabled/started by default in flatcar, disable the one that is not required */}}
-              {{- if eq .ContainerRuntime "containerd" }}
-              systemctl stop docker
-              systemctl disable docker
-              systemctl restart containerd
-              {{- end }}
 
               # set kubelet nodeip environment variable
               /opt/bin/setup_net_env.sh

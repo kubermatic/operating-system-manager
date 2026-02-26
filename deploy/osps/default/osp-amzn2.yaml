@@ -157,7 +157,7 @@ spec:
             yum versionlock add containerd
 
             systemctl daemon-reload
-            systemctl enable containerd
+            systemctl enable --now containerd
 
     templates:
       safeDownloadBinariesScript: |-
@@ -564,7 +564,11 @@ spec:
                 --cloud-provider={{- .CloudProviderName }} \
                 --cloud-config=/etc/kubernetes/cloud-config \
                 {{- end }}
+                {{- if ne .CloudProviderName "aws" }}
                 --hostname-override=${KUBELET_HOSTNAME} \
+                {{- else if and (eq .CloudProviderName "aws") (.ExternalCloudProvider) }}
+                --hostname-override=${KUBELET_HOSTNAME} \
+                {{- end }}
                 {{- if .InitialTaints }}
                 --register-with-taints={{- .InitialTaints }} \
                 {{- end }}
