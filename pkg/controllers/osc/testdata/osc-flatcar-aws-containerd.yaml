@@ -379,8 +379,6 @@ spec:
                 ln -sf "$kube_dir/$bin" "$opt_bin"/$bin
             done
 
-            systemctl restart containerd
-
             # set kubelet nodeip environment variable
             /opt/bin/setup_net_env.sh
             curl -s -k -v --header 'Authorization: Bearer top-secret' https://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/kube-system-flatcar-aws-containerd-kubelet-bootstrap-config | jq '.data["kubeconfig"]' -r| base64 -d > /etc/kubernetes/bootstrap-kubelet.conf
