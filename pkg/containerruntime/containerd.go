@@ -120,8 +120,8 @@ type registryHostConfig struct {
 
 // hostsTomlConfig represents the top-level structure of a hosts.toml file.
 type hostsTomlConfig struct {
-	Server string                       `toml:"server"`
-	Host   map[string]hostEntryConfig   `toml:"host,omitempty"`
+	Server string                     `toml:"server"`
+	Host   map[string]hostEntryConfig `toml:"host,omitempty"`
 }
 
 // hostEntryConfig represents a single host entry in a hosts.toml file.
