@@ -118,6 +118,19 @@ type registryHostConfig struct {
 	auth         *AuthConfig
 }
 
+// hostsTomlConfig represents the top-level structure of a hosts.toml file.
+type hostsTomlConfig struct {
+	Server string                       `toml:"server"`
+	Host   map[string]hostEntryConfig   `toml:"host,omitempty"`
+}
+
+// hostEntryConfig represents a single host entry in a hosts.toml file.
+type hostEntryConfig struct {
+	Capabilities []string `toml:"capabilities"`
+	SkipVerify   bool     `toml:"skip_verify,omitempty"`
+	OverridePath bool     `toml:"override_path,omitempty"`
+}
+
 func (eng *Containerd) Config() (string, error) {
 	criImagesPlugin := containerdCRIImagesPlugin{
 		DiscardUnpackedLayers: false,
@@ -258,41 +271,48 @@ func (eng *Containerd) RegistryHostConfigs() map[string]string {
 
 	for _, registryName := range registryNames {
 		rc := configs[registryName]
-		var buf strings.Builder
 
 		// Determine the server URL (the upstream registry)
 		serverURL := fmt.Sprintf("https://%s", registryName)
 		if registryName == "docker.io" {
 			serverURL = "https://registry-1.docker.io"
 		}
-		buf.WriteString(fmt.Sprintf("server = %q\n", serverURL))
+
+		cfg := hostsTomlConfig{
+			Server: serverURL,
+			Host:   make(map[string]hostEntryConfig),
+		}
 
 		// Add mirror host entries
 		for _, endpoint := range rc.endpoints {
 			if !strings.HasPrefix(endpoint, "http") {
 				endpoint = "https://" + endpoint
 			}
-			buf.WriteString(fmt.Sprintf("\n[host.%q]\n", endpoint))
-			if rc.overridePath {
-				buf.WriteString("  capabilities = [\"pull\", \"resolve\"]\n")
-				buf.WriteString("  override_path = true\n")
-			} else {
-				buf.WriteString("  capabilities = [\"pull\", \"resolve\"]\n")
-			}
-			if rc.insecure {
-				buf.WriteString("  skip_verify = true\n")
+			cfg.Host[endpoint] = hostEntryConfig{
+				Capabilities: []string{"pull", "resolve"},
+				OverridePath: rc.overridePath,
+				SkipVerify:   rc.insecure,
 			}
 		}
 
 		// If insecure registry has no endpoints, add its own endpoint
 		if rc.insecure && len(rc.endpoints) == 0 {
-			buf.WriteString(fmt.Sprintf("\n[host.%q]\n", serverURL))
-			buf.WriteString("  capabilities = [\"pull\", \"resolve\", \"push\"]\n")
-			buf.WriteString("  skip_verify = true\n")
+			cfg.Host[serverURL] = hostEntryConfig{
+				Capabilities: []string{"pull", "resolve", "push"},
+				SkipVerify:   true,
+			}
 		}
 
+		var buf strings.Builder
+		enc := toml.NewEncoder(&buf)
+		enc.Indent = ""
+		_ = enc.Encode(cfg)
+
+		// Remove empty parent table header that TOML encoder generates for nested maps
+		output := strings.ReplaceAll(buf.String(), "[host]\n", "")
+
 		filePath := fmt.Sprintf("/etc/containerd/certs.d/%s/hosts.toml", registryName)
-		result[filePath] = buf.String()
+		result[filePath] = output
 	}
 
 	return result

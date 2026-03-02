@@ -660,8 +660,8 @@ spec:
             server = "https://10.0.0.1:5000"
 
             [host."https://10.0.0.1:5000"]
-              capabilities = ["pull", "resolve", "push"]
-              skip_verify = true
+            capabilities = ["pull", "resolve", "push"]
+            skip_verify = true
       path: /etc/containerd/certs.d/10.0.0.1:5000/hosts.toml
       permissions: 600
     - content:
@@ -670,8 +670,8 @@ spec:
             server = "https://192.168.100.100:5000"
 
             [host."https://192.168.100.100:5000"]
-              capabilities = ["pull", "resolve", "push"]
-              skip_verify = true
+            capabilities = ["pull", "resolve", "push"]
+            skip_verify = true
       path: /etc/containerd/certs.d/192.168.100.100:5000/hosts.toml
       permissions: 600
     - content:
@@ -680,7 +680,7 @@ spec:
             server = "https://registry-1.docker.io"
 
             [host."https://registry.docker-cn.com"]
-              capabilities = ["pull", "resolve"]
+            capabilities = ["pull", "resolve"]
       path: /etc/containerd/certs.d/docker.io/hosts.toml
       permissions: 600
     userSSHKeys:

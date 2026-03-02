@@ -2,10 +2,10 @@
 server = "https://registry-1.docker.io"
 
 [host."https://registry-1.docker.io"]
-  capabilities = ["pull", "resolve"]
+capabilities = ["pull", "resolve"]
 ---
 # /etc/containerd/certs.d/reg.tld/hosts.toml
 server = "https://reg.tld"
 
 [host."https://simple.tld"]
-  capabilities = ["pull", "resolve"]
+capabilities = ["pull", "resolve"]

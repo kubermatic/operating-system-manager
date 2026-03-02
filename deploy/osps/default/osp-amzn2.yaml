@@ -153,7 +153,7 @@ spec:
                   {{ .ContainerRuntimeConfig }}
         templates:
           containerRuntimeInstallation: |-
-            yum install -y containerd-2.2* yum-plugin-versionlock
+            yum install -y containerd-1.7* yum-plugin-versionlock
             yum versionlock add containerd
 
             systemctl daemon-reload
@@ -187,7 +187,7 @@ spec:
         fi
 
         {{- /* # CNI variables */}}
-        CNI_VERSION="${CNI_VERSION:-v1.9.0}"
+        CNI_VERSION="${CNI_VERSION:-v1.7.1}"
         cni_base_url="https://github.com/containernetworking/plugins/releases/download/$CNI_VERSION"
         cni_filename="cni-plugins-linux-$arch-$CNI_VERSION.tgz"
 
@@ -510,9 +510,9 @@ spec:
 
               systemctl disable --now firewalld || true
 
-              {{- template "safeDownloadBinariesScript" }}
-
               {{- template "containerRuntimeInstallation" }}
+
+              {{- template "safeDownloadBinariesScript" }}
 
               mkdir -p /etc/systemd/system/kubelet.service.d/
               # set kubelet nodeip environment variable
