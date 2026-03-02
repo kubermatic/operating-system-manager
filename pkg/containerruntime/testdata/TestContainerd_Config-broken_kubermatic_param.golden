@@ -1,20 +1,21 @@
-version = 2
+version = 3
 
 [metrics]
 address = "127.0.0.1:1338"
 
 [plugins]
-[plugins."io.containerd.grpc.v1.cri"]
+[plugins."io.containerd.cri.v1.images"]
+discard_unpacked_layers = false
+[plugins."io.containerd.cri.v1.images".registry]
+config_path = "/etc/containerd/certs.d"
+[plugins."io.containerd.cri.v1.runtime"]
 device_ownership_from_security_context = false
-[plugins."io.containerd.grpc.v1.cri".containerd]
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+[plugins."io.containerd.cri.v1.runtime".containerd]
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes]
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
 runtime_type = "io.containerd.runc.v2"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
 SystemdCgroup = true
-[plugins."io.containerd.grpc.v1.cri".registry]
-[plugins."io.containerd.grpc.v1.cri".registry.mirrors]
-[plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
-endpoint = ["https://registry-1.docker.io"]
-[plugins."io.containerd.grpc.v1.cri".registry.mirrors."reg.tld"]
-endpoint = ["https://broken.tld"]
+[plugins."io.containerd.cri.v1.runtime".cni]
+bin_dirs = ["/opt/cni/bin"]
+conf_dir = "/etc/cni/net.d"

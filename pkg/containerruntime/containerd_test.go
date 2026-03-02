@@ -18,6 +18,9 @@ package containerruntime
 
 import (
 	"flag"
+	"fmt"
+	"sort"
+	"strings"
 	"testing"
 
 	testUtil "k8c.io/operating-system-manager/pkg/test/util"
@@ -87,6 +90,97 @@ func TestContainerd_Config(t *testing.T) {
 			}
 
 			testUtil.CompareOutput(t, testUtil.FSGoldenName(t), buff, *update)
+		})
+	}
+}
+
+func TestContainerd_RegistryHostConfigs(t *testing.T) {
+	tests := []struct {
+		name string
+		eng  *Containerd
+	}{
+		{
+			name: "simple",
+			eng: &Containerd{
+				registryMirrors: map[string][]string{
+					"reg.tld": {"https://simple.tld"},
+				},
+			},
+		},
+		{
+			name: "override path",
+			eng: &Containerd{
+				registryMirrors: map[string][]string{
+					"reg.tld": {"https://override.tld?kubermatic=override_path%3Dtrue"},
+				},
+			},
+		},
+		{
+			name: "empty kubermatic param",
+			eng: &Containerd{
+				registryMirrors: map[string][]string{
+					"reg.tld": {"https://empty.tld?kubermatic="},
+				},
+			},
+		},
+		{
+			name: "broken kubermatic param",
+			eng: &Containerd{
+				registryMirrors: map[string][]string{
+					"reg.tld": {"https://broken.tld?kubermatic=override_path%3Dzzzz"},
+				},
+			},
+		},
+		{
+			name: "second endpoint",
+			eng: &Containerd{
+				registryMirrors: map[string][]string{
+					"reg.tld": {
+						"https://host1.reg.tld",
+						"https://host2.reg.tld?kubermatic=override_path%3Dtrue",
+					},
+				},
+			},
+		},
+		{
+			name: "insecure registry",
+			eng: &Containerd{
+				insecureRegistries: []string{"insecure.example.com"},
+			},
+		},
+		{
+			name: "insecure registry with mirror",
+			eng: &Containerd{
+				insecureRegistries: []string{"insecure.example.com"},
+				registryMirrors: map[string][]string{
+					"insecure.example.com": {"https://mirror.insecure.example.com"},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			configs := tt.eng.RegistryHostConfigs()
+
+			// Combine all hosts.toml files into a single string for golden file comparison.
+			// Sort paths for deterministic output.
+			paths := make([]string, 0, len(configs))
+			for path := range configs {
+				paths = append(paths, path)
+			}
+			sort.Strings(paths)
+
+			var buf strings.Builder
+			for i, path := range paths {
+				if i > 0 {
+					buf.WriteString("---\n")
+				}
+				buf.WriteString(fmt.Sprintf("# %s\n", path))
+				buf.WriteString(configs[path])
+			}
+
+			testUtil.CompareOutput(t, testUtil.FSGoldenName(t), buf.String(), *update)
 		})
 	}
 }

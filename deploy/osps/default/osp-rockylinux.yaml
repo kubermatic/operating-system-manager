@@ -172,7 +172,7 @@ spec:
             yum install -y yum-utils
             yum-config-manager --add-repo=https://download.docker.com/linux/rhel/docker-ce.repo
 
-            yum install -y containerd.io-1.7* yum-plugin-versionlock
+            yum install -y containerd.io-2.2* yum-plugin-versionlock
             yum versionlock add containerd.io
 
             systemctl daemon-reload
@@ -207,7 +207,7 @@ spec:
         fi
 
         {{- /* # CNI variables */}}
-        CNI_VERSION="${CNI_VERSION:-v1.7.1}"
+        CNI_VERSION="${CNI_VERSION:-v1.9.0}"
         cni_base_url="https://github.com/containernetworking/plugins/releases/download/$CNI_VERSION"
         cni_filename="cni-plugins-linux-$arch-$CNI_VERSION.tgz"
 
@@ -546,9 +546,9 @@ spec:
               systemctl enable --now iscsid
               {{ end }}
 
-              {{- template "containerRuntimeInstallation" }}
-
               {{- template "safeDownloadBinariesScript" }}
+
+              {{- template "containerRuntimeInstallation" }}
 
               DEFAULT_IFC_NAME=$(ip -o route get 1  | grep -oP "dev \K\S+")
               IFC_CFG_FILE=/etc/sysconfig/network-scripts/ifcfg-$DEFAULT_IFC_NAME

@@ -218,7 +218,7 @@ spec:
             echo "deb [signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$(lsb_release -si | tr '[:upper:]' '[:lower:]') $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list
 
             apt-get update
-            apt-get install -y --allow-downgrades -o Dpkg::Options::="--force-confold" containerd.io=1.7*
+            apt-get install -y --allow-downgrades -o Dpkg::Options::="--force-confold" containerd.io=2.2*
             apt-mark hold containerd.io
 
             systemctl daemon-reload
@@ -252,7 +252,7 @@ spec:
         fi
 
         {{- /* # CNI variables */}}
-        CNI_VERSION="${CNI_VERSION:-v1.7.1}"
+        CNI_VERSION="${CNI_VERSION:-v1.9.0}"
         cni_base_url="https://github.com/containernetworking/plugins/releases/download/$CNI_VERSION"
         cni_filename="cni-plugins-linux-$arch-$CNI_VERSION.tgz"
 
@@ -588,9 +588,9 @@ spec:
               systemctl enable --now iscsid
               {{ end }}
 
-              {{- template "containerRuntimeInstallation" }}
-
               {{- template "safeDownloadBinariesScript" }}
+
+              {{- template "containerRuntimeInstallation" }}
 
               # set kubelet nodeip environment variable
               /opt/bin/setup_net_env.sh

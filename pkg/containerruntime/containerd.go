@@ -17,7 +17,9 @@ limitations under the License.
 package containerruntime
 
 import (
+	"fmt"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -65,11 +67,29 @@ type containerdMetrics struct {
 	Address string `toml:"address"`
 }
 
-type containerdCRIPlugin struct {
-	Containerd                         *containerdCRISettings `toml:"containerd"`
-	Registry                           *containerdCRIRegistry `toml:"registry"`
-	SandboxImage                       string                 `toml:"sandbox_image,omitempty"`
-	DeviceOwnershipFromSecurityContext bool                   `toml:"device_ownership_from_security_context"`
+// containerdCRIImagesPlugin represents the "io.containerd.cri.v1.images" plugin in containerd 2.x.
+type containerdCRIImagesPlugin struct {
+	DiscardUnpackedLayers bool                    `toml:"discard_unpacked_layers"`
+	PinnedImages          *containerdPinnedImages `toml:"pinned_images,omitempty"`
+	Registry              *containerdCRIRegistry  `toml:"registry"`
+}
+
+// containerdPinnedImages represents the pinned_images config in containerd 2.x.
+type containerdPinnedImages struct {
+	Sandbox string `toml:"sandbox,omitempty"`
+}
+
+// containerdCRIRuntimePlugin represents the "io.containerd.cri.v1.runtime" plugin in containerd 2.x.
+type containerdCRIRuntimePlugin struct {
+	Containerd                         *containerdCRISettings  `toml:"containerd"`
+	DeviceOwnershipFromSecurityContext bool                    `toml:"device_ownership_from_security_context"`
+	CNI                                *containerdCRICNIConfig `toml:"cni"`
+}
+
+// containerdCRICNIConfig represents the CNI config under the runtime plugin in containerd 2.x.
+type containerdCRICNIConfig struct {
+	BinDirs []string `toml:"bin_dirs"`
+	ConfDir string   `toml:"conf_dir"`
 }
 
 type containerdCRISettings struct {
@@ -82,31 +102,50 @@ type containerdCRIRuntime struct {
 }
 
 type containerdCRIRuncOptions struct {
-	SystemdCgroup bool
+	SystemdCgroup bool `toml:"SystemdCgroup"`
 }
 
 type containerdCRIRegistry struct {
-	Mirrors map[string]containerdRegistryMirror `toml:"mirrors"`
-	Configs map[string]containerdRegistryConfig `toml:"configs"`
+	ConfigPath string `toml:"config_path"`
 }
 
-type containerdRegistryMirror struct {
-	Endpoint     []string `toml:"endpoint"`
+// registryHostConfig holds the parsed mirror configuration for a single registry,
+// used internally when building hosts.toml files.
+type registryHostConfig struct {
+	endpoints    []string
+	overridePath bool
+	insecure     bool
+	auth         *AuthConfig
+}
+
+// hostsTomlConfig represents the top-level structure of a hosts.toml file.
+type hostsTomlConfig struct {
+	Server string                     `toml:"server"`
+	Host   map[string]hostEntryConfig `toml:"host,omitempty"`
+}
+
+// hostEntryConfig represents a single host entry in a hosts.toml file.
+type hostEntryConfig struct {
+	Capabilities []string `toml:"capabilities"`
+	SkipVerify   bool     `toml:"skip_verify,omitempty"`
 	OverridePath bool     `toml:"override_path,omitempty"`
 }
 
-type containerdRegistryConfig struct {
-	TLS  *containerdRegistryTLSConfig `toml:"tls"`
-	Auth *AuthConfig                  `toml:"auth"`
-}
-
-type containerdRegistryTLSConfig struct {
-	InsecureSkipVerify bool `toml:"insecure_skip_verify"`
-}
-
 func (eng *Containerd) Config() (string, error) {
-	criPlugin := containerdCRIPlugin{
-		SandboxImage:                       eng.sandboxImage,
+	criImagesPlugin := containerdCRIImagesPlugin{
+		DiscardUnpackedLayers: false,
+		Registry: &containerdCRIRegistry{
+			ConfigPath: "/etc/containerd/certs.d",
+		},
+	}
+
+	if eng.sandboxImage != "" {
+		criImagesPlugin.PinnedImages = &containerdPinnedImages{
+			Sandbox: eng.sandboxImage,
+		}
+	}
+
+	criRuntimePlugin := containerdCRIRuntimePlugin{
 		DeviceOwnershipFromSecurityContext: eng.deviceOwnershipFromSecurityContext,
 		Containerd: &containerdCRISettings{
 			Runtimes: map[string]containerdCRIRuntime{
@@ -118,20 +157,54 @@ func (eng *Containerd) Config() (string, error) {
 				},
 			},
 		},
-		Registry: &containerdCRIRegistry{
-			Mirrors: map[string]containerdRegistryMirror{
-				"docker.io": {
-					Endpoint: []string{"https://registry-1.docker.io"},
-				},
-			},
+		CNI: &containerdCRICNIConfig{
+			BinDirs: []string{"/opt/cni/bin"},
+			ConfDir: "/etc/cni/net.d",
 		},
 	}
 
+	cfg := containerdConfigManifest{
+		Version: 3,
+		Metrics: &containerdMetrics{
+			// metrics available at http://127.0.0.1:1338/v1/metrics
+			Address: "127.0.0.1:1338",
+		},
+
+		Plugins: map[string]interface{}{
+			"io.containerd.cri.v1.images":  criImagesPlugin,
+			"io.containerd.cri.v1.runtime": criRuntimePlugin,
+		},
+	}
+
+	var buf strings.Builder
+	enc := toml.NewEncoder(&buf)
+	enc.Indent = ""
+	err := enc.Encode(cfg)
+
+	return buf.String(), err
+}
+
+// buildRegistryHostConfigs processes the registry mirrors, insecure registries,
+// and registry credentials using the same logic that was previously used to
+// build the inline mirrors config, and returns a per-registry configuration.
+func (eng *Containerd) buildRegistryHostConfigs() map[string]*registryHostConfig {
+	configs := make(map[string]*registryHostConfig)
+
+	// Start with default docker.io entry
+	configs["docker.io"] = &registryHostConfig{
+		endpoints: []string{"https://registry-1.docker.io"},
+	}
+
+	// Process registry mirrors — same logic as the original Config() method
 	for registryName := range eng.registryMirrors {
-		registry := criPlugin.Registry.Mirrors[registryName]
-		registry.Endpoint = eng.registryMirrors[registryName]
+		if _, ok := configs[registryName]; !ok {
+			configs[registryName] = &registryHostConfig{}
+		}
+		rc := configs[registryName]
+		rc.endpoints = eng.registryMirrors[registryName]
+
 		var overridePath bool
-		for i, endpoint := range registry.Endpoint {
+		for i, endpoint := range rc.endpoints {
 			endpointURL, err := url.Parse(endpoint)
 			if err != nil {
 				continue
@@ -141,7 +214,7 @@ func (eng *Containerd) Config() (string, error) {
 			if kubermaticParams := endpointQS.Get("kubermatic"); endpointQS.Has("kubermatic") {
 				endpointQS.Del("kubermatic")
 				endpointURL.RawQuery = endpointQS.Encode()
-				registry.Endpoint[i] = endpointURL.String()
+				rc.endpoints[i] = endpointURL.String()
 				params, err := url.QueryUnescape(kubermaticParams)
 				if err != nil {
 					continue
@@ -157,46 +230,90 @@ func (eng *Containerd) Config() (string, error) {
 				}
 			}
 		}
-
-		registry.OverridePath = overridePath
-		criPlugin.Registry.Mirrors[registryName] = registry
+		rc.overridePath = overridePath
 	}
 
-	if len(eng.insecureRegistries) != 0 || len(eng.registryCredentials) != 0 {
-		criPlugin.Registry.Configs = map[string]containerdRegistryConfig{}
-	}
-
+	// Process insecure registries
 	for _, registry := range eng.insecureRegistries {
-		criPlugin.Registry.Configs[registry] = containerdRegistryConfig{
-			TLS: &containerdRegistryTLSConfig{
-				InsecureSkipVerify: true,
-			},
+		if _, ok := configs[registry]; !ok {
+			configs[registry] = &registryHostConfig{}
 		}
+		configs[registry].insecure = true
 	}
 
+	// Process registry credentials
 	for registry, auth := range eng.registryCredentials {
-		regConfig := criPlugin.Registry.Configs[registry]
+		if _, ok := configs[registry]; !ok {
+			configs[registry] = &registryHostConfig{}
+		}
 		auth := auth
-		regConfig.Auth = &auth
-		criPlugin.Registry.Configs[registry] = regConfig
+		configs[registry].auth = &auth
 	}
 
-	cfg := containerdConfigManifest{
-		Version: 2,
-		Metrics: &containerdMetrics{
-			// metrics available at http://127.0.0.1:1338/v1/metrics
-			Address: "127.0.0.1:1338",
-		},
+	return configs
+}
 
-		Plugins: map[string]interface{}{
-			"io.containerd.grpc.v1.cri": criPlugin,
-		},
+// RegistryHostConfigs returns a map of file path to file content for containerd
+// registry host configuration files. Each key is a path like
+// "/etc/containerd/certs.d/<registry>/hosts.toml" and the value is the TOML content.
+// This preserves all the existing logic for kubermatic params, override_path,
+// insecure registries, and registry credentials.
+func (eng *Containerd) RegistryHostConfigs() map[string]string {
+	result := make(map[string]string)
+	configs := eng.buildRegistryHostConfigs()
+
+	// Sort registry names for deterministic output
+	registryNames := make([]string, 0, len(configs))
+	for name := range configs {
+		registryNames = append(registryNames, name)
+	}
+	sort.Strings(registryNames)
+
+	for _, registryName := range registryNames {
+		rc := configs[registryName]
+
+		// Determine the server URL (the upstream registry)
+		serverURL := fmt.Sprintf("https://%s", registryName)
+		if registryName == "docker.io" {
+			serverURL = "https://registry-1.docker.io"
+		}
+
+		cfg := hostsTomlConfig{
+			Server: serverURL,
+			Host:   make(map[string]hostEntryConfig),
+		}
+
+		// Add mirror host entries
+		for _, endpoint := range rc.endpoints {
+			if !strings.HasPrefix(endpoint, "http") {
+				endpoint = "https://" + endpoint
+			}
+			cfg.Host[endpoint] = hostEntryConfig{
+				Capabilities: []string{"pull", "resolve"},
+				OverridePath: rc.overridePath,
+				SkipVerify:   rc.insecure,
+			}
+		}
+
+		// If insecure registry has no endpoints, add its own endpoint
+		if rc.insecure && len(rc.endpoints) == 0 {
+			cfg.Host[serverURL] = hostEntryConfig{
+				Capabilities: []string{"pull", "resolve", "push"},
+				SkipVerify:   true,
+			}
+		}
+
+		var buf strings.Builder
+		enc := toml.NewEncoder(&buf)
+		enc.Indent = ""
+		_ = enc.Encode(cfg)
+
+		// Remove empty parent table header that TOML encoder generates for nested maps
+		output := strings.ReplaceAll(buf.String(), "[host]\n", "")
+
+		filePath := fmt.Sprintf("/etc/containerd/certs.d/%s/hosts.toml", registryName)
+		result[filePath] = output
 	}
 
-	var buf strings.Builder
-	enc := toml.NewEncoder(&buf)
-	enc.Indent = ""
-	err := enc.Encode(cfg)
-
-	return buf.String(), err
+	return result
 }
