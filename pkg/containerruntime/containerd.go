@@ -17,6 +17,7 @@ limitations under the License.
 package containerruntime
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net/url"
 	"sort"
@@ -126,9 +127,10 @@ type hostsTomlConfig struct {
 
 // hostEntryConfig represents a single host entry in a hosts.toml file.
 type hostEntryConfig struct {
-	Capabilities []string `toml:"capabilities"`
-	SkipVerify   bool     `toml:"skip_verify,omitempty"`
-	OverridePath bool     `toml:"override_path,omitempty"`
+	Capabilities []string          `toml:"capabilities"`
+	SkipVerify   bool              `toml:"skip_verify,omitempty"`
+	OverridePath bool              `toml:"override_path,omitempty"`
+	Header       map[string]string `toml:"header,omitempty"`
 }
 
 func (eng *Containerd) Config() (string, error) {
@@ -288,10 +290,33 @@ func (eng *Containerd) RegistryHostConfigs() map[string]string {
 			if !strings.HasPrefix(endpoint, "http") {
 				endpoint = "https://" + endpoint
 			}
+
+			// Check if there is a registry credential, matching the host
+			mirrorEndpoint, err := url.Parse(endpoint)
+			if err != nil {
+				continue
+			}
+
+			var foundAuthConfig *AuthConfig
+
+			for otherRegistry, authConfig := range eng.registryCredentials {
+				otherParsedUrl, err := url.Parse(otherRegistry)
+				if otherRegistry == mirrorEndpoint.Host || err == nil && otherParsedUrl.Host == mirrorEndpoint.Host {
+					foundAuthConfig = &authConfig
+					break
+				}
+			}
+
+			var header map[string]string
+			if foundAuthConfig != nil {
+				header = eng.buildHeaders(foundAuthConfig)
+			}
+
 			cfg.Host[endpoint] = hostEntryConfig{
 				Capabilities: []string{"pull", "resolve"},
 				OverridePath: rc.overridePath,
 				SkipVerify:   rc.insecure,
+				Header:       header,
 			}
 		}
 
@@ -300,6 +325,17 @@ func (eng *Containerd) RegistryHostConfigs() map[string]string {
 			cfg.Host[serverURL] = hostEntryConfig{
 				Capabilities: []string{"pull", "resolve", "push"},
 				SkipVerify:   true,
+				Header:       eng.buildHeaders(rc.auth),
+			}
+		}
+
+		if rc.auth != nil {
+			if _, ok := cfg.Host[serverURL]; !ok {
+				cfg.Host[serverURL] = hostEntryConfig{
+					Capabilities: []string{"pull", "resolve", "push"},
+					SkipVerify:   false,
+					Header:       eng.buildHeaders(rc.auth),
+				}
 			}
 		}
 
@@ -316,4 +352,16 @@ func (eng *Containerd) RegistryHostConfigs() map[string]string {
 	}
 
 	return result
+}
+
+func (eng *Containerd) buildHeaders(authConfig *AuthConfig) map[string]string {
+	if authConfig == nil {
+		return nil
+	}
+	credentials := fmt.Sprintf("%s:%s", authConfig.Username, authConfig.Password)
+	encodedCredentials := base64.StdEncoding.EncodeToString([]byte(credentials))
+
+	return map[string]string{
+		"Authorization": fmt.Sprintf("Basic %s", encodedCredentials),
+	}
 }
