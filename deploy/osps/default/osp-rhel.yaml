@@ -532,6 +532,9 @@ spec:
                 {{- if eq .CloudProviderName "nutanix" }}
                 iscsi-initiator-utils \
                 {{- end }}
+                {{- if eq .CloudProviderName "kubevirt" }}
+                qemu-guest-agent \
+                {{- end }}
                 ipvsadm
 
               systemctl disable --now firewalld || true
@@ -539,6 +542,11 @@ spec:
               {{- /* iscsid service is required on Nutanix machines for CSI driver to attach volumes. */}}
               {{- if eq .CloudProviderName "nutanix" }}
               systemctl enable --now iscsid
+              {{ end }}
+
+              {{- /* qemu-guest-agent is required on KubeVirt machines for guest OS info reporting and command execution. */}}
+              {{- if eq .CloudProviderName "kubevirt" }}
+              systemctl enable --now qemu-guest-agent
               {{ end }}
 
               {{- template "safeDownloadBinariesScript" }}
