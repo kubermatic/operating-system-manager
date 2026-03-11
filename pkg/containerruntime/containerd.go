@@ -106,7 +106,12 @@ type containerdCRIRuncOptions struct {
 }
 
 type containerdCRIRegistry struct {
-	ConfigPath string `toml:"config_path"`
+	ConfigPath string                              `toml:"config_path"`
+	Configs    map[string]containerdRegistryConfig `toml:"configs,omitempty"`
+}
+
+type containerdRegistryConfig struct {
+	Auth *AuthConfig `toml:"auth,omitempty"`
 }
 
 // registryHostConfig holds the parsed mirror configuration for a single registry,
@@ -115,7 +120,6 @@ type registryHostConfig struct {
 	endpoints    []string
 	overridePath bool
 	insecure     bool
-	auth         *AuthConfig
 }
 
 // hostsTomlConfig represents the top-level structure of a hosts.toml file.
@@ -132,11 +136,33 @@ type hostEntryConfig struct {
 }
 
 func (eng *Containerd) Config() (string, error) {
+	criRegistry := &containerdCRIRegistry{
+		ConfigPath: "/etc/containerd/certs.d",
+	}
+
+	// Add registry credentials to CRI config for authentication.
+	// Per containerd v2 docs, auth is configured under
+	// [plugins."io.containerd.cri.v1.images".registry.configs."<registry>".auth]
+	// The registry key must be a host (with optional port), not a URL.
+	// Docker config JSON uses full URLs (e.g. "https://gcr.io") as keys,
+	// so we strip the scheme if present.
+	if len(eng.registryCredentials) > 0 {
+		criRegistry.Configs = make(map[string]containerdRegistryConfig, len(eng.registryCredentials))
+		for registry, auth := range eng.registryCredentials {
+			auth := auth
+			host := registry
+			if u, err := url.Parse(registry); err == nil && u.Host != "" {
+				host = u.Host
+			}
+			criRegistry.Configs[host] = containerdRegistryConfig{
+				Auth: &auth,
+			}
+		}
+	}
+
 	criImagesPlugin := containerdCRIImagesPlugin{
 		DiscardUnpackedLayers: false,
-		Registry: &containerdCRIRegistry{
-			ConfigPath: "/etc/containerd/certs.d",
-		},
+		Registry:              criRegistry,
 	}
 
 	if eng.sandboxImage != "" {
@@ -239,15 +265,6 @@ func (eng *Containerd) buildRegistryHostConfigs() map[string]*registryHostConfig
 			configs[registry] = &registryHostConfig{}
 		}
 		configs[registry].insecure = true
-	}
-
-	// Process registry credentials
-	for registry, auth := range eng.registryCredentials {
-		if _, ok := configs[registry]; !ok {
-			configs[registry] = &registryHostConfig{}
-		}
-		auth := auth
-		configs[registry].auth = &auth
 	}
 
 	return configs
