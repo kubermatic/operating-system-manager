@@ -77,6 +77,28 @@ func TestContainerd_Config(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "registry credentials",
+			eng: &Containerd{
+				registryCredentials: map[string]AuthConfig{
+					"gcr.io": {
+						Username: "user",
+						Password: "pass",
+					},
+				},
+			},
+		},
+		{
+			name: "registry credentials with url scheme",
+			eng: &Containerd{
+				registryCredentials: map[string]AuthConfig{
+					"https://my-registry.example.com": {
+						Username: "user",
+						Password: "pass",
+					},
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
