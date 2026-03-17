@@ -649,7 +649,7 @@ spec:
                 --cloud-provider={{- .CloudProviderName }} \
                 --cloud-config=/etc/kubernetes/cloud-config \
                 {{- end }}
-                {{- if ne .CloudProviderName "aws" }}
+                {{- if and (ne .CloudProviderName "aws") (ne .CloudProviderName "openstack") }}
                 --hostname-override=${KUBELET_HOSTNAME} \
                 {{- else if and (eq .CloudProviderName "aws") (.ExternalCloudProvider) }}
                 --hostname-override=${KUBELET_HOSTNAME} \

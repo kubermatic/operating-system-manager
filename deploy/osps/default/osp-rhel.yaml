@@ -615,7 +615,7 @@ spec:
                 {{- if .ExternalCloudProvider }}
                 --cloud-provider=external \
                 {{- end }}
-                {{- if ne .CloudProviderName "aws" }}
+                {{- if and (ne .CloudProviderName "aws") (ne .CloudProviderName "openstack") }}
                 --hostname-override=${KUBELET_HOSTNAME} \
                 {{- else if and (eq .CloudProviderName "aws") (.ExternalCloudProvider) }}
                 --hostname-override=${KUBELET_HOSTNAME} \
