@@ -217,7 +217,7 @@ func TestContainerd_RegistryHostConfigs(t *testing.T) {
 				if i > 0 {
 					buf.WriteString("---\n")
 				}
-				buf.WriteString(fmt.Sprintf("# %s\n", path))
+				fmt.Fprintf(&buf, "# %s\n", path)
 				buf.WriteString(configs[path])
 			}
 
