@@ -4,9 +4,8 @@ server = "https://registry-1.docker.io"
 [host."https://registry-1.docker.io"]
 capabilities = ["pull", "resolve"]
 ---
-# /etc/containerd/certs.d/insecure.example.com/hosts.toml
-server = "https://insecure.example.com"
+# /etc/containerd/certs.d/gitlab.com/hosts.toml
+server = "https://gitlab.com"
 
-[host."https://insecure.example.com"]
+[host."https://mirror.gitlab.com/project/repo"]
 capabilities = ["pull", "resolve"]
-skip_verify = true
