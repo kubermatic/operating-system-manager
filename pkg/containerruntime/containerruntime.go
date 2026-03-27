@@ -29,7 +29,7 @@ type Engine interface {
 	String() string
 	// RegistryHostConfigs returns a map of file path to file content
 	// for containerd registry host configuration files under /etc/containerd/certs.d/.
-	RegistryHostConfigs() map[string]string
+	RegistryHostConfigs() (map[string]string, error)
 }
 
 type Opt func(*Config)

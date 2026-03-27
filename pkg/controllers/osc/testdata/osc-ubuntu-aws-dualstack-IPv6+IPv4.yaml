@@ -662,20 +662,20 @@ spec:
     - content:
         inline:
           data: |
-            server = "https://10.0.0.1:5000"
+            server = "10.0.0.1:5000"
 
-            [host."https://10.0.0.1:5000"]
-            capabilities = ["pull", "resolve", "push"]
+            [host."10.0.0.1:5000"]
+            capabilities = ["pull", "resolve"]
             skip_verify = true
       path: /etc/containerd/certs.d/10.0.0.1:5000/hosts.toml
       permissions: 600
     - content:
         inline:
           data: |
-            server = "https://192.168.100.100:5000"
+            server = "192.168.100.100:5000"
 
-            [host."https://192.168.100.100:5000"]
-            capabilities = ["pull", "resolve", "push"]
+            [host."192.168.100.100:5000"]
+            capabilities = ["pull", "resolve"]
             skip_verify = true
       path: /etc/containerd/certs.d/192.168.100.100:5000/hosts.toml
       permissions: 600
