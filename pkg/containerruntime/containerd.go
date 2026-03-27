@@ -296,14 +296,14 @@ func (eng *Containerd) RegistryHostConfigs() (map[string]string, error) {
 		}
 
 		// Determine the server URL (the upstream registry).
-		// Use only the host[:port] portion, stripping any subpath.
+		// See: https://github.com/containerd/containerd/blob/546ce382/core/remotes/docker/config/hosts.go#L430-L431
 		host := registryHost(registryName)
 		var serverURL string
 		switch host {
 		case "docker.io":
 			serverURL = "https://registry-1.docker.io"
 		default:
-			serverURL = fmt.Sprintf("https://%s", host)
+			serverURL = registryName
 		}
 
 		cfg := hostsTomlConfig{
@@ -311,11 +311,8 @@ func (eng *Containerd) RegistryHostConfigs() (map[string]string, error) {
 			Host:   make(map[string]hostEntryConfig),
 		}
 
-		// Add mirror host entries
+		// Add mirror host entries.
 		for _, endpoint := range rc.endpoints {
-			if !strings.HasPrefix(endpoint, "http") {
-				endpoint = "https://" + endpoint
-			}
 			cfg.Host[endpoint] = hostEntryConfig{
 				Capabilities: []string{"pull", "resolve"},
 				OverridePath: rc.overridePath,
@@ -328,7 +325,7 @@ func (eng *Containerd) RegistryHostConfigs() (map[string]string, error) {
 		if len(rc.endpoints) == 0 && (rc.insecure || rc.overridePath) {
 			hostURL := serverURL
 			if rc.overridePath {
-				hostURL = fmt.Sprintf("https://%s", registryName)
+				hostURL = registryName
 			}
 			cfg.Host[hostURL] = hostEntryConfig{
 				Capabilities: []string{"pull", "resolve"},

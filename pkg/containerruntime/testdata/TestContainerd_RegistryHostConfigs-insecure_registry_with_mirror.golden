@@ -5,7 +5,7 @@ server = "https://registry-1.docker.io"
 capabilities = ["pull", "resolve"]
 ---
 # /etc/containerd/certs.d/insecure.example.com/hosts.toml
-server = "https://insecure.example.com"
+server = "insecure.example.com"
 
 [host."https://mirror.insecure.example.com"]
 capabilities = ["pull", "resolve"]
