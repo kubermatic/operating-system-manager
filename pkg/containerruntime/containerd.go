@@ -124,7 +124,7 @@ type registryHostConfig struct {
 
 // hostsTomlConfig represents the top-level structure of a hosts.toml file.
 type hostsTomlConfig struct {
-	Server string                     `toml:"server"`
+	Server string                     `toml:"server,omitempty"`
 	Host   map[string]hostEntryConfig `toml:"host,omitempty"`
 }
 
@@ -275,7 +275,7 @@ func (eng *Containerd) buildRegistryHostConfigs() map[string]*registryHostConfig
 // "/etc/containerd/certs.d/<registry>/hosts.toml" and the value is the TOML content.
 // This preserves all the existing logic for kubermatic params, override_path,
 // insecure registries, and registry credentials.
-func (eng *Containerd) RegistryHostConfigs() map[string]string {
+func (eng *Containerd) RegistryHostConfigs() (map[string]string, error) {
 	result := make(map[string]string)
 	configs := eng.buildRegistryHostConfigs()
 
@@ -289,10 +289,26 @@ func (eng *Containerd) RegistryHostConfigs() map[string]string {
 	for _, registryName := range registryNames {
 		rc := configs[registryName]
 
-		// Determine the server URL (the upstream registry)
-		serverURL := fmt.Sprintf("https://%s", registryName)
-		if registryName == "docker.io" {
+		// Skip registries that have no mirrors, are not insecure, and don't use override_path —
+		// a hosts.toml with only a server URL adds no value over containerd defaults.
+		if len(rc.endpoints) == 0 && !rc.insecure && !rc.overridePath {
+			continue
+		}
+
+		// Determine the server URL (the upstream registry).
+		// See: https://github.com/containerd/containerd/blob/546ce382/core/remotes/docker/config/hosts.go#L430-L431
+		host := registryHost(registryName)
+		var serverURL string
+		switch host {
+		case "docker.io":
 			serverURL = "https://registry-1.docker.io"
+		case "*", "_default":
+			// Wildcard / default catch-all: containerd uses the _default directory
+			// as a fallback for any registry without its own hosts.toml.
+			// No server URL is set because there is no single upstream.
+			host = "_default"
+		default:
+			serverURL = registryName
 		}
 
 		cfg := hostsTomlConfig{
@@ -300,11 +316,8 @@ func (eng *Containerd) RegistryHostConfigs() map[string]string {
 			Host:   make(map[string]hostEntryConfig),
 		}
 
-		// Add mirror host entries
+		// Add mirror host entries.
 		for _, endpoint := range rc.endpoints {
-			if !strings.HasPrefix(endpoint, "http") {
-				endpoint = "https://" + endpoint
-			}
 			cfg.Host[endpoint] = hostEntryConfig{
 				Capabilities: []string{"pull", "resolve"},
 				OverridePath: rc.overridePath,
@@ -312,25 +325,45 @@ func (eng *Containerd) RegistryHostConfigs() map[string]string {
 			}
 		}
 
-		// If insecure registry has no endpoints, add its own endpoint
-		if rc.insecure && len(rc.endpoints) == 0 {
-			cfg.Host[serverURL] = hostEntryConfig{
-				Capabilities: []string{"pull", "resolve", "push"},
-				SkipVerify:   true,
+		// If no mirrors are configured but the registry needs custom settings
+		// (insecure or override_path), create a self-referencing host entry.
+		if len(rc.endpoints) == 0 && (rc.insecure || rc.overridePath) {
+			hostURL := serverURL
+			if rc.overridePath {
+				hostURL = registryName
+			}
+			cfg.Host[hostURL] = hostEntryConfig{
+				Capabilities: []string{"pull", "resolve"},
+				OverridePath: rc.overridePath,
+				SkipVerify:   rc.insecure,
 			}
 		}
 
 		var buf strings.Builder
 		enc := toml.NewEncoder(&buf)
 		enc.Indent = ""
-		_ = enc.Encode(cfg)
+
+		if err := enc.Encode(cfg); err != nil {
+			return nil, fmt.Errorf("encoding hosts.toml for %s: %w", registryName, err)
+		}
 
 		// Remove empty parent table header that TOML encoder generates for nested maps
 		output := strings.ReplaceAll(buf.String(), "[host]\n", "")
 
-		filePath := fmt.Sprintf("/etc/containerd/certs.d/%s/hosts.toml", registryName)
+		filePath := fmt.Sprintf("/etc/containerd/certs.d/%s/hosts.toml", host)
 		result[filePath] = output
 	}
 
-	return result
+	return result, nil
+}
+
+// registryHost extracts the host[:port] from a registry name,
+// stripping any subpath. Containerd's certs.d directory and auth
+// config keys only use the host[:port] portion.
+func registryHost(name string) string {
+	if i := strings.IndexByte(name, '/'); i >= 0 {
+		return name[:i]
+	}
+
+	return name
 }

@@ -165,6 +165,22 @@ func TestContainerd_RegistryHostConfigs(t *testing.T) {
 			},
 		},
 		{
+			name: "registry in subpath",
+			eng: &Containerd{
+				registryMirrors: map[string][]string{
+					"gitlab.com": {"https://mirror.gitlab.com/project/repo?kubermatic=override_path%3Dtrue"},
+				},
+			},
+		},
+		{
+			name: "registry in subpath without override_path",
+			eng: &Containerd{
+				registryMirrors: map[string][]string{
+					"gitlab.com": {"https://mirror.gitlab.com/project/repo"},
+				},
+			},
+		},
+		{
 			name: "insecure registry",
 			eng: &Containerd{
 				insecureRegistries: []string{"insecure.example.com"},
@@ -179,11 +195,30 @@ func TestContainerd_RegistryHostConfigs(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "wildcard mirror",
+			eng: &Containerd{
+				registryMirrors: map[string][]string{
+					"*": {"https://mirror.example.com"},
+				},
+			},
+		},
+		{
+			name: "default mirror",
+			eng: &Containerd{
+				registryMirrors: map[string][]string{
+					"_default": {"https://mirror.example.com"},
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			configs := tt.eng.RegistryHostConfigs()
+			configs, err := tt.eng.RegistryHostConfigs()
+			if err != nil {
+				t.Fatalf("RegistryHostConfigs() error = %v", err)
+			}
 
 			// Combine all hosts.toml files into a single string for golden file comparison.
 			// Sort paths for deterministic output.
@@ -198,7 +233,7 @@ func TestContainerd_RegistryHostConfigs(t *testing.T) {
 				if i > 0 {
 					buf.WriteString("---\n")
 				}
-				buf.WriteString(fmt.Sprintf("# %s\n", path))
+				fmt.Fprintf(&buf, "# %s\n", path)
 				buf.WriteString(configs[path])
 			}
 

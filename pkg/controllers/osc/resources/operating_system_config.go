@@ -201,7 +201,10 @@ func prepareContainerRuntimeConfig(md *v1alpha1.MachineDeployment, containerRunt
 		return "", "", nil, fmt.Errorf("failed to generate container runtime auth config: %w", err)
 	}
 
-	registryHostConfigs := crEngine.RegistryHostConfigs()
+	registryHostConfigs, err := crEngine.RegistryHostConfigs()
+	if err != nil {
+		return "", "", nil, fmt.Errorf("failed to generate registry host configs: %w", err)
+	}
 
 	return crConfig, crAuthConfig, registryHostConfigs, nil
 }
