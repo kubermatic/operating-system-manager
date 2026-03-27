@@ -1,0 +1,9 @@
+# /etc/containerd/certs.d/_default/hosts.toml
+[host."https://mirror.example.com"]
+capabilities = ["pull", "resolve"]
+---
+# /etc/containerd/certs.d/docker.io/hosts.toml
+server = "https://registry-1.docker.io"
+
+[host."https://registry-1.docker.io"]
+capabilities = ["pull", "resolve"]

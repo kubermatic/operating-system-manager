@@ -302,6 +302,11 @@ func (eng *Containerd) RegistryHostConfigs() (map[string]string, error) {
 		switch host {
 		case "docker.io":
 			serverURL = "https://registry-1.docker.io"
+		case "*", "_default":
+			// Wildcard / default catch-all: containerd uses the _default directory
+			// as a fallback for any registry without its own hosts.toml.
+			// No server URL is set because there is no single upstream.
+			host = "_default"
 		default:
 			serverURL = registryName
 		}
@@ -345,7 +350,7 @@ func (eng *Containerd) RegistryHostConfigs() (map[string]string, error) {
 		// Remove empty parent table header that TOML encoder generates for nested maps
 		output := strings.ReplaceAll(buf.String(), "[host]\n", "")
 
-		filePath := fmt.Sprintf("/etc/containerd/certs.d/%s/hosts.toml", registryHost(registryName))
+		filePath := fmt.Sprintf("/etc/containerd/certs.d/%s/hosts.toml", host)
 		result[filePath] = output
 	}
 

@@ -195,6 +195,22 @@ func TestContainerd_RegistryHostConfigs(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "wildcard mirror",
+			eng: &Containerd{
+				registryMirrors: map[string][]string{
+					"*": {"https://mirror.example.com"},
+				},
+			},
+		},
+		{
+			name: "default mirror",
+			eng: &Containerd{
+				registryMirrors: map[string][]string{
+					"_default": {"https://mirror.example.com"},
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
