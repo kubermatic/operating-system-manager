@@ -26,7 +26,6 @@ spec:
   supportedCloudProviders:
     - name: "aws"
     - name: "azure"
-    - name: "equinixmetal"
     - name: "gce"
     - name: "kubevirt"
     - name: "openstack"
