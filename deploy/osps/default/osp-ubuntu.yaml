@@ -196,6 +196,14 @@ spec:
                   Restart=always
                   EnvironmentFile=-/etc/environment
 
+          - path: /etc/systemd/system/containerd.service.d/limits.conf
+            permissions: 644
+            content:
+              inline:
+                data: |
+                  [Service]
+                  LimitNOFILE=1048576
+
           - path: /etc/crictl.yaml
             content:
               inline:
