@@ -36,6 +36,19 @@ spec:
   bootstrapConfig:
     templates:
       configureProxyScript: |-
+        {{- if or .HTTPProxy .NoProxy }}
+        # Flatcar Stable 4593.2.0+ ships /etc/environment as a symlink to the
+        # read-only /usr/lib/pam/environment, which breaks `tee -a`. Replace it
+        # with a writable regular file (preserving any existing content) so the
+        # subsequent appends succeed.
+        if [ -L /etc/environment ]; then
+          cat /etc/environment > /etc/.environment.new 2>/dev/null || true
+          rm -f /etc/environment
+          mv /etc/.environment.new /etc/environment
+          chmod 644 /etc/environment
+        fi
+        {{- end }}
+
         {{- if .HTTPProxy }}
         cat <<EOF | tee -a /etc/environment
         HTTP_PROXY={{ .HTTPProxy }}
