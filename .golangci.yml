@@ -52,8 +52,6 @@ linters:
     - whitespace
 
   settings:
-    goimports:
-      local-prefixes: k8c.io/operating-system-manager
     tagliatelle:
       case:
         rules:
@@ -121,6 +119,11 @@ issues:
 formatters:
   enable:
     - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - k8c.io/operating-system-manager
   exclusions:
     paths:
       - zz_generated.*.go
