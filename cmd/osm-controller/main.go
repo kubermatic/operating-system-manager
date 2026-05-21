@@ -189,7 +189,7 @@ func main() {
 		}
 	}
 
-	opt.kubeconfig = flag.Lookup("kubeconfig").Value.(flag.Getter).Get().(string)
+	opt.kubeconfig = flag.Lookup("kubeconfig").Value.(flag.Getter).Get().(string) //nolint:forcetypeassert
 
 	// Parse flags
 	parsedClusterDNSIPs, err := parseClusterDNSIPs(opt.clusterDNSIPs)

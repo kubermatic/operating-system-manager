@@ -294,8 +294,6 @@ func TestReconciler_Reconcile(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testCase := testCase
-
 		osp := &osmv1alpha1.OperatingSystemProfile{}
 		if err := loadFile(osp, testCase.ospFile); err != nil {
 			t.Fatalf("failed loading osp %s from testdata: %v", testCase.name, err)
@@ -476,8 +474,6 @@ func TestOSCAndSecretRotation(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testCase := testCase
-
 		osp := &osmv1alpha1.OperatingSystemProfile{}
 		if err := loadFile(osp, testCase.ospFile); err != nil {
 			t.Fatalf("failed loading osp %s from testdata: %v", testCase.name, err)
@@ -678,8 +674,6 @@ func TestMachineDeploymentDeletion(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testCase := testCase
-
 		osp := &osmv1alpha1.OperatingSystemProfile{}
 		if err := loadFile(osp, testCase.ospFile); err != nil {
 			t.Fatalf("failed loading osp %s from testdata: %v", testCase.name, err)

@@ -149,7 +149,6 @@ func (eng *Containerd) Config() (string, error) {
 	if len(eng.registryCredentials) > 0 {
 		criRegistry.Configs = make(map[string]containerdRegistryConfig, len(eng.registryCredentials))
 		for registry, auth := range eng.registryCredentials {
-			auth := auth
 			host := registry
 			if u, err := url.Parse(registry); err == nil && u.Host != "" {
 				host = u.Host
