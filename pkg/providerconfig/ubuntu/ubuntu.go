@@ -29,7 +29,7 @@ type Config struct {
 
 func DefaultConfig(operatingSystemSpec runtime.RawExtension) runtime.RawExtension {
 	if operatingSystemSpec.Raw == nil {
-		operatingSystemSpec.Raw, _ = json.Marshal(Config{})
+		operatingSystemSpec.Raw, _ = json.Marshal(Config{}) //nolint:errchkjson
 	}
 
 	return operatingSystemSpec

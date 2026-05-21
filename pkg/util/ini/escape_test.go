@@ -47,7 +47,7 @@ func TestINIEscape(t *testing.T) {
 	// Marshal it,
 	// Unmarshal it,
 	// Compare if the input & output password match
-	for i := 0; i <= 1000; i++ {
+	for range 1000 {
 		pw, err := password.Generate(64, 10, len(password.Symbols), false, false)
 		if err != nil {
 			t.Fatal(err)

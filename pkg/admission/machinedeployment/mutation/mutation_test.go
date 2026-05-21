@@ -87,7 +87,6 @@ func TestMutateMachineDeployment(t *testing.T) {
 		},
 	}
 	for _, tc := range tests {
-		tc := tc // scopelint fix
 		t.Run(tc.name, func(t *testing.T) {
 			md := tc.machineDeployment.DeepCopy()
 			errs := MutateMachineDeployment(md)

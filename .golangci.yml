@@ -26,34 +26,45 @@ linters:
     - asciicheck
     - bidichk
     - bodyclose
+    - copyloopvar
     - depguard
+    - dogsled
     - durationcheck
     - errcheck
+    - errchkjson
     - errname
     - errorlint
-    - goconst
+    - forcetypeassert
     - gocritic
     - gocyclo
     - govet
     - importas
     - ineffassign
+    - intrange
     - loggercheck
+    - makezero
     - misspell
     - nakedret
+    - nilnil
     - noctx
     - nolintlint
     - nosprintfhostport
     - predeclared
     - promlinter
+    - revive
     - staticcheck
+    - tparallel
     - unconvert
+    - unparam
     - unused
+    - usetesting
     - wastedassign
     - whitespace
+    # - exhaustive
+    # - nlreturn
+    # - tagliatelle
 
   settings:
-    goimports:
-      local-prefixes: k8c.io/operating-system-manager
     tagliatelle:
       case:
         rules:
@@ -121,6 +132,11 @@ issues:
 formatters:
   enable:
     - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - k8c.io
   exclusions:
     paths:
       - zz_generated.*.go

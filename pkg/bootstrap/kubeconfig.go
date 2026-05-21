@@ -195,14 +195,22 @@ func (b *Bootstrap) getTokenFromServiceAccount(ctx context.Context, name types.N
 	if err != nil {
 		return "", fmt.Errorf("failed to get serviceAccount %q: %w", name.String(), err)
 	}
-	sa = raw.(*corev1.ServiceAccount)
+
+	sa, ok := raw.(*corev1.ServiceAccount)
+	if !ok {
+		return "", fmt.Errorf("failed to cast to ServiceAccount: %w", err)
+	}
+
 	for _, serviceAccountSecretName := range sa.Secrets {
 		serviceAccountSecret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: sa.Namespace, Name: serviceAccountSecretName.Name}}
 		raw, err = b.getAsUnstructured(ctx, serviceAccountSecret)
 		if err != nil {
 			return "", fmt.Errorf("failed to get serviceAccountSecret: %w", err)
 		}
-		serviceAccountSecret = raw.(*corev1.Secret)
+		serviceAccountSecret, ok = raw.(*corev1.Secret)
+		if !ok {
+			return "", fmt.Errorf("failed to cast to Secret: %w", err)
+		}
 		if serviceAccountSecret.Type != corev1.SecretTypeServiceAccountToken {
 			continue
 		}
@@ -289,12 +297,12 @@ func (b *Bootstrap) getSecretIfExists(ctx context.Context, name string) (*corev1
 	if err := b.client.List(ctx, secrets,
 		&ctrlruntimeclient.ListOptions{
 			Namespace:     metav1.NamespaceSystem,
-			LabelSelector: selector}); err != nil {
+			LabelSelector: selector,
+		}); err != nil {
 		return nil, err
 	}
-
 	if len(secrets.Items) == 0 {
-		return nil, nil
+		return nil, nil //nolint:nilnil
 	}
 	if len(secrets.Items) > 1 {
 		return nil, fmt.Errorf("expected to find exactly one secret for the given machine name =%s but found %d", name, len(secrets.Items))
