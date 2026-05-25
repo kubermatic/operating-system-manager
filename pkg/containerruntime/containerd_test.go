@@ -220,6 +220,24 @@ func TestContainerd_RegistryHostConfigs(t *testing.T) {
 				t.Fatalf("RegistryHostConfigs() error = %v", err)
 			}
 
+			// Idempotency: second call must produce identical output (regression for
+			// aliasing bug where kubermatic params were stripped from eng.registryMirrors
+			// on first call, causing override_path to be missing on subsequent calls).
+			configs2, err := tt.eng.RegistryHostConfigs()
+			if err != nil {
+				t.Fatalf("RegistryHostConfigs() second call error = %v", err)
+			}
+			if len(configs) != len(configs2) {
+				t.Errorf("idempotency: first call returned %d entries, second call returned %d", len(configs), len(configs2))
+			}
+			for path, content := range configs {
+				if content2, ok := configs2[path]; !ok {
+					t.Errorf("idempotency: path %q missing from second call", path)
+				} else if content != content2 {
+					t.Errorf("idempotency: path %q differs between calls:\nfirst:\n%s\nsecond:\n%s", path, content, content2)
+				}
+			}
+
 			// Combine all hosts.toml files into a single string for golden file comparison.
 			// Sort paths for deterministic output.
 			paths := make([]string, 0, len(configs))
