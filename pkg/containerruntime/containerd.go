@@ -229,30 +229,29 @@ func (eng *Containerd) buildRegistryHostConfigs() map[string]*registryHostConfig
 		rc.endpoints = eng.registryMirrors[registryName]
 
 		var overridePath bool
-		for i, endpoint := range rc.endpoints {
+		for _, endpoint := range rc.endpoints {
 			endpointURL, err := url.Parse(endpoint)
 			if err != nil {
 				continue
 			}
 
 			endpointQS := endpointURL.Query()
-			if kubermaticParams := endpointQS.Get("kubermatic"); endpointQS.Has("kubermatic") {
-				endpointQS.Del("kubermatic")
-				endpointURL.RawQuery = endpointQS.Encode()
-				rc.endpoints[i] = endpointURL.String()
-				params, err := url.QueryUnescape(kubermaticParams)
-				if err != nil {
-					continue
-				}
+			if !endpointQS.Has("kubermatic") {
+				continue
+			}
 
-				paramsValues, err := url.ParseQuery(params)
-				if err != nil {
-					continue
-				}
+			params, err := url.QueryUnescape(endpointQS.Get("kubermatic"))
+			if err != nil {
+				continue
+			}
 
-				if !overridePath {
-					overridePath, _ = strconv.ParseBool(paramsValues.Get("override_path"))
-				}
+			paramsValues, err := url.ParseQuery(params)
+			if err != nil {
+				continue
+			}
+
+			if !overridePath {
+				overridePath, _ = strconv.ParseBool(paramsValues.Get("override_path"))
 			}
 		}
 		rc.overridePath = overridePath
@@ -315,9 +314,9 @@ func (eng *Containerd) RegistryHostConfigs() (map[string]string, error) {
 			Host:   make(map[string]hostEntryConfig),
 		}
 
-		// Add mirror host entries.
+		// Add mirror host entries, stripping the kubermatic sideband param from the URL.
 		for _, endpoint := range rc.endpoints {
-			cfg.Host[endpoint] = hostEntryConfig{
+			cfg.Host[stripKubermaticParam(endpoint)] = hostEntryConfig{
 				Capabilities: []string{"pull", "resolve"},
 				OverridePath: rc.overridePath,
 				SkipVerify:   rc.insecure,
@@ -354,6 +353,23 @@ func (eng *Containerd) RegistryHostConfigs() (map[string]string, error) {
 	}
 
 	return result, nil
+}
+
+// stripKubermaticParam removes the kubermatic sideband query parameter from a
+// mirror URL before it is written into hosts.toml. The parameter is an
+// OSM-internal marker and is not understood by containerd.
+func stripKubermaticParam(endpoint string) string {
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return endpoint
+	}
+	q := u.Query()
+	if !q.Has("kubermatic") {
+		return endpoint
+	}
+	q.Del("kubermatic")
+	u.RawQuery = q.Encode()
+	return u.String()
 }
 
 // registryHost extracts the host[:port] from a registry name,
