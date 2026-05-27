@@ -32,7 +32,6 @@ server = "reg.tld"
 
 [host."https://host1.reg.tld"]
 capabilities = ["pull", "resolve"]
-override_path = true
 [host."https://host2.reg.tld"]
 capabilities = ["pull", "resolve"]
 override_path = true
