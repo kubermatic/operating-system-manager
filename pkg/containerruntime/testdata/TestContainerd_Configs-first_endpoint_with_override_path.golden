@@ -1,3 +1,4 @@
+# /etc/containerd/config.toml
 version = 3
 
 [metrics]
@@ -8,11 +9,6 @@ address = "127.0.0.1:1338"
 discard_unpacked_layers = false
 [plugins."io.containerd.cri.v1.images".registry]
 config_path = "/etc/containerd/certs.d"
-[plugins."io.containerd.cri.v1.images".registry.configs]
-[plugins."io.containerd.cri.v1.images".registry.configs."my-registry.example.com"]
-[plugins."io.containerd.cri.v1.images".registry.configs."my-registry.example.com".auth]
-username = "user"
-password = "pass"
 [plugins."io.containerd.cri.v1.runtime"]
 device_ownership_from_security_context = false
 [plugins."io.containerd.cri.v1.runtime".containerd]
@@ -24,3 +20,19 @@ SystemdCgroup = true
 [plugins."io.containerd.cri.v1.runtime".cni]
 bin_dirs = ["/opt/cni/bin"]
 conf_dir = "/etc/cni/net.d"
+---
+# /etc/containerd/certs.d/docker.io/hosts.toml
+server = "https://registry-1.docker.io"
+
+[host."https://registry-1.docker.io"]
+capabilities = ["pull", "resolve"]
+---
+# /etc/containerd/certs.d/reg.tld/hosts.toml
+server = "reg.tld"
+
+[host."https://host1.reg.tld"]
+capabilities = ["pull", "resolve"]
+override_path = true
+[host."https://host2.reg.tld"]
+capabilities = ["pull", "resolve"]
+override_path = true

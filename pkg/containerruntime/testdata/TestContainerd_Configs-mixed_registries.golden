@@ -1,0 +1,49 @@
+# /etc/containerd/config.toml
+version = 3
+
+[metrics]
+address = "127.0.0.1:1338"
+
+[plugins]
+[plugins."io.containerd.cri.v1.images"]
+discard_unpacked_layers = false
+[plugins."io.containerd.cri.v1.images".registry]
+config_path = "/etc/containerd/certs.d"
+[plugins."io.containerd.cri.v1.runtime"]
+device_ownership_from_security_context = false
+[plugins."io.containerd.cri.v1.runtime".containerd]
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes]
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
+runtime_type = "io.containerd.runc.v2"
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
+SystemdCgroup = true
+[plugins."io.containerd.cri.v1.runtime".cni]
+bin_dirs = ["/opt/cni/bin"]
+conf_dir = "/etc/cni/net.d"
+---
+# /etc/containerd/certs.d/docker.io/hosts.toml
+server = "https://registry-1.docker.io"
+
+[host."https://harbor.example.com/v2/proxy-docker-io"]
+capabilities = ["pull", "resolve"]
+override_path = true
+---
+# /etc/containerd/certs.d/insecure.example.com/hosts.toml
+server = "insecure.example.com"
+
+[host."https://mirror.example.com"]
+capabilities = ["pull", "resolve"]
+skip_verify = true
+---
+# /etc/containerd/certs.d/quay.io/hosts.toml
+server = "quay.io"
+
+[host."https://harbor.example.com/v2/proxy-quay-io"]
+capabilities = ["pull", "resolve"]
+override_path = true
+---
+# /etc/containerd/certs.d/reg.tld/hosts.toml
+server = "reg.tld"
+
+[host."https://simple-mirror.example.com"]
+capabilities = ["pull", "resolve"]
