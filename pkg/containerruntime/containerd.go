@@ -114,12 +114,18 @@ type containerdRegistryConfig struct {
 	Auth *AuthConfig `toml:"auth,omitempty"`
 }
 
+// registryEndpoint holds a single mirror URL and its per-endpoint settings
+// parsed from the kubermatic sideband query parameter.
+type registryEndpoint struct {
+	url          string
+	overridePath bool
+}
+
 // registryHostConfig holds the parsed mirror configuration for a single registry,
 // used internally when building hosts.toml files.
 type registryHostConfig struct {
-	endpoints    []string
-	overridePath bool
-	insecure     bool
+	endpoints []registryEndpoint
+	insecure  bool
 }
 
 // hostsTomlConfig represents the top-level structure of a hosts.toml file.
@@ -215,54 +221,46 @@ func (eng *Containerd) Config() (string, error) {
 func (eng *Containerd) buildRegistryHostConfigs() map[string]*registryHostConfig {
 	configs := make(map[string]*registryHostConfig)
 
-	// Start with default docker.io entry
+	// docker.io always gets a hosts.toml with registry-1.docker.io as the default
+	// upstream entry. If the user configures explicit mirrors below, those replace
+	// this default so only the user-configured mirrors appear.
 	configs["docker.io"] = &registryHostConfig{
-		endpoints: []string{"https://registry-1.docker.io"},
+		endpoints: []registryEndpoint{{url: "https://registry-1.docker.io"}},
 	}
 
-	// Process registry mirrors — same logic as the original Config() method
-	for registryName := range eng.registryMirrors {
+	// Process registry mirrors: parse per-endpoint kubermatic params read-only.
+	for registryName, mirrorURLs := range eng.registryMirrors {
 		if _, ok := configs[registryName]; !ok {
 			configs[registryName] = &registryHostConfig{}
 		}
-		rc := configs[registryName]
-		rc.endpoints = eng.registryMirrors[registryName]
+		regCfg := configs[registryName]
+		// User-configured mirrors replace any pre-seeded defaults.
+		regCfg.endpoints = nil
 
-		var overridePath bool
-		for _, endpoint := range rc.endpoints {
-			endpointURL, err := url.Parse(endpoint)
-			if err != nil {
-				continue
+		for _, mirrorURL := range mirrorURLs {
+			endpoint := registryEndpoint{url: stripKubermaticParam(mirrorURL)}
+
+			if parsedURL, err := url.Parse(mirrorURL); err == nil {
+				query := parsedURL.Query()
+				if query.Has("kubermatic") {
+					if kubermaticParams, err := url.QueryUnescape(query.Get("kubermatic")); err == nil {
+						if kubermaticValues, err := url.ParseQuery(kubermaticParams); err == nil {
+							endpoint.overridePath, _ = strconv.ParseBool(kubermaticValues.Get("override_path"))
+						}
+					}
+				}
 			}
 
-			endpointQS := endpointURL.Query()
-			if !endpointQS.Has("kubermatic") {
-				continue
-			}
-
-			params, err := url.QueryUnescape(endpointQS.Get("kubermatic"))
-			if err != nil {
-				continue
-			}
-
-			paramsValues, err := url.ParseQuery(params)
-			if err != nil {
-				continue
-			}
-
-			if !overridePath {
-				overridePath, _ = strconv.ParseBool(paramsValues.Get("override_path"))
-			}
+			regCfg.endpoints = append(regCfg.endpoints, endpoint)
 		}
-		rc.overridePath = overridePath
 	}
 
 	// Process insecure registries
-	for _, registry := range eng.insecureRegistries {
-		if _, ok := configs[registry]; !ok {
-			configs[registry] = &registryHostConfig{}
+	for _, registryName := range eng.insecureRegistries {
+		if _, ok := configs[registryName]; !ok {
+			configs[registryName] = &registryHostConfig{}
 		}
-		configs[registry].insecure = true
+		configs[registryName].insecure = true
 	}
 
 	return configs
@@ -285,55 +283,50 @@ func (eng *Containerd) RegistryHostConfigs() (map[string]string, error) {
 	sort.Strings(registryNames)
 
 	for _, registryName := range registryNames {
-		rc := configs[registryName]
+		regCfg := configs[registryName]
 
-		// Skip registries that have no mirrors, are not insecure, and don't use override_path —
+		// Skip registries that have no mirrors and are not insecure —
 		// a hosts.toml with only a server URL adds no value over containerd defaults.
-		if len(rc.endpoints) == 0 && !rc.insecure && !rc.overridePath {
+		if len(regCfg.endpoints) == 0 && !regCfg.insecure {
 			continue
 		}
 
-		// Determine the server URL (the upstream registry).
+		// Determine the server URL and certs.d directory name for this registry.
 		// See: https://github.com/containerd/containerd/blob/546ce382/core/remotes/docker/config/hosts.go#L430-L431
-		host := registryHost(registryName)
+		registryDir := registryHost(registryName)
 		var serverURL string
-		switch host {
+		switch registryDir {
 		case "docker.io":
 			serverURL = "https://registry-1.docker.io"
 		case "*", "_default":
 			// Wildcard / default catch-all: containerd uses the _default directory
 			// as a fallback for any registry without its own hosts.toml.
 			// No server URL is set because there is no single upstream.
-			host = "_default"
+			registryDir = "_default"
 		default:
 			serverURL = registryName
 		}
 
-		cfg := hostsTomlConfig{
+		hostsCfg := hostsTomlConfig{
 			Server: serverURL,
 			Host:   make(map[string]hostEntryConfig),
 		}
 
-		// Add mirror host entries, stripping the kubermatic sideband param from the URL.
-		for _, endpoint := range rc.endpoints {
-			cfg.Host[stripKubermaticParam(endpoint)] = hostEntryConfig{
+		// Add per-endpoint mirror host entries.
+		for _, endpoint := range regCfg.endpoints {
+			hostsCfg.Host[endpoint.url] = hostEntryConfig{
 				Capabilities: []string{"pull", "resolve"},
-				OverridePath: rc.overridePath,
-				SkipVerify:   rc.insecure,
+				OverridePath: endpoint.overridePath,
+				SkipVerify:   regCfg.insecure,
 			}
 		}
 
-		// If no mirrors are configured but the registry needs custom settings
-		// (insecure or override_path), create a self-referencing host entry.
-		if len(rc.endpoints) == 0 && (rc.insecure || rc.overridePath) {
-			hostURL := serverURL
-			if rc.overridePath {
-				hostURL = registryName
-			}
-			cfg.Host[hostURL] = hostEntryConfig{
+		// If no mirrors are configured but the registry is insecure,
+		// create a self-referencing host entry.
+		if len(regCfg.endpoints) == 0 && regCfg.insecure {
+			hostsCfg.Host[serverURL] = hostEntryConfig{
 				Capabilities: []string{"pull", "resolve"},
-				OverridePath: rc.overridePath,
-				SkipVerify:   rc.insecure,
+				SkipVerify:   regCfg.insecure,
 			}
 		}
 
@@ -341,14 +334,14 @@ func (eng *Containerd) RegistryHostConfigs() (map[string]string, error) {
 		enc := toml.NewEncoder(&buf)
 		enc.Indent = ""
 
-		if err := enc.Encode(cfg); err != nil {
+		if err := enc.Encode(hostsCfg); err != nil {
 			return nil, fmt.Errorf("encoding hosts.toml for %s: %w", registryName, err)
 		}
 
 		// Remove empty parent table header that TOML encoder generates for nested maps
 		output := strings.ReplaceAll(buf.String(), "[host]\n", "")
 
-		filePath := fmt.Sprintf("/etc/containerd/certs.d/%s/hosts.toml", host)
+		filePath := fmt.Sprintf("/etc/containerd/certs.d/%s/hosts.toml", registryDir)
 		result[filePath] = output
 	}
 
@@ -358,27 +351,27 @@ func (eng *Containerd) RegistryHostConfigs() (map[string]string, error) {
 // stripKubermaticParam removes the kubermatic sideband query parameter from a
 // mirror URL before it is written into hosts.toml. The parameter is an
 // OSM-internal marker and is not understood by containerd.
-func stripKubermaticParam(endpoint string) string {
-	u, err := url.Parse(endpoint)
+func stripKubermaticParam(mirrorURL string) string {
+	parsedURL, err := url.Parse(mirrorURL)
 	if err != nil {
-		return endpoint
+		return mirrorURL
 	}
-	q := u.Query()
-	if !q.Has("kubermatic") {
-		return endpoint
+	query := parsedURL.Query()
+	if !query.Has("kubermatic") {
+		return mirrorURL
 	}
-	q.Del("kubermatic")
-	u.RawQuery = q.Encode()
-	return u.String()
+	query.Del("kubermatic")
+	parsedURL.RawQuery = query.Encode()
+	return parsedURL.String()
 }
 
 // registryHost extracts the host[:port] from a registry name,
 // stripping any subpath. Containerd's certs.d directory and auth
 // config keys only use the host[:port] portion.
-func registryHost(name string) string {
-	if i := strings.IndexByte(name, '/'); i >= 0 {
-		return name[:i]
+func registryHost(registry string) string {
+	if i := strings.IndexByte(registry, '/'); i >= 0 {
+		return registry[:i]
 	}
 
-	return name
+	return registry
 }

@@ -184,6 +184,17 @@ func TestContainerd_Configs(t *testing.T) {
 			},
 		},
 		{
+			name: "two mirrors same registry one with override_path one without",
+			eng: &Containerd{
+				registryMirrors: map[string][]string{
+					"ghcr.io": {
+						"https://harbor.example.com/v2/proxy-ghcr-io?kubermatic=override_path%3Dtrue",
+						"https://harbor.example.com",
+					},
+				},
+			},
+		},
+		{
 			name: "mixed registries",
 			eng: &Containerd{
 				insecureRegistries: []string{"insecure.example.com"},
