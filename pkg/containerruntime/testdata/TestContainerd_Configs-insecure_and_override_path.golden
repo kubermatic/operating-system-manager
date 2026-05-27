@@ -1,3 +1,4 @@
+# /etc/containerd/config.toml
 version = 3
 
 [metrics]
@@ -8,11 +9,6 @@ address = "127.0.0.1:1338"
 discard_unpacked_layers = false
 [plugins."io.containerd.cri.v1.images".registry]
 config_path = "/etc/containerd/certs.d"
-[plugins."io.containerd.cri.v1.images".registry.configs]
-[plugins."io.containerd.cri.v1.images".registry.configs."gcr.io"]
-[plugins."io.containerd.cri.v1.images".registry.configs."gcr.io".auth]
-username = "user"
-password = "pass"
 [plugins."io.containerd.cri.v1.runtime"]
 device_ownership_from_security_context = false
 [plugins."io.containerd.cri.v1.runtime".containerd]
@@ -24,3 +20,17 @@ SystemdCgroup = true
 [plugins."io.containerd.cri.v1.runtime".cni]
 bin_dirs = ["/opt/cni/bin"]
 conf_dir = "/etc/cni/net.d"
+---
+# /etc/containerd/certs.d/docker.io/hosts.toml
+server = "https://registry-1.docker.io"
+
+[host."https://registry-1.docker.io"]
+capabilities = ["pull", "resolve"]
+---
+# /etc/containerd/certs.d/insecure.example.com/hosts.toml
+server = "insecure.example.com"
+
+[host."https://mirror.example.com/v2/proxy"]
+capabilities = ["pull", "resolve"]
+skip_verify = true
+override_path = true
