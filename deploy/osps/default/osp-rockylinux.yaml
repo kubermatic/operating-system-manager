@@ -26,7 +26,6 @@ spec:
     - name: "aws"
     - name: "azure"
     - name: "digitalocean"
-    - name: "equinixmetal"
     - name: "hetzner"
     - name: "openstack"
     - name: "kubevirt"

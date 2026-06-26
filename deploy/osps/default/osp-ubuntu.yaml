@@ -29,7 +29,6 @@ spec:
     - name: "baremetal"
     - name: "digitalocean"
     - name: "edge"
-    - name: "equinixmetal"
     - name: "gce"
     - name: "hetzner"
     - name: "kubevirt"

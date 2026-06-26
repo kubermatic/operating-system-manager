@@ -441,7 +441,6 @@ spec:
                           - linode
                           - nutanix
                           - openstack
-                          - equinixmetal
                           - vsphere
                           - fake
                           - alibaba
