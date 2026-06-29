@@ -177,20 +177,25 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrlruntime.Request) (re
 }
 
 func (r *Reconciler) reconcile(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
-	if err := r.checkOSP(ctx, md); err != nil {
+	osp, err := r.fetchOSP(ctx, md)
+	if err != nil {
+		return fmt.Errorf("failed to fetch OperatingSystemProfile: %w", err)
+	}
+
+	if err := r.checkOSP(md, osp); err != nil {
 		return fmt.Errorf("failed to validate referenced OSP: %w", err)
 	}
 
 	// Check if OSC and secret need to be rotated
-	if err := r.handleOSCAndSecretsRotation(ctx, md); err != nil {
+	if err := r.handleOSCAndSecretsRotation(ctx, md, osp); err != nil {
 		return fmt.Errorf("failed to perform rotation for OSC and secrets: %w", err)
 	}
 
-	if err := r.reconcileOperatingSystemConfigs(ctx, md); err != nil {
+	if err := r.reconcileOperatingSystemConfigs(ctx, md, osp); err != nil {
 		return fmt.Errorf("failed to reconcile operating system config: %w", err)
 	}
 
-	if err := r.reconcileSecrets(ctx, md); err != nil {
+	if err := r.reconcileSecrets(ctx, md, osp); err != nil {
 		return fmt.Errorf("failed to reconcile secrets: %w", err)
 	}
 
@@ -209,7 +214,7 @@ func (r *Reconciler) fetchOSP(ctx context.Context, md *clusterv1alpha1.MachineDe
 	osp := &osmv1alpha1.OperatingSystemProfile{}
 	if err := r.Get(ctx, types.NamespacedName{Name: ospName, Namespace: ospNamespace}, osp); err != nil {
 		if kerrors.IsNotFound(err) {
-			return nil,fmt.Errorf("OperatingSystemProfile %q not found", ospName)
+			return nil, fmt.Errorf("OperatingSystemProfile %q not found", ospName)
 		}
 
 		return nil, fmt.Errorf("failed to get OperatingSystemProfile %q from namespace %q: %w", ospName, ospNamespace, err)
@@ -218,7 +223,7 @@ func (r *Reconciler) fetchOSP(ctx context.Context, md *clusterv1alpha1.MachineDe
 	return osp, nil
 }
 
-func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
+func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *clusterv1alpha1.MachineDeployment, osp *osmv1alpha1.OperatingSystemProfile) error {
 	machineDeploymentKey := fmt.Sprintf("%s-%s", md.Namespace, md.Name)
 	// machineDeploymentKey must be no more than 63 characters else it'll fail to create bootstrap token.
 	if len(machineDeploymentKey) >= 63 {
@@ -237,11 +242,6 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 	if err := r.Get(ctx, types.NamespacedName{Name: oscName, Namespace: r.namespace}, osc); err == nil {
 		// Early return since the object already exists
 		return nil
-	}
-
-	osp, err := r.fetchOSP(ctx, md)
-	if err != nil {
-		return err
 	}
 
 	provisioner, err := generator.GetProvisioningUtility(osp.Spec.OSName, *md)
@@ -303,7 +303,7 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 		return err
 	}
 
-	osc.Annotations = addMachineDeploymentRevision(revision, mdhash, osp.Spec.Version, osc.Annotations)
+	osc.Annotations = oscRotationAnnotations(revision, mdhash, osp.Spec.Version, osc.Annotations)
 	osc.Spec.ProvisioningUtility = osp.Spec.ProvisioningUtility
 
 	// Defaults to cloud-init although we should never hit this condition i.e ProvisioningUtility in OSP to be empty.
@@ -319,13 +319,9 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 	return nil
 }
 
-func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
+func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.MachineDeployment, osp *osmv1alpha1.OperatingSystemProfile) error {
 	oscName := fmt.Sprintf(resources.OperatingSystemConfigNamePattern, md.Name, md.Namespace)
 	osc := &osmv1alpha1.OperatingSystemConfig{}
-	osp, err := r.fetchOSP(ctx, md)
-	if err != nil {
-		return err
-	}
 
 	if err := r.Get(ctx, types.NamespacedName{Namespace: r.namespace, Name: oscName}, osc); err != nil {
 		return fmt.Errorf("failed to get OperatingSystemConfigs %q from namespace %q: %w", oscName, r.namespace, err)
@@ -367,7 +363,7 @@ func (r *Reconciler) ensureCloudConfigSecret(ctx context.Context, config osmv1al
 		return err
 	}
 
-	secret.Annotations = addMachineDeploymentRevision(revision, mdhash, ospVersion, secret.Annotations) // Ashley: we do not check the hash here as OSC also regenerates Secrets
+	secret.Annotations = oscRotationAnnotations(revision, mdhash, ospVersion, secret.Annotations) // we do not check the hash here as OSC also regenerates Secrets
 
 	// Create resource in cluster
 	if err := r.workerClient.Create(ctx, secret); err != nil {
@@ -458,7 +454,7 @@ func (r *Reconciler) deleteGeneratedSecrets(ctx context.Context, md *clusterv1al
 	return nil
 }
 
-func (r *Reconciler) handleOSCAndSecretsRotation(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
+func (r *Reconciler) handleOSCAndSecretsRotation(ctx context.Context, md *clusterv1alpha1.MachineDeployment, osp *osmv1alpha1.OperatingSystemProfile) error {
 	oscName := fmt.Sprintf(resources.OperatingSystemConfigNamePattern, md.Name, md.Namespace)
 	osc := &osmv1alpha1.OperatingSystemConfig{}
 	if err := r.Get(ctx, types.NamespacedName{Name: oscName, Namespace: r.namespace}, osc); err != nil {
@@ -471,12 +467,6 @@ func (r *Reconciler) handleOSCAndSecretsRotation(ctx context.Context, md *cluste
 
 	// OSC already exists, we need to check if the template in machine deployment was updated. If it's updated then we need to rotate
 	// the OSC and secrets.
-	
-	// first verify OSC vs OSP version
-	osp, err := r.fetchOSP(ctx, md)
-	if err != nil {
-		return err
-	}
 
 	// now also check that the MD annotations have not changed as those can generate some differences in the output OSC
 	mdhash, err := r.calculateAnnotationsHash(md.Annotations)
@@ -514,8 +504,8 @@ func (r *Reconciler) calculateAnnotationsHash(annotations map[string]string) (st
 	return mdhash, nil
 }
 
-func (r *Reconciler) checkOSP(ctx context.Context, md *clusterv1alpha1.MachineDeployment) error {
-	err := validateMachineDeployment(ctx, md, r.Client, r.namespace)
+func (r *Reconciler) checkOSP(md *clusterv1alpha1.MachineDeployment, osp *osmv1alpha1.OperatingSystemProfile) error {
+	err := validateMachineDeployment(md, osp)
 	if err != nil {
 		r.recorder.Event(md, corev1.EventTypeWarning, "OperatingSystemProfileError", err.Error())
 	}
@@ -561,7 +551,7 @@ func filterMachineDeploymentPredicate() predicate.Predicate {
 	})
 }
 
-func addMachineDeploymentRevision(revision, mdhash, ospversion string, annotations map[string]string) map[string]string {
+func oscRotationAnnotations(revision, mdhash, ospversion string, annotations map[string]string) map[string]string {
 	if annotations == nil {
 		annotations = map[string]string{}
 	}
@@ -569,36 +559,15 @@ func addMachineDeploymentRevision(revision, mdhash, ospversion string, annotatio
 	annotations[mcbootstrap.MachineDeploymentRevision] = revision
 	annotations[OperatingSystemConfigMDHash] = mdhash
 	annotations[OperatingSystemConfigVersionAnnotation] = ospversion
+
 	return annotations
 }
 
-func validateMachineDeployment(ctx context.Context, md *clusterv1alpha1.MachineDeployment, client ctrlruntimeclient.Client, namespace string) error {
-	ospName := md.Annotations[resources.MachineDeploymentOSPAnnotation]
-	// Ignoring request since no OperatingSystemProfile found
-	if len(ospName) == 0 {
-		// Returning here as MD without this annotation shouldn't be validated
-		return nil
-	}
-
-	ospNamespace := md.Annotations[resources.MachineDeploymentOSPNamespaceAnnotation]
-	if len(ospNamespace) == 0 {
-		ospNamespace = namespace
-	}
-
-	osp := &osmv1alpha1.OperatingSystemProfile{}
-	err := client.Get(ctx, types.NamespacedName{Name: ospName, Namespace: ospNamespace}, osp)
-	if err != nil {
-		if kerrors.IsNotFound(err) {
-			return fmt.Errorf("OperatingSystemProfile %q not found", ospName)
-		}
-
-		return fmt.Errorf("failed to fetch OperatingSystemProfile %q: %w", ospName, err)
-	}
-
+func validateMachineDeployment(md *clusterv1alpha1.MachineDeployment, osp *osmv1alpha1.OperatingSystemProfile) error {
 	// Get providerConfig from machineDeployment
 	providerConfig := providerconfig.Config{}
-	err = json.Unmarshal(md.Spec.Template.Spec.ProviderSpec.Value.Raw, &providerConfig)
-	if err != nil {
+
+	if err := json.Unmarshal(md.Spec.Template.Spec.ProviderSpec.Value.Raw, &providerConfig); err != nil {
 		return fmt.Errorf("failed to decode provider config: %w", err)
 	}
 
@@ -618,7 +587,7 @@ func validateMachineDeployment(ctx context.Context, md *clusterv1alpha1.MachineD
 
 	// Ensure that OSP supports the operating system
 	if !supportedCloudProvider {
-		return fmt.Errorf("OperatingSystemProfile %q does not support cloud provider %q", osp.Name, providerConfig.OperatingSystem)
+		return fmt.Errorf("OperatingSystemProfile %q does not support cloud provider %q", osp.Name, providerConfig.CloudProvider)
 	}
 
 	return nil
