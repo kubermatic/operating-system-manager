@@ -668,7 +668,7 @@ func TestOSCAndSecretRotationOnHashOrVersionChange(t *testing.T) {
 		{
 			name: "rotates when operating system profile version changes",
 			mutate: func(t *testing.T, ctx context.Context, client ctrlruntimeclient.Client, _ *v1alpha1.MachineDeployment, osp *osmv1alpha1.OperatingSystemProfile) {
-				osp.Spec.Version = osp.Spec.Version + ".1"
+				osp.Spec.Version += ".1"
 				if err := client.Update(ctx, osp); err != nil {
 					t.Fatalf("failed to update OperatingSystemProfile: %v", err)
 				}
