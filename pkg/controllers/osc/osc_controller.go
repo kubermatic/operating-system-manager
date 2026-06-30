@@ -585,7 +585,7 @@ func validateMachineDeployment(md *clusterv1alpha1.MachineDeployment, osp *osmv1
 		}
 	}
 
-	// Ensure that OSP supports the operating system
+	// Ensure that OSP supports the cloud provider
 	if !supportedCloudProvider {
 		return fmt.Errorf("OperatingSystemProfile %q does not support cloud provider %q", osp.Name, providerConfig.CloudProvider)
 	}

@@ -641,6 +641,215 @@ func TestOSCAndSecretRotation(t *testing.T) {
 	}
 }
 
+func TestOSCAndSecretRotationOnHashOrVersionChange(t *testing.T) {
+	testCases := []struct {
+		name                 string
+		mutate               func(t *testing.T, ctx context.Context, client ctrlruntimeclient.Client, md *v1alpha1.MachineDeployment, osp *osmv1alpha1.OperatingSystemProfile)
+		verifyExpectedChange func(t *testing.T, oldHash, oldVersion, newHash, newVersion string)
+	}{
+		{
+			name: "rotates when machine deployment annotations hash changes",
+			mutate: func(t *testing.T, ctx context.Context, client ctrlruntimeclient.Client, md *v1alpha1.MachineDeployment, _ *osmv1alpha1.OperatingSystemProfile) {
+				md.Annotations["test.k8c.io/rotation-trigger"] = "updated"
+				if err := client.Update(ctx, md); err != nil {
+					t.Fatalf("failed to update machine deployment: %v", err)
+				}
+			},
+			verifyExpectedChange: func(t *testing.T, oldHash, oldVersion, newHash, newVersion string) {
+				if oldHash == newHash {
+					t.Fatal("expected machine deployment annotations hash to change")
+				}
+
+				if oldVersion != newVersion {
+					t.Fatal("expected OperatingSystemProfile version to stay unchanged")
+				}
+			},
+		},
+		{
+			name: "rotates when operating system profile version changes",
+			mutate: func(t *testing.T, ctx context.Context, client ctrlruntimeclient.Client, _ *v1alpha1.MachineDeployment, osp *osmv1alpha1.OperatingSystemProfile) {
+				osp.Spec.Version = osp.Spec.Version + ".1"
+				if err := client.Update(ctx, osp); err != nil {
+					t.Fatalf("failed to update OperatingSystemProfile: %v", err)
+				}
+			},
+			verifyExpectedChange: func(t *testing.T, oldHash, oldVersion, newHash, newVersion string) {
+				if oldVersion == newVersion {
+					t.Fatal("expected OperatingSystemProfile version to change")
+				}
+
+				if oldHash != newHash {
+					t.Fatal("expected machine deployment annotations hash to stay unchanged")
+				}
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			ctx := context.Background()
+			osp := &osmv1alpha1.OperatingSystemProfile{}
+			if err := loadFile(osp, defaultOSPPathPrefix+fmt.Sprintf("%s.yaml", ospUbuntu)); err != nil {
+				t.Fatalf("failed loading osp from testdata: %v", err)
+			}
+
+			md := generateMachineDeployment(
+				t,
+				"ubuntu-aws",
+				"kube-system",
+				ospUbuntu,
+				defaultKubeletVersion,
+				providerconfig.OperatingSystemUbuntu,
+				"aws",
+				runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)},
+				map[string]string{"test.k8c.io/static": "value"},
+				mcnet.IPFamilyIPv4,
+			)
+
+			objects := []ctrlruntimeclient.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cluster-info",
+						Namespace: "kube-public",
+					},
+					Data: map[string]string{"kubeconfig": clusterInfoKubeconfig},
+				},
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cloud-init-getter-token",
+						Namespace: "cloud-init-settings",
+					},
+					Data: map[string][]byte{
+						"token": []byte("top-secret"),
+					},
+				},
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "bootstrap-token",
+						Namespace: "kube-system",
+						Labels:    map[string]string{"machinedeployment.k8s.io/name": "kube-system-ubuntu-aws"},
+					},
+					Data: map[string][]byte{
+						"token-id":     []byte("test"),
+						"token-secret": []byte("test"),
+						"expiration":   []byte(metav1.Now().Add(10 * time.Hour).Format(time.RFC3339)),
+					},
+				},
+				osp,
+				md,
+			}
+
+			fakeClient := ctrlruntimefakeclient.
+				NewClientBuilder().
+				WithScheme(scheme.Scheme).
+				WithObjects(objects...).
+				Build()
+
+			reconciler := buildReconciler(fakeClient, testConfig{namespace: "kube-system", containerRuntime: "containerd"})
+
+			if err := reconciler.reconcile(ctx, md); err != nil {
+				t.Fatalf("failed to reconcile: %v", err)
+			}
+
+			oscName := fmt.Sprintf(resources.OperatingSystemConfigNamePattern, md.Name, md.Namespace)
+			bootstrapSecretName := fmt.Sprintf(mcbootstrap.CloudConfigSecretNamePattern, md.Name, md.Namespace, mcbootstrap.BootstrapCloudConfig)
+			provisioningSecretName := fmt.Sprintf(mcbootstrap.CloudConfigSecretNamePattern, md.Name, md.Namespace, resources.ProvisioningCloudConfig)
+
+			osc := &osmv1alpha1.OperatingSystemConfig{}
+			if err := fakeClient.Get(ctx, types.NamespacedName{Namespace: "kube-system", Name: oscName}, osc); err != nil {
+				t.Fatalf("failed to get osc: %v", err)
+			}
+
+			bootstrapSecret := &corev1.Secret{}
+			if err := fakeClient.Get(ctx, types.NamespacedName{Namespace: mcbootstrap.CloudInitSettingsNamespace, Name: bootstrapSecretName}, bootstrapSecret); err != nil {
+				t.Fatalf("failed to get bootstrap secret: %v", err)
+			}
+
+			provisioningSecret := &corev1.Secret{}
+			if err := fakeClient.Get(ctx, types.NamespacedName{Namespace: mcbootstrap.CloudInitSettingsNamespace, Name: provisioningSecretName}, provisioningSecret); err != nil {
+				t.Fatalf("failed to get provisioning secret: %v", err)
+			}
+
+			oldHash := osc.Annotations[OperatingSystemConfigMDHash]
+			oldVersion := osc.Annotations[OperatingSystemConfigVersionAnnotation]
+
+			testCase.mutate(t, ctx, fakeClient, md, osp)
+
+			if err := fakeClient.Get(ctx, types.NamespacedName{Namespace: md.Namespace, Name: md.Name}, md); err != nil {
+				t.Fatalf("failed to refresh machine deployment: %v", err)
+			}
+
+			if err := fakeClient.Get(ctx, types.NamespacedName{Namespace: osp.Namespace, Name: osp.Name}, osp); err != nil {
+				t.Fatalf("failed to refresh OperatingSystemProfile: %v", err)
+			}
+
+			if err := reconciler.reconcile(ctx, md); err != nil {
+				t.Fatalf("failed to reconcile after update: %v", err)
+			}
+
+			if err := fakeClient.Get(ctx, types.NamespacedName{Namespace: "kube-system", Name: oscName}, osc); err != nil {
+				t.Fatalf("failed to get updated osc: %v", err)
+			}
+
+			if err := fakeClient.Get(ctx, types.NamespacedName{Namespace: mcbootstrap.CloudInitSettingsNamespace, Name: bootstrapSecretName}, bootstrapSecret); err != nil {
+				t.Fatalf("failed to get updated bootstrap secret: %v", err)
+			}
+
+			if err := fakeClient.Get(ctx, types.NamespacedName{Namespace: mcbootstrap.CloudInitSettingsNamespace, Name: provisioningSecretName}, provisioningSecret); err != nil {
+				t.Fatalf("failed to get updated provisioning secret: %v", err)
+			}
+
+			newHash := osc.Annotations[OperatingSystemConfigMDHash]
+			newVersion := osc.Annotations[OperatingSystemConfigVersionAnnotation]
+			testCase.verifyExpectedChange(t, oldHash, oldVersion, newHash, newVersion)
+
+			expectedRevision := md.Annotations[mcsdkcommon.RevisionAnnotation]
+			expectedHash, err := reconciler.calculateAnnotationsHash(md.Annotations)
+			if err != nil {
+				t.Fatalf("failed to calculate expected machine deployment annotations hash: %v", err)
+			}
+
+			expectedVersion := osp.Spec.Version
+
+			if expectedRevision != osc.Annotations[mcbootstrap.MachineDeploymentRevision] {
+				t.Fatal("revision for machine deployment and OSC didn't match")
+			}
+
+			if expectedHash != osc.Annotations[OperatingSystemConfigMDHash] {
+				t.Fatal("machine deployment annotations hash for machine deployment and OSC didn't match")
+			}
+
+			if expectedVersion != osc.Annotations[OperatingSystemConfigVersionAnnotation] {
+				t.Fatal("OperatingSystemProfile version for OSP and OSC didn't match")
+			}
+
+			if expectedRevision != bootstrapSecret.Annotations[mcbootstrap.MachineDeploymentRevision] {
+				t.Fatal("revision for machine deployment and bootstrap secret didn't match")
+			}
+
+			if expectedHash != bootstrapSecret.Annotations[OperatingSystemConfigMDHash] {
+				t.Fatal("machine deployment annotations hash for machine deployment and bootstrap secret didn't match")
+			}
+
+			if expectedVersion != bootstrapSecret.Annotations[OperatingSystemConfigVersionAnnotation] {
+				t.Fatal("OperatingSystemProfile version for OSP and bootstrap secret didn't match")
+			}
+
+			if expectedRevision != provisioningSecret.Annotations[mcbootstrap.MachineDeploymentRevision] {
+				t.Fatal("revision for machine deployment and provisioning secret didn't match")
+			}
+
+			if expectedHash != provisioningSecret.Annotations[OperatingSystemConfigMDHash] {
+				t.Fatal("machine deployment annotations hash for machine deployment and provisioning secret didn't match")
+			}
+
+			if expectedVersion != provisioningSecret.Annotations[OperatingSystemConfigVersionAnnotation] {
+				t.Fatal("OperatingSystemProfile version for OSP and provisioning secret didn't match")
+			}
+		})
+	}
+}
+
 func TestMachineDeploymentDeletion(t *testing.T) {
 	testCases := []struct {
 		name              string
