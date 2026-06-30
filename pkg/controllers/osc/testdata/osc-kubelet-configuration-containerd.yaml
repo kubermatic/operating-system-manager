@@ -3,6 +3,8 @@ kind: OperatingSystemConfig
 metadata:
   annotations:
     k8c.io/machine-deployment-revision: "1"
+    k8c.io/mdannotations-hash: db7ff021c8a496bfbf5511482e26a4a4039c99d745d9360c3d518f26f3b6ee2c
+    k8c.io/osp-version: v1.10.0
   name: kubelet-configuration-kube-system-config
   namespace: kube-system
   resourceVersion: "1"
