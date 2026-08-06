@@ -38,7 +38,7 @@ go run sigs.k8s.io/controller-tools/cmd/controller-gen \
 echodate "Generating reconciling helpers"
 
 reconcileHelpers=pkg/resources/reconciling/zz_generated_reconcile.go
-go run k8c.io/reconciler/cmd/reconciler-gen --config hack/reconciling.yaml >$reconcileHelpers
+go run k8c.io/reconciler/cmd/reconciler-gen --config hack/reconciling.yaml > $reconcileHelpers
 
 currentYear=$(date +%Y)
 $sed -i "s/Copyright YEAR/Copyright $currentYear/g" $reconcileHelpers
