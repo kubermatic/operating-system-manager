@@ -19,7 +19,7 @@ set -euo pipefail
 cd $(dirname $0)/..
 source hack/lib.sh
 
-CONTAINERIZE_IMAGE=quay.io/kubermatic/build:go-1.26-node-22-1 containerize ./hack/update-codegen.sh
+CONTAINERIZE_IMAGE=quay.io/kubermatic/build:go-1.26-node-22-0.32-8 containerize ./hack/update-codegen.sh
 SCRIPT_ROOT=$(dirname "${BASH_SOURCE}")
 
 sed="sed"
@@ -38,7 +38,7 @@ go run sigs.k8s.io/controller-tools/cmd/controller-gen \
 echodate "Generating reconciling helpers"
 
 reconcileHelpers=pkg/resources/reconciling/zz_generated_reconcile.go
-go run k8c.io/reconciler/cmd/reconciler-gen --config hack/reconciling.yaml > $reconcileHelpers
+go run k8c.io/reconciler/cmd/reconciler-gen --config hack/reconciling.yaml >$reconcileHelpers
 
 currentYear=$(date +%Y)
 $sed -i "s/Copyright YEAR/Copyright $currentYear/g" $reconcileHelpers
