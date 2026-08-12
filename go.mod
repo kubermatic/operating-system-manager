@@ -1,6 +1,6 @@
 module k8c.io/operating-system-manager
 
-go 1.26.0
+go 1.26.5
 
 replace github.com/ajeddeloh/go-json => github.com/coreos/go-json v0.0.0-20231102161613-e49c8866685a
 
@@ -18,7 +18,7 @@ require (
 	go.uber.org/zap v1.27.1
 	gopkg.in/gcfg.v1 v1.2.3
 	gopkg.in/yaml.v3 v3.0.1
-	k8c.io/machine-controller/sdk v1.64.1
+	k8c.io/machine-controller/sdk v1.66.1
 	k8c.io/reconciler v0.5.0
 	k8s.io/api v0.36.2
 	k8s.io/apimachinery v0.36.2
