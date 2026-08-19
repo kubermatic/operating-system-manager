@@ -1,6 +1,6 @@
 module k8c.io/operating-system-manager
 
-go 1.26.5
+go 1.26.7
 
 replace github.com/ajeddeloh/go-json => github.com/coreos/go-json v0.0.0-20231102161613-e49c8866685a
 
