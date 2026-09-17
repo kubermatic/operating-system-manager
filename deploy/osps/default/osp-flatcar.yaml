@@ -21,7 +21,7 @@ spec:
   osName: flatcar
   ## Flatcar Stable (09/11/2021)
   osVersion: "2983.2.0"
-  version: "v1.11.4"
+  version: "v1.11.5"
   provisioningUtility: "ignition"
   supportedCloudProviders:
     - name: "aws"
@@ -512,11 +512,24 @@ spec:
               fi
 
               # get the full hostname
+              {{- if eq .CloudProviderName "aws" }}
+              # AWS nodes must use the private DNS name reported by EC2.
+              if [ ! -r /run/metadata/flatcar ]; then
+                echodate "AWS metadata is missing: /run/metadata/flatcar; refusing to choose a fallback hostname"
+                exit 1
+              fi
+              FULL_HOSTNAME=$(sed -n 's/^COREOS_EC2_HOSTNAME=//p' /run/metadata/flatcar)
+              if [ -z "${FULL_HOSTNAME}" ]; then
+                echodate "COREOS_EC2_HOSTNAME is missing or empty; refusing to choose a fallback hostname"
+                exit 1
+              fi
+              {{- else }}
               if grep -q COREOS_EC2_HOSTNAME /run/metadata/flatcar; then
                 FULL_HOSTNAME=$(grep COREOS_EC2_HOSTNAME /run/metadata/flatcar | cut -d= -f2)
               else
                 FULL_HOSTNAME=$(hostname -f)
               fi
+              {{- end }}
 
               # if /etc/machine-name is not empty then use the hostname from there
               if [ -s /etc/machine-name ]; then
@@ -623,6 +636,18 @@ spec:
             data: |
               {{ .KubernetesCACert }}
 
+      - path: /etc/systemd/system/setup.service.d/10-aws-metadata.conf
+        permissions: 644
+        content:
+          inline:
+            data: |
+              {{- if eq .CloudProviderName "aws" }}
+              [Unit]
+              # Fetch AWS metadata before choosing the kubelet node name.
+              Requires=coreos-metadata.service
+              After=coreos-metadata.service
+              {{- end }}
+
       - path: /etc/systemd/system/kubelet.service
         permissions: 600
         content:
@@ -631,6 +656,11 @@ spec:
               [Unit]
               After={{ .ContainerRuntime }}.service
               Wants={{ .ContainerRuntime }}.service
+              {{- if eq .CloudProviderName "aws" }}
+              # Fetch AWS metadata before choosing the kubelet node name.
+              Requires=coreos-metadata.service
+              After=coreos-metadata.service
+              {{- end }}
 
               Description=kubelet: The Kubernetes Node Agent
               Documentation=https://kubernetes.io/docs/home/

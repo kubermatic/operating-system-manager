@@ -4,7 +4,7 @@ metadata:
   annotations:
     k8c.io/machine-deployment-revision: "1"
     k8c.io/mdannotations-hash: bf61b23ba898e84e3e68ad8c36694f70e7fd3e3f3b8e69ac1ffc129bd38a0046
-    k8c.io/osp-version: v1.11.4
+    k8c.io/osp-version: v1.11.5
   name: flatcar-aws-containerd-kube-system-config
   namespace: kube-system
   resourceVersion: "1"
@@ -137,10 +137,15 @@ spec:
             fi
 
             # get the full hostname
-            if grep -q COREOS_EC2_HOSTNAME /run/metadata/flatcar; then
-              FULL_HOSTNAME=$(grep COREOS_EC2_HOSTNAME /run/metadata/flatcar | cut -d= -f2)
-            else
-              FULL_HOSTNAME=$(hostname -f)
+            # AWS nodes must use the private DNS name reported by EC2.
+            if [ ! -r /run/metadata/flatcar ]; then
+              echodate "AWS metadata is missing: /run/metadata/flatcar; refusing to choose a fallback hostname"
+              exit 1
+            fi
+            FULL_HOSTNAME=$(sed -n 's/^COREOS_EC2_HOSTNAME=//p' /run/metadata/flatcar)
+            if [ -z "${FULL_HOSTNAME}" ]; then
+              echodate "COREOS_EC2_HOSTNAME is missing or empty; refusing to choose a fallback hostname"
+              exit 1
             fi
 
             # if /etc/machine-name is not empty then use the hostname from there
@@ -308,10 +313,23 @@ spec:
       permissions: 644
     - content:
         inline:
+          data: |2
+
+            [Unit]
+            # Fetch AWS metadata before choosing the kubelet node name.
+            Requires=coreos-metadata.service
+            After=coreos-metadata.service
+      path: /etc/systemd/system/setup.service.d/10-aws-metadata.conf
+      permissions: 644
+    - content:
+        inline:
           data: |
             [Unit]
             After=containerd.service
             Wants=containerd.service
+            # Fetch AWS metadata before choosing the kubelet node name.
+            Requires=coreos-metadata.service
+            After=coreos-metadata.service
 
             Description=kubelet: The Kubernetes Node Agent
             Documentation=https://kubernetes.io/docs/home/
