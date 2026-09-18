@@ -4,7 +4,7 @@ metadata:
   annotations:
     k8c.io/machine-deployment-revision: "1"
     k8c.io/mdannotations-hash: 80765e800a0186ae20232d6afa4b9a64163e5adbbc2c66ec9fb134f64fc7ed79
-    k8c.io/osp-version: v1.11.4
+    k8c.io/osp-version: v1.11.5
   name: osp-rhel-azure-kube-system-config
   namespace: kube-system
   resourceVersion: "1"
@@ -350,11 +350,7 @@ spec:
 
             [Service]
             Type=oneshot
-            ExecStart=/bin/sh -c '\
-            if ! curl -m 10 -fsS http://127.0.0.1:10248/healthz >/dev/null; then
-                logger -t kubelet-healthcheck "kubelet unhealthy, restarting"
-                systemctl restart kubelet
-            fi'
+            ExecStart=/bin/sh -c 'if ! curl -m 10 -fsS http://127.0.0.1:10248/healthz >/dev/null; then logger -t kubelet-healthcheck "kubelet unhealthy, restarting"; systemctl restart kubelet; fi'
           encoding: b64
       path: /etc/systemd/system/kubelet-healthcheck.service
       permissions: 644

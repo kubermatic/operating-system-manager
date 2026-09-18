@@ -21,7 +21,7 @@ spec:
   osName: flatcar
   ## Flatcar Stable (09/11/2021)
   osVersion: "2983.2.0"
-  version: "v1.11.4"
+  version: "v1.11.5"
   provisioningUtility: "cloud-init"
   supportedCloudProviders:
     - name: "anexia"
@@ -510,11 +510,7 @@ spec:
 
               [Service]
               Type=oneshot
-              ExecStart=/bin/sh -c '\
-              if ! curl -m 10 -fsS http://127.0.0.1:10248/healthz >/dev/null; then
-                  logger -t kubelet-healthcheck "kubelet unhealthy, restarting"
-                  systemctl restart kubelet
-              fi'
+              ExecStart=/bin/sh -c 'if ! curl -m 10 -fsS http://127.0.0.1:10248/healthz >/dev/null; then logger -t kubelet-healthcheck "kubelet unhealthy, restarting"; systemctl restart kubelet; fi'
 
       - path: /etc/systemd/system/kubelet-healthcheck.timer
         permissions: 644
