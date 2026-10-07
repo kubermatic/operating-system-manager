@@ -3,6 +3,7 @@
 .kubeconfig
 /vendor
 _build
+_dist
 .vscode/
 .local
 .DS_Store
