@@ -20,7 +20,7 @@ metadata:
 spec:
   osName: "amzn2"
   osVersion: "2.0"
-  version: "v1.10.10"
+  version: "v1.10.11"
   provisioningUtility: "cloud-init"
   supportedCloudProviders:
     - name: "aws"
