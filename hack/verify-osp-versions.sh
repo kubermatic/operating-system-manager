@@ -29,7 +29,7 @@ fi
 
 failed=0
 for osp in deploy/osps/default/*.yaml; do
-  version="$(grep -E '^  version: "v[0-9]+\.[0-9]+\.[0-9]+"$' "${osp}" | cut -d'"' -f2 || true)"
+  version="$(grep -E '^  version: "v[^"]+"$' "${osp}" | cut -d'"' -f2 || true)"
   if [[ "${version}" != "${GIT_TAG}" ]]; then
     echo "${osp}: expected ${GIT_TAG}, found ${version:-no version line}" >&2
     failed=1
