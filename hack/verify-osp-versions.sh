@@ -15,7 +15,8 @@
 # limitations under the License.
 
 # Verifies that every OSP manifest in deploy/osps/default carries the version
-# of the git tag pointing at HEAD. Exits 0 silently on untagged commits.
+# of the git tag pointing at HEAD. Exits 0 silently on untagged commits and
+# on tags that are not semantic versions.
 
 set -euo pipefail
 
@@ -23,7 +24,8 @@ cd "$(dirname "$0")/.."
 
 GIT_TAG="$(git tag --points-at HEAD)"
 
-if [[ -z "${GIT_TAG}" ]]; then
+# only semantic-version tags (v1.2.3, v1.12.0-rc.1) trigger the check; anything else is ignored
+if ! printf '%s' "${GIT_TAG}" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'; then
   exit 0
 fi
 
