@@ -289,6 +289,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 				"v1.kubelet-config.machine-controller.kubermatic.io/SystemReserved":       "ephemeral-storage=30Gi,cpu=30m",
 				"v1.kubelet-config.machine-controller.kubermatic.io/KubeReserved":         "ephemeral-storage=30Gi,cpu=30m",
 				"v1.kubelet-config.machine-controller.kubermatic.io/EvictionHard":         "memory.available<30Mi",
+				"v1.journald-config.machine-controller.kubermatic.io/SystemMaxUse":        "2G",
 			},
 		},
 	}

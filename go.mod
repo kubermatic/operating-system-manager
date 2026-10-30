@@ -19,7 +19,7 @@ require (
 	go.uber.org/zap v1.27.1
 	gopkg.in/gcfg.v1 v1.2.3
 	gopkg.in/yaml.v3 v3.0.1
-	k8c.io/machine-controller/sdk v1.66.1
+	k8c.io/machine-controller/sdk v1.66.6
 	k8c.io/reconciler v0.5.0
 	k8s.io/api v0.36.2
 	k8s.io/apimachinery v0.36.2
