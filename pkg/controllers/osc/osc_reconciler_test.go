@@ -18,12 +18,15 @@ package osc
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -1093,4 +1096,227 @@ func buildReconciler(fakeClient ctrlruntimeclient.Client, config testConfig) Rec
 		nodeHTTPProxy:         "http://test-http-proxy.com",
 		nodeNoProxy:           "http://test-no-proxy.com",
 	}
+}
+
+// staleCacheClient simulates an informer cache that has not yet observed deletions: after Delete succeeds against the
+// API server, Get keeps returning the deleted object until catchUp is called for its type.
+type staleCacheClient struct {
+	ctrlruntimeclient.Client
+	deleted map[reflect.Type]map[types.NamespacedName]ctrlruntimeclient.Object
+}
+
+func newStaleCacheClient(client ctrlruntimeclient.Client) *staleCacheClient {
+	return &staleCacheClient{
+		Client:  client,
+		deleted: map[reflect.Type]map[types.NamespacedName]ctrlruntimeclient.Object{},
+	}
+}
+
+func (c *staleCacheClient) Get(ctx context.Context, key types.NamespacedName, obj ctrlruntimeclient.Object, opts ...ctrlruntimeclient.GetOption) error {
+	if stale, ok := c.deleted[reflect.TypeOf(obj)][key]; ok {
+		reflect.ValueOf(obj).Elem().Set(reflect.ValueOf(stale.DeepCopyObject()).Elem())
+		return nil
+	}
+	return c.Client.Get(ctx, key, obj, opts...)
+}
+
+func (c *staleCacheClient) Delete(ctx context.Context, obj ctrlruntimeclient.Object, opts ...ctrlruntimeclient.DeleteOption) error {
+	key := ctrlruntimeclient.ObjectKeyFromObject(obj)
+	snapshot, ok := obj.DeepCopyObject().(ctrlruntimeclient.Object)
+	if !ok {
+		return fmt.Errorf("unexpected object type %T", obj)
+	}
+	if err := c.Client.Get(ctx, key, snapshot); err != nil {
+		// Already gone on the API server; surface the real NotFound.
+		return c.Client.Delete(ctx, obj, opts...)
+	}
+	if err := c.Client.Delete(ctx, obj, opts...); err != nil {
+		return err
+	}
+
+	objType := reflect.TypeOf(obj)
+	if c.deleted[objType] == nil {
+		c.deleted[objType] = map[types.NamespacedName]ctrlruntimeclient.Object{}
+	}
+	c.deleted[objType][key] = snapshot
+	return nil
+}
+
+// catchUp makes the cache observe all deletions of the given object types.
+func (c *staleCacheClient) catchUp(objs ...ctrlruntimeclient.Object) {
+	for _, obj := range objs {
+		delete(c.deleted, reflect.TypeOf(obj))
+	}
+}
+
+// TestRotationWithStaleCache reproduces a worker upgrade where the cached OSC and secrets lag behind their own deletion
+// during rotation. The secrets must end up with the content of the OSC for the new MachineDeployment revision, not the
+// deleted one.
+func TestRotationWithStaleCache(t *testing.T) {
+	const (
+		oldKubeletVersion = "1.35.5"
+		newKubeletVersion = "1.36.3"
+		mdName            = "ubuntu-aws"
+		namespace         = "kube-system"
+	)
+
+	testCases := []struct {
+		name    string
+		catchUp []ctrlruntimeclient.Object
+	}{
+		{
+			name:    "OSC and secret caches catch up together",
+			catchUp: []ctrlruntimeclient.Object{&osmv1alpha1.OperatingSystemConfig{}, &corev1.Secret{}},
+		},
+		{
+			name:    "OSC cache catches up before secret cache",
+			catchUp: []ctrlruntimeclient.Object{&osmv1alpha1.OperatingSystemConfig{}},
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			osp := &osmv1alpha1.OperatingSystemProfile{}
+			if err := loadFile(osp, defaultOSPPathPrefix+fmt.Sprintf("%s.yaml", ospUbuntu)); err != nil {
+				t.Fatalf("failed loading osp: %v", err)
+			}
+
+			md := generateMachineDeployment(t, mdName, namespace, ospUbuntu, oldKubeletVersion, providerconfig.OperatingSystemUbuntu, "aws",
+				runtime.RawExtension{Raw: []byte(`{"availabilityZone": "eu-central-1b", "vpcId": "e-123f", "subnetID": "test-subnet"}`)}, nil, mcnet.IPFamilyIPv4)
+
+			objects := []ctrlruntimeclient.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster-info", Namespace: "kube-public"},
+					Data:       map[string]string{"kubeconfig": clusterInfoKubeconfig},
+				},
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: "cloud-init-getter-token", Namespace: "cloud-init-settings"},
+					Data:       map[string][]byte{"token": []byte("top-secret")},
+				},
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "bootstrap-token",
+						Namespace: "kube-system",
+						Labels:    map[string]string{"machinedeployment.k8s.io/name": fmt.Sprintf("%s-%s", namespace, mdName)},
+					},
+					Data: map[string][]byte{
+						"token-id":     []byte("test"),
+						"token-secret": []byte("test"),
+						"expiration":   []byte(metav1.Now().Add(10 * time.Hour).Format(time.RFC3339)),
+					},
+				},
+				osp,
+				md,
+			}
+
+			fakeClient := ctrlruntimefakeclient.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(objects...).Build()
+			cachedClient := newStaleCacheClient(fakeClient)
+
+			// Without -worker-cluster-kubeconfig, OSC and secrets are both read through the manager's cache.
+			reconciler := buildReconciler(fakeClient, testConfig{namespace: namespace, containerRuntime: "containerd"})
+			reconciler.Client = cachedClient
+			reconciler.workerClient = cachedClient
+
+			ctx := context.Background()
+			oscName := fmt.Sprintf(resources.OperatingSystemConfigNamePattern, md.Name, md.Namespace)
+			provisioningSecretName := fmt.Sprintf(mcbootstrap.CloudConfigSecretNamePattern, md.Name, md.Namespace, resources.ProvisioningCloudConfig)
+			bootstrapSecretName := fmt.Sprintf(mcbootstrap.CloudConfigSecretNamePattern, md.Name, md.Namespace, mcbootstrap.BootstrapCloudConfig)
+
+			// Initial provisioning at revision 1.
+			if err := reconciler.reconcile(ctx, md); err != nil {
+				t.Fatalf("initial reconcile failed: %v", err)
+			}
+
+			// Worker upgrade: MachineDeployment controller bumps the revision.
+			md.Spec.Template.Spec.Versions.Kubelet = newKubeletVersion
+			md.Annotations[mcsdkcommon.RevisionAnnotation] = "2"
+
+			// While the cache still returns the deleted OSC, reconciling must fail without creating any secrets.
+			for i := range 2 {
+				if err := reconciler.reconcile(ctx, md); err == nil {
+					t.Fatalf("expected reconcile %d with stale cache to fail", i+1)
+				}
+
+				secret := &corev1.Secret{}
+				if err := fakeClient.Get(ctx, types.NamespacedName{Namespace: mcbootstrap.CloudInitSettingsNamespace, Name: provisioningSecretName}, secret); !kerrors.IsNotFound(err) {
+					t.Fatalf("expected no provisioning secret while the cache is stale, got: %v", err)
+				}
+			}
+
+			cachedClient.catchUp(testCase.catchUp...)
+			if err := reconciler.reconcile(ctx, md); err != nil {
+				t.Fatalf("reconcile after cache sync failed: %v", err)
+			}
+
+			osc := &osmv1alpha1.OperatingSystemConfig{}
+			if err := fakeClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: oscName}, osc); err != nil {
+				t.Fatalf("failed to get osc: %v", err)
+			}
+
+			oscKubeVersion := kubeVersionIn(t, osc.Spec.ProvisioningConfig.Files)
+			if oscKubeVersion != "v"+newKubeletVersion {
+				t.Fatalf("expected OSC to contain KUBE_VERSION v%s, got %q", newKubeletVersion, oscKubeVersion)
+			}
+
+			for _, secretName := range []string{provisioningSecretName, bootstrapSecretName} {
+				secret := &corev1.Secret{}
+				if err := fakeClient.Get(ctx, types.NamespacedName{Namespace: mcbootstrap.CloudInitSettingsNamespace, Name: secretName}, secret); err != nil {
+					t.Fatalf("failed to get secret %s: %v", secretName, err)
+				}
+
+				if rev := secret.Annotations[mcbootstrap.MachineDeploymentRevision]; rev != "2" {
+					t.Fatalf("expected secret %s to have revision 2, got %q", secretName, rev)
+				}
+
+				if secretName == provisioningSecretName {
+					if secretKubeVersion := kubeVersionInCloudConfig(t, secret.Data["cloud-config"]); secretKubeVersion != oscKubeVersion {
+						t.Fatalf("provisioning secret is annotated with revision 2 but contains KUBE_VERSION %s, while the OSC contains %s", secretKubeVersion, oscKubeVersion)
+					}
+				}
+			}
+		})
+	}
+}
+
+func kubeVersionInCloudConfig(t *testing.T, cloudConfig []byte) string {
+	t.Helper()
+	config := struct {
+		WriteFiles []struct {
+			Encoding string `json:"encoding"`
+			Content  string `json:"content"`
+		} `json:"write_files"`
+	}{}
+	if err := yaml.Unmarshal(cloudConfig, &config); err != nil {
+		t.Fatalf("failed to parse cloud-config: %v", err)
+	}
+
+	var files []osmv1alpha1.File
+	for _, f := range config.WriteFiles {
+		content := f.Content
+		if f.Encoding == "b64" {
+			decoded, err := base64.StdEncoding.DecodeString(content)
+			if err != nil {
+				t.Fatalf("failed to decode file content: %v", err)
+			}
+			content = string(decoded)
+		}
+		files = append(files, osmv1alpha1.File{Content: osmv1alpha1.FileContent{Inline: &osmv1alpha1.FileContentInline{Data: content}}})
+	}
+	return kubeVersionIn(t, files)
+}
+
+func kubeVersionIn(t *testing.T, files []osmv1alpha1.File) string {
+	t.Helper()
+	for _, f := range files {
+		if f.Content.Inline == nil {
+			continue
+		}
+		for _, line := range strings.Split(f.Content.Inline.Data, "\n") {
+			if _, v, ok := strings.Cut(line, `KUBE_VERSION="${KUBE_VERSION:-`); ok {
+				return strings.TrimSuffix(strings.TrimSpace(v), `}"`)
+			}
+		}
+	}
+	t.Fatal("KUBE_VERSION not found")
+	return ""
 }
