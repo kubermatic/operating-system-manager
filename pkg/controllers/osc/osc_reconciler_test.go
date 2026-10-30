@@ -80,7 +80,7 @@ kPe6XoSbiLm/kxk32T0=
 
 const (
 	defaultOSPPathPrefix  = "../../../../deploy/osps/default/"
-	defaultKubeletVersion = "1.31.0"
+	defaultKubeletVersion = "1.37.0"
 	ospUbuntu             = "osp-ubuntu"
 )
 

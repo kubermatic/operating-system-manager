@@ -670,8 +670,10 @@ spec:
               RestartSec=10
               CPUAccounting=true
               MemoryAccounting=true
+              {{- if semverCompare ">=1.32" .KubeVersion }}
               {{- /* Native systemd watchdog: the kubelet sends sd_notify keep-alives tied to its internal health; systemd restarts it on missed heartbeats via Restart=. */}}
               WatchdogSec=30s
+              {{- end }}
 
               Environment="PATH=/opt/bin:/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin/"
               EnvironmentFile=-/etc/environment
