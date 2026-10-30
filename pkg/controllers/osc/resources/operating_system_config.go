@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -59,7 +60,13 @@ const (
 	MachineDeploymentOSPNamespaceAnnotation = "k8c.io/operating-system-profile-namespace"
 
 	defaultFilePermissions = 644
+
+	// DefaultJournaldSystemMaxUse is the default value for SystemMaxUse in journald configuration.
+	DefaultJournaldSystemMaxUse = "5G"
 )
+
+// journaldSizeRegex matches sizes accepted by journald, e.g. 500M, 5G.
+var journaldSizeRegex = regexp.MustCompile(`^[0-9]+[KMGTPE]?$`)
 
 // GenerateOperatingSystemConfig return an OperatingSystemConfig generated against the input data
 func GenerateOperatingSystemConfig(
@@ -297,6 +304,11 @@ func buildFilesData(
 		return filesData{}, err
 	}
 
+	journaldConfigs, err := getJournaldConfigs(annotations)
+	if err != nil {
+		return filesData{}, err
+	}
+
 	networkIPFamily := providerConfig.Network.GetIPFamily()
 
 	data := filesData{
@@ -318,6 +330,7 @@ func buildFilesData(
 		bootstrapConfig:            bc,
 		NetworkIPFamily:            string(networkIPFamily),
 		PauseImage:                 sandboxImage,
+		journaldConfig:             journaldConfigs,
 	}
 
 	if len(nodeHTTPProxy) > 0 {
@@ -456,6 +469,7 @@ type filesData struct {
 	PauseImage                 string
 
 	kubeletConfig
+	journaldConfig
 	operatingSystemConfig
 	bootstrapConfig
 }
@@ -479,6 +493,10 @@ type kubeletConfig struct {
 	ImageGCLowThresholdPercent  *int32
 	ImageMinimumGCAge           *metav1.Duration
 	ImageMaximumGCAge           *metav1.Duration
+}
+
+type journaldConfig struct {
+	JournaldSystemMaxUse string
 }
 
 type bootstrapConfig struct {
@@ -699,6 +717,23 @@ func getKubeletConfigs(annotations map[string]string) (kubeletConfig, error) {
 		}
 
 		cfg.ImageMaximumGCAge = &metav1.Duration{Duration: dur}
+	}
+
+	return cfg, nil
+}
+
+// getJournaldConfigs returns the journald configuration set on the machine deployment annotations,
+// falling back to the default values for unset options.
+func getJournaldConfigs(annotations map[string]string) (journaldConfig, error) {
+	cfg := journaldConfig{
+		JournaldSystemMaxUse: DefaultJournaldSystemMaxUse,
+	}
+
+	if val, ok := annotations[mcsdkcommon.JournaldConfigAnnotationPrefixV1+"/"+mcsdkcommon.JournaldSystemMaxUse]; ok {
+		if !journaldSizeRegex.MatchString(val) {
+			return journaldConfig{}, fmt.Errorf("parsing journaldSystemMaxUse: invalid size %q, expected a number with an optional K, M, G, T, P or E suffix", val)
+		}
+		cfg.JournaldSystemMaxUse = val
 	}
 
 	return cfg, nil

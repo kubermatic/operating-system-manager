@@ -21,7 +21,7 @@ spec:
   osName: flatcar
   ## Flatcar Stable (09/11/2021)
   osVersion: "2983.2.0"
-  version: "v1.11.7"
+  version: "v1.11.8"
   provisioningUtility: "ignition"
   supportedCloudProviders:
     - name: "aws"
@@ -425,7 +425,7 @@ spec:
           inline:
             data: |
               [Journal]
-              SystemMaxUse=5G
+              SystemMaxUse={{ .JournaldSystemMaxUse }}
 
       - path: /opt/load-kernel-modules.sh
         permissions: 755

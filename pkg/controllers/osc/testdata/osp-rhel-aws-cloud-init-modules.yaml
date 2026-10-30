@@ -20,7 +20,7 @@ metadata:
 spec:
   osName: "rhel"
   osVersion: "8.5"
-  version: "v1.11.7"
+  version: "v1.11.8"
   provisioningUtility: "cloud-init"
   supportedCloudProviders:
     - name: "aws"
@@ -284,7 +284,7 @@ spec:
             encoding: b64
             data: |
               [Journal]
-              SystemMaxUse=5G
+              SystemMaxUse={{ .JournaldSystemMaxUse }}
 
       - path: /opt/load-kernel-modules.sh
         permissions: 755
