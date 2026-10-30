@@ -22,6 +22,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net"
 
 	"go.uber.org/zap"
@@ -296,14 +297,16 @@ func (r *Reconciler) reconcileOperatingSystemConfigs(ctx context.Context, md *cl
 		}
 	}
 
-	// Add machine deployment revision to OSC
-	revision := md.Annotations[mcsdkcommon.RevisionAnnotation]
-	mdhash, err := r.calculateAnnotationsHash(md.Annotations)
+	// Add rotation annotations to OSC
+	rotation, err := r.rotationAnnotations(md, osp)
 	if err != nil {
 		return err
 	}
 
-	osc.Annotations = oscRotationAnnotations(revision, mdhash, osp.Spec.Version, osc.Annotations)
+	if osc.Annotations == nil {
+		osc.Annotations = map[string]string{}
+	}
+	maps.Copy(osc.Annotations, rotation)
 	osc.Spec.ProvisioningUtility = osp.Spec.ProvisioningUtility
 
 	// Defaults to cloud-init although we should never hit this condition i.e ProvisioningUtility in OSP to be empty.
@@ -329,32 +332,32 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, md *clusterv1alpha1.M
 
 	// The cache can still return an OSC that was just deleted during rotation. Secrets must never be generated from an
 	// outdated OSC, so retry until the cache returns the current one.
-	upToDate, err := r.isOSCUpToDate(md, osp, osc)
+	rotation, err := r.rotationAnnotations(md, osp)
 	if err != nil {
 		return err
 	}
-	if !upToDate {
+	if !hasAnnotations(osc.Annotations, rotation) {
 		return fmt.Errorf("OperatingSystemConfig %q is outdated, waiting for it to be rotated", oscName)
 	}
 
-	if err := r.ensureCloudConfigSecret(ctx, osc, osc.Spec.ProvisioningConfig, resources.ProvisioningCloudConfig, md); err != nil {
+	if err := r.ensureCloudConfigSecret(ctx, osc, osc.Spec.ProvisioningConfig, resources.ProvisioningCloudConfig, md, rotation); err != nil {
 		return fmt.Errorf("failed to reconcile provisioning config secret: %w", err)
 	}
 
-	if err := r.ensureCloudConfigSecret(ctx, osc, osc.Spec.BootstrapConfig, mcbootstrap.BootstrapCloudConfig, md); err != nil {
+	if err := r.ensureCloudConfigSecret(ctx, osc, osc.Spec.BootstrapConfig, mcbootstrap.BootstrapCloudConfig, md, rotation); err != nil {
 		return fmt.Errorf("failed to reconcile bootstrapping config secret: %w", err)
 	}
 
 	return nil
 }
 
-func (r *Reconciler) ensureCloudConfigSecret(ctx context.Context, osc *osmv1alpha1.OperatingSystemConfig, config osmv1alpha1.OSCConfig, secretType mcbootstrap.CloudConfigSecret, md *clusterv1alpha1.MachineDeployment) error {
+func (r *Reconciler) ensureCloudConfigSecret(ctx context.Context, osc *osmv1alpha1.OperatingSystemConfig, config osmv1alpha1.OSCConfig, secretType mcbootstrap.CloudConfigSecret, md *clusterv1alpha1.MachineDeployment, rotation map[string]string) error {
 	secretName := fmt.Sprintf(mcbootstrap.CloudConfigSecretNamePattern, md.Name, md.Namespace, secretType)
 
 	// Check if secret already exists, in that case we don't need to do anything since secrets are immutable
 	secret := &corev1.Secret{}
 	if err := r.workerClient.Get(ctx, types.NamespacedName{Name: secretName, Namespace: mcbootstrap.CloudInitSettingsNamespace}, secret); err == nil {
-		if rotationAnnotationsMatch(secret.Annotations, osc.Annotations) {
+		if hasAnnotations(secret.Annotations, rotation) {
 			// Early return since the object already exists
 			return nil
 		}
@@ -374,13 +377,8 @@ func (r *Reconciler) ensureCloudConfigSecret(ctx context.Context, osc *osmv1alph
 	// Generate secret for cloud-config
 	secret = resources.GenerateCloudConfigSecret(secretName, mcbootstrap.CloudInitSettingsNamespace, provisionData)
 
-	// Copy the rotation annotations from the OSC the secret was generated from, so that they always match the content
-	secret.Annotations = oscRotationAnnotations(
-		osc.Annotations[mcbootstrap.MachineDeploymentRevision],
-		osc.Annotations[OperatingSystemConfigMDHash],
-		osc.Annotations[OperatingSystemConfigVersionAnnotation],
-		secret.Annotations,
-	)
+	// The OSC was checked to have the same rotation annotations, so they always match the content of the secret
+	secret.Annotations = maps.Clone(rotation)
 
 	// Create resource in cluster
 	if err := r.workerClient.Create(ctx, secret); err != nil {
@@ -484,11 +482,11 @@ func (r *Reconciler) handleOSCAndSecretsRotation(ctx context.Context, md *cluste
 
 	// OSC already exists, we need to check if the template in machine deployment was updated. If it's updated then we need to rotate
 	// the OSC and secrets.
-	upToDate, err := r.isOSCUpToDate(md, osp, osc)
+	rotation, err := r.rotationAnnotations(md, osp)
 	if err != nil {
 		return err
 	}
-	if upToDate {
+	if hasAnnotations(osc.Annotations, rotation) {
 		// Rotation is not required.
 		return nil
 	}
@@ -503,24 +501,31 @@ func (r *Reconciler) handleOSCAndSecretsRotation(ctx context.Context, md *cluste
 	return r.deleteGeneratedSecrets(ctx, md)
 }
 
-// isOSCUpToDate checks whether the OSC was generated for the current MachineDeployment revision and annotations and the
-// current OSP version.
-func (r *Reconciler) isOSCUpToDate(md *clusterv1alpha1.MachineDeployment, osp *osmv1alpha1.OperatingSystemProfile, osc *osmv1alpha1.OperatingSystemConfig) (bool, error) {
+// rotationAnnotations returns the annotations that describe the inputs the OSC and its secrets are generated from. The OSC
+// and the secrets are rotated whenever any of them changes. This is the only place where they are defined, so new
+// annotations are automatically set and compared everywhere.
+func (r *Reconciler) rotationAnnotations(md *clusterv1alpha1.MachineDeployment, osp *osmv1alpha1.OperatingSystemProfile) (map[string]string, error) {
 	// also check that the MD annotations have not changed as those can generate some differences in the output OSC
 	mdhash, err := r.calculateAnnotationsHash(md.Annotations)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 
-	want := oscRotationAnnotations(md.Annotations[mcsdkcommon.RevisionAnnotation], mdhash, osp.Spec.Version, nil)
-	return rotationAnnotationsMatch(want, osc.Annotations), nil
+	return map[string]string{
+		mcbootstrap.MachineDeploymentRevision:  md.Annotations[mcsdkcommon.RevisionAnnotation],
+		OperatingSystemConfigMDHash:            mdhash,
+		OperatingSystemConfigVersionAnnotation: osp.Spec.Version,
+	}, nil
 }
 
-// rotationAnnotationsMatch checks whether both annotation maps have the same rotation annotations.
-func rotationAnnotationsMatch(a, b map[string]string) bool {
-	return a[mcbootstrap.MachineDeploymentRevision] == b[mcbootstrap.MachineDeploymentRevision] &&
-		a[OperatingSystemConfigMDHash] == b[OperatingSystemConfigMDHash] &&
-		a[OperatingSystemConfigVersionAnnotation] == b[OperatingSystemConfigVersionAnnotation]
+// hasAnnotations checks whether annotations contain all the given annotations with the same values.
+func hasAnnotations(annotations, want map[string]string) bool {
+	for k, v := range want {
+		if value, ok := annotations[k]; !ok || value != v {
+			return false
+		}
+	}
+	return true
 }
 
 func (r *Reconciler) calculateAnnotationsHash(annotations map[string]string) (string, error) {
@@ -580,18 +585,6 @@ func filterMachineDeploymentPredicate() predicate.Predicate {
 	return predicate.NewPredicateFuncs(func(o ctrlruntimeclient.Object) bool {
 		return o.GetAnnotations()[resources.MachineDeploymentOSPAnnotation] != ""
 	})
-}
-
-func oscRotationAnnotations(revision, mdhash, ospversion string, annotations map[string]string) map[string]string {
-	if annotations == nil {
-		annotations = map[string]string{}
-	}
-
-	annotations[mcbootstrap.MachineDeploymentRevision] = revision
-	annotations[OperatingSystemConfigMDHash] = mdhash
-	annotations[OperatingSystemConfigVersionAnnotation] = ospversion
-
-	return annotations
 }
 
 func validateMachineDeployment(md *clusterv1alpha1.MachineDeployment, osp *osmv1alpha1.OperatingSystemProfile) error {
