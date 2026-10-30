@@ -123,6 +123,7 @@ docker-image-publish: docker-image
 	docker push $(IMAGE_NAME)
 	./hack/attach-image-sbom.sh $(IMAGE_NAME)
 	if [[ -n "$(GIT_TAG)" ]]; then \
+		./hack/verify-osp-versions.sh || exit 1; \
 		$(eval IMAGE_TAG = $(GIT_TAG)) \
 		docker build -t $(IMAGE_NAME) . && \
 		docker push $(IMAGE_NAME) && \
