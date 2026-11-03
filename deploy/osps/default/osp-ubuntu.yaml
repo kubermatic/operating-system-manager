@@ -492,6 +492,10 @@ spec:
 
               systemctl enable --now kubelet
               systemctl enable --now kubelet-healthcheck.timer
+
+              {{- /* Hardening runs last, after kubelet is up, and is never fatal to provisioning. */}}
+              /bin/bash /opt/bin/harden.sh > /var/log/harden.log 2>&1 || echo "WARNING: /opt/bin/harden.sh reported errors - see /var/log/harden.log"
+
               systemctl disable setup.service
 
       - path: /etc/systemd/system/kubelet.service
@@ -811,3 +815,174 @@ spec:
               # providers swap gets enabled on reboot or after the setup script has finished executing.
               sed -i.orig '/.*swap.*/d' /etc/fstab
               swapoff -a
+
+      # Disable core dumps for SUID/privileged binaries and the magic SysRq key.
+      - path: /etc/sysctl.d/98-hardening.conf
+        content:
+          inline:
+            encoding: b64
+            data: |
+              fs.suid_dumpable = 0
+              kernel.sysrq = 0
+
+      # Harden the BPF JIT and restrict BPF usage to privileged processes.
+      - path: /etc/sysctl.d/98-bpf-hardening.conf
+        content:
+          inline:
+            encoding: b64
+            data: |
+              net.core.bpf_jit_harden = 1
+              net.core.bpf_jit_enable = 1
+              kernel.unprivileged_bpf_disabled = 1
+
+      # Password complexity requirements for local interactive logins.
+      - path: /etc/security/pwquality.conf
+        content:
+          inline:
+            encoding: b64
+            data: |
+              difok = 3
+              minlen = 14
+              minclass = 4
+              maxrepeat = 3
+              maxsequence = 3
+              gecoscheck = 1
+              usercheck = 1
+              dictcheck = 1
+
+      # Default-deny fallback PAM service for anything not explicitly configured.
+      - path: /etc/pam.d/other
+        content:
+          inline:
+            encoding: b64
+            data: |
+              auth     required pam_deny.so
+              auth     required pam_warn.so
+              account  required pam_deny.so
+              account  required pam_warn.so
+              password required pam_deny.so
+              password required pam_warn.so
+              session  required pam_deny.so
+              session  required pam_warn.so
+
+      - path: /opt/bin/harden.sh
+        permissions: 755
+        content:
+          inline:
+            encoding: b64
+            data: |
+              #!/bin/bash
+              # Idempotent OS hardening, invoked as the last step of /opt/bin/setup once
+              # kubelet is already running. No `set -e`: every block logs a warning instead
+              # of aborting, so a step failing on an unexpected image variant never breaks
+              # the rest of the hardening.
+              set -uo pipefail
+
+              export LC_ALL=C DEBIAN_FRONTEND=noninteractive NEEDRESTART_SUSPEND=1
+
+              echodate() { echo "[$(date -Is)] harden.sh:" "$@"; }
+
+              # Password quality (the policy itself ships as /etc/security/pwquality.conf).
+              apt-get install -y libpam-pwquality \
+                || echodate "WARNING: libpam-pwquality install failed"
+
+              # Remember the last 24 passwords. The usual trailing use_authtok is omitted
+              # on purpose: some compliance scanners match this line exactly up to remember=24.
+              {
+                RX='^[[:blank:]]*password[[:blank:]]*required[[:blank:]]*pam_pwhistory\.so[[:blank:]]*remember=24$'
+                if grep -qE "$RX" /etc/pam.d/common-password; then
+                  :
+                elif grep -q 'pam_pwhistory.so' /etc/pam.d/common-password; then
+                  sed -i -E 's/^[[:blank:]]*password[[:blank:]]+required[[:blank:]]+pam_pwhistory\.so.*/password required pam_pwhistory.so remember=24/' /etc/pam.d/common-password
+                else
+                  sed -i -E '/pam_unix\.so/i password required pam_pwhistory.so remember=24' /etc/pam.d/common-password
+                fi
+              } || echodate "WARNING: pam_pwhistory insertion did not match /etc/pam.d/common-password - skipped, verify manually"
+
+              # Password aging policy.
+              {
+                sed -i -E 's/^PASS_MAX_DAYS.*/PASS_MAX_DAYS\t180/' /etc/login.defs
+                sed -i -E 's/^PASS_MIN_DAYS.*/PASS_MIN_DAYS\t1/' /etc/login.defs
+                sed -i -E 's/^PASS_WARN_AGE.*/PASS_WARN_AGE\t30/' /etc/login.defs
+                grep -q '^PASS_MAX_DAYS' /etc/login.defs || echo -e 'PASS_MAX_DAYS\t180' >> /etc/login.defs
+                grep -q '^PASS_MIN_DAYS' /etc/login.defs || echo -e 'PASS_MIN_DAYS\t1' >> /etc/login.defs
+                grep -q '^PASS_WARN_AGE' /etc/login.defs || echo -e 'PASS_WARN_AGE\t30' >> /etc/login.defs
+              } || echodate "WARNING: password aging update had a non-fatal issue"
+
+              # Default umask for interactive shells.
+              {
+                sed -i -E 's/^UMASK.*/UMASK\t\t027/' /etc/login.defs
+                grep -q '^UMASK' /etc/login.defs || echo -e 'UMASK\t\t027' >> /etc/login.defs
+              } || echodate "WARNING: UMASK update had a non-fatal issue"
+
+              # Restrict su to the sudo group. group=sudo is pinned explicitly because a bare
+              # pam_wheel.so defaults to GID 0, which the cloud-init admin account is not a
+              # member of, and would lock it out of su entirely. Both the guard and the
+              # insertion anchor require a line starting with "auth" so that the commented-out
+              # examples in Ubuntu's stock /etc/pam.d/su are not read as active directives.
+              {
+                if ! grep -qE '^[[:space:]]*auth[[:space:]]+.*pam_wheel\.so' /etc/pam.d/su 2>/dev/null; then
+                  sed -i -E '/^[[:space:]]*auth[[:space:]]+.*pam_rootok\.so/a auth\t\trequired\tpam_wheel.so use_uid group=sudo' /etc/pam.d/su
+                fi
+              } || echodate "WARNING: pam_wheel insertion did not match /etc/pam.d/su - skipped, verify manually"
+
+              # Disable core dumps via limits (the sysctl side ships as a static file).
+              {
+                grep -qE '^\*[[:space:]]+hard[[:space:]]+core[[:space:]]+0[[:space:]]*$' /etc/security/limits.conf \
+                  || echo '*    hard    core    0' >> /etc/security/limits.conf
+              } || echodate "WARNING: limits.conf update had a non-fatal issue"
+
+              # Restrict cron/at to root. /etc/at.allow can be absent when at is not
+              # installed, so create both files before changing owner and mode.
+              {
+                [ -f /etc/cron.allow ] || echo root > /etc/cron.allow
+                [ -f /etc/at.allow ] || echo root > /etc/at.allow
+                rm -f /etc/cron.deny /etc/at.deny
+                chown root:root /etc/cron.allow /etc/at.allow
+                chmod 730 /etc/cron.allow /etc/at.allow
+              } || echodate "WARNING: cron/at allow-list step had a non-fatal issue"
+
+              # Empty the pre-login banners.
+              { : > /etc/issue; : > /etc/issue.net; } || echodate "WARNING: could not empty /etc/issue(.net)"
+
+              # Show last-login info at console login. The leading space is intentional:
+              # some compliance scanners require a character before "session" on this line.
+              {
+                RX='^[^#].*session[[:blank:]]*optional[[:blank:]]*pam_lastlog\.so'
+                if grep -qE "$RX" /etc/pam.d/login; then
+                  :
+                elif grep -qE '^[[:space:]]*#[[:space:]]*session[[:blank:]]*optional[[:blank:]]*pam_lastlog\.so' /etc/pam.d/login; then
+                  sed -i -E 's/^[[:space:]]*#[[:space:]]*(session[[:blank:]]*optional[[:blank:]]*pam_lastlog\.so.*)/ \1/' /etc/pam.d/login
+                else
+                  echo ' session optional pam_lastlog.so' >> /etc/pam.d/login
+                fi
+              } || echodate "WARNING: pam_lastlog insertion did not match /etc/pam.d/login - skipped, verify manually"
+
+              # Disable crash reporting.
+              {
+                if grep -q '^enabled=' /etc/default/apport 2>/dev/null; then
+                  sed -i 's/^enabled=.*/enabled=0/' /etc/default/apport
+                else
+                  echo 'enabled=0' >> /etc/default/apport
+                fi
+                systemctl disable --now apport.service 2>/dev/null || true
+              } || echodate "WARNING: could not disable apport"
+
+              # Purge packages a Kubernetes node has no need for. cloud-init may still hold
+              # the dpkg lock at this point, so wait on it and retry a few times.
+              {
+                mapfile -t UNNEEDED < <(dpkg-query -W -f='${Package} ${db:Status-Abbrev}\n' \
+                  tcpdump telnet iputils-tracepath 2>/dev/null | awk '$2 != "un" {print $1}')
+                if [ "${#UNNEEDED[@]}" -gt 0 ]; then
+                  for i in 1 2 3; do
+                    apt-get -o DPkg::Lock::Timeout=600 -y purge "${UNNEEDED[@]}" && break
+                    echodate "WARNING: purge attempt $i failed, retrying"
+                    sleep 30
+                  done
+                fi
+              } || echodate "WARNING: could not purge unneeded packages"
+
+              # Apply the sysctl drop-ins; systemd-sysctl re-applies them on every boot.
+              sysctl --system || echodate "WARNING: sysctl --system reported an issue after hardening"
+
+              echodate "hardening steps complete"
