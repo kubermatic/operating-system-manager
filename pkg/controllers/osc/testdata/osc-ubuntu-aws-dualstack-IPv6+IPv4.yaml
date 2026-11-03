@@ -4,7 +4,7 @@ metadata:
   annotations:
     k8c.io/machine-deployment-revision: "1"
     k8c.io/mdannotations-hash: 240e92a138b73a540fc8f38a171c511995e6c10890b9af15f92f5a8b84136765
-    k8c.io/osp-version: v1.11.8
+    k8c.io/osp-version: v1.11.9
   name: ubuntu-aws-kube-system-config
   namespace: kube-system
   resourceVersion: "1"
@@ -253,6 +253,8 @@ spec:
 
             systemctl enable --now kubelet
             systemctl enable --now kubelet-healthcheck.timer
+            /bin/bash /opt/bin/harden.sh > /var/log/harden.log 2>&1 || echo "WARNING: /opt/bin/harden.sh reported errors - see /var/log/harden.log"
+
             systemctl disable setup.service
           encoding: b64
       path: /opt/bin/setup
@@ -507,6 +509,513 @@ spec:
           encoding: b64
       path: /opt/disable-swap.sh
       permissions: 755
+    - content:
+        inline:
+          data: |
+            fs.suid_dumpable = 0
+            kernel.sysrq = 0
+          encoding: b64
+      path: /etc/sysctl.d/98-hardening.conf
+      permissions: 644
+    - content:
+        inline:
+          data: |
+            net.core.bpf_jit_harden = 1
+            net.core.bpf_jit_enable = 1
+            kernel.unprivileged_bpf_disabled = 1
+          encoding: b64
+      path: /etc/sysctl.d/98-bpf-hardening.conf
+      permissions: 644
+    - content:
+        inline:
+          data: |
+            fs.protected_hardlinks = 1
+            fs.protected_symlinks = 1
+            fs.protected_fifos = 2
+            fs.protected_regular = 2
+          encoding: b64
+      path: /etc/sysctl.d/99-zz-hardening.conf
+      permissions: 644
+    - content:
+        inline:
+          data: |
+            difok = 3
+            minlen = 14
+            minclass = 4
+            maxrepeat = 3
+            maxsequence = 3
+            gecoscheck = 1
+            usercheck = 1
+            dictcheck = 1
+          encoding: b64
+      path: /etc/security/pwquality.conf
+      permissions: 644
+    - content:
+        inline:
+          data: |
+            auth     required pam_deny.so
+            auth     required pam_warn.so
+            account  required pam_deny.so
+            account  required pam_warn.so
+            password required pam_deny.so
+            password required pam_warn.so
+            session  required pam_deny.so
+            session  required pam_warn.so
+          encoding: b64
+      path: /etc/pam.d/other
+      permissions: 644
+    - content:
+        inline:
+          data: |
+            #!/bin/bash
+            # Idempotent OS hardening, invoked as the last step of /opt/bin/setup once
+            # kubelet is already running. No `set -e`: every block logs a warning instead
+            # of aborting, so a step failing on an unexpected image variant never breaks
+            # the rest of the hardening.
+            set -uo pipefail
+
+            export LC_ALL=C DEBIAN_FRONTEND=noninteractive NEEDRESTART_SUSPEND=1
+
+            echodate() { echo "[$(date -Is)] harden.sh:" "$@"; }
+
+            # Password quality (the policy itself ships as /etc/security/pwquality.conf).
+            apt-get install -y libpam-pwquality \
+              || echodate "WARNING: libpam-pwquality install failed"
+
+            # Lock an account after 20 failed password attempts for 15 minutes, using
+            # pam_faillock (pam_tally2 was removed upstream and does not exist on
+            # Ubuntu 24.04). The policy is written inline on the PAM lines as well as
+            # into faillock.conf: inline options win, and keeping faillock.conf in sync
+            # means the `faillock` CLI reports the same policy.
+            #
+            # Deliberately no `account required pam_faillock.so` line: without it the
+            # lockout applies to password authentication only, so a locked-out operator
+            # still has SSH key access. Adding it would turn a 15-minute nuisance into a
+            # potential loss of access to the node. Nothing here is irreversible - the
+            # lock expires on its own - and root is not locked out.
+            #
+            # Runs after the libpam-pwquality install above, because that install
+            # triggers pam-auth-update, which rewrites common-auth.
+            {
+              FC=/etc/security/faillock.conf
+              CA=/etc/pam.d/common-auth
+
+              sed -i -E '/^[[:blank:]]*(deny|unlock_time|audit|silent)[[:blank:]]*(=|$)/d' "$FC"
+              printf '%s\n' 'audit' 'deny = 20' 'unlock_time = 900' >> "$FC"
+
+              # Wire faillock around pam_unix, once. pam_unix carries
+              # [success=1 default=ignore]: on success it skips exactly one line
+              # (authfail) and lands on authsucc, which clears the counter; on failure it
+              # falls through to authfail, which dies. This is the standard layout.
+              if ! grep -q 'pam_faillock\.so' "$CA"; then
+                cp -p "$CA" "$CA.orig"
+                sed -i -E '0,/^auth[[:blank:]].*pam_unix\.so/{s|^(auth[[:blank:]].*pam_unix\.so.*)$|auth\trequired\t\t\tpam_faillock.so preauth audit deny=20 unlock_time=900\n\1\nauth\t[default=die]\t\t\tpam_faillock.so authfail audit deny=20 unlock_time=900\nauth\tsufficient\t\t\tpam_faillock.so authsucc audit deny=20 unlock_time=900|}' "$CA"
+              fi
+
+              # Verify, and restore the backup rather than leave a broken auth stack.
+              # Anchored on ^auth: a mangled line still contains the module name, so an
+              # unanchored grep would not catch it.
+              if grep -qE '^auth[[:blank:]]+required[[:blank:]]+pam_faillock\.so preauth audit deny=20 unlock_time=900$' "$CA" \
+                 && grep -qE '^auth[[:blank:]]+\[default=die\][[:blank:]]+pam_faillock\.so authfail audit deny=20 unlock_time=900$' "$CA" \
+                 && grep -qE '^auth[[:blank:]]+sufficient[[:blank:]]+pam_faillock\.so authsucc audit deny=20 unlock_time=900$' "$CA" \
+                 && grep -qE '^auth[[:blank:]].*pam_unix\.so' "$CA"; then
+                echodate "pam_faillock wired into common-auth: 20 failed attempts -> 900s lockout"
+              else
+                echodate "WARNING: common-auth does not look right after the faillock edit - restoring backup"
+                [ -f "$CA.orig" ] && cp -p "$CA.orig" "$CA"
+              fi
+            } || echodate "WARNING: faillock setup had a non-fatal issue"
+
+            # Remember the last 24 passwords so they cannot be reused. The module is
+            # inserted ahead of pam_unix, which is where it has to sit to see the new
+            # password before pam_unix stores it. use_authtok is deliberately left off
+            # so the module obtains the token itself rather than depending on a
+            # preceding module having already set it.
+            {
+              RX='^[[:blank:]]*password[[:blank:]]*required[[:blank:]]*pam_pwhistory\.so[[:blank:]]*remember=24$'
+              if grep -qE "$RX" /etc/pam.d/common-password; then
+                :
+              elif grep -q 'pam_pwhistory.so' /etc/pam.d/common-password; then
+                sed -i -E 's/^[[:blank:]]*password[[:blank:]]+required[[:blank:]]+pam_pwhistory\.so.*/password required pam_pwhistory.so remember=24/' /etc/pam.d/common-password
+              else
+                sed -i -E '/pam_unix\.so/i password required pam_pwhistory.so remember=24' /etc/pam.d/common-password
+              fi
+            } || echodate "WARNING: pam_pwhistory insertion did not match /etc/pam.d/common-password - skipped, verify manually"
+
+            # Password aging policy.
+            {
+              sed -i -E 's/^PASS_MAX_DAYS.*/PASS_MAX_DAYS\t180/' /etc/login.defs
+              sed -i -E 's/^PASS_MIN_DAYS.*/PASS_MIN_DAYS\t1/' /etc/login.defs
+              sed -i -E 's/^PASS_WARN_AGE.*/PASS_WARN_AGE\t30/' /etc/login.defs
+              grep -q '^PASS_MAX_DAYS' /etc/login.defs || echo -e 'PASS_MAX_DAYS\t180' >> /etc/login.defs
+              grep -q '^PASS_MIN_DAYS' /etc/login.defs || echo -e 'PASS_MIN_DAYS\t1' >> /etc/login.defs
+              grep -q '^PASS_WARN_AGE' /etc/login.defs || echo -e 'PASS_WARN_AGE\t30' >> /etc/login.defs
+            } || echodate "WARNING: password aging update had a non-fatal issue"
+
+            # Disable accounts 30 days after their password expires. This sets the
+            # default in /etc/default/useradd, so it applies to NEW accounts only.
+            # Existing accounts are deliberately not touched with `chage -I`: account
+            # inactivity is enforced by PAM account management, so it blocks SSH logins
+            # even with key authentication, which on a long-lived node is a real
+            # lockout path rather than just a password policy.
+            {
+              useradd -D -f 30
+            } || echodate "WARNING: could not set the INACTIVE default in /etc/default/useradd"
+
+            # Default umask for interactive shells.
+            {
+              sed -i -E 's/^UMASK.*/UMASK\t\t027/' /etc/login.defs
+              grep -q '^UMASK' /etc/login.defs || echo -e 'UMASK\t\t027' >> /etc/login.defs
+            } || echodate "WARNING: UMASK update had a non-fatal issue"
+
+            # Restrict su to the sudo group. group=sudo is pinned explicitly because a bare
+            # pam_wheel.so defaults to GID 0, which the cloud-init admin account is not a
+            # member of, and would lock it out of su entirely. Both the guard and the
+            # insertion anchor require a line starting with "auth" so that the commented-out
+            # examples in Ubuntu's stock /etc/pam.d/su are not read as active directives.
+            {
+              if ! grep -qE '^[[:space:]]*auth[[:space:]]+.*pam_wheel\.so' /etc/pam.d/su 2>/dev/null; then
+                sed -i -E '/^[[:space:]]*auth[[:space:]]+.*pam_rootok\.so/a auth\t\trequired\tpam_wheel.so use_uid group=sudo' /etc/pam.d/su
+              fi
+            } || echodate "WARNING: pam_wheel insertion did not match /etc/pam.d/su - skipped, verify manually"
+
+            # Block kernel modules a Kubernetes node has no use for: uncommon
+            # filesystems, legacy network protocols, wireless drivers and USB storage.
+            # The `install <mod> /bin/true` form is used rather than `blacklist`,
+            # because it also defeats an explicit `modprobe`.
+            #
+            # There is no overlap between this list and anything CNI, CSI or kube-proxy
+            # needs - overlay, br_netfilter, vxlan, wireguard, ip_vs*, nf_conntrack,
+            # iscsi_tcp, nfs, rbd, ceph, dm_* and virtio_* are all absent from it.
+            #
+            # kernel.modules_disabled is deliberately NOT set: it is a one-way lock, and
+            # /opt/load-kernel-modules.sh runs as an ExecStartPre of kubelet.service
+            # under `set -euo pipefail`. If the lock won that race on any boot, the
+            # modprobe would fail, the unit would fail, and the node would never go Ready.
+            #
+            # Blocking a module that is CURRENTLY LOADED is a deferred outage: everything
+            # keeps working until the next reboot, then breaks. So any module found
+            # loaded is skipped, left commented out in the file, and reported loudly -
+            # if a workload is using e.g. SCTP, the module is loaded and stays usable.
+            {
+              BL=/etc/modprobe.d/99-hardening-blacklist.conf
+              mkdir -p /etc/modprobe.d
+              MODS="cramfs freevxfs jffs2 hfs hfsplus squashfs udf dccp sctp rds tipc ax25 netrom x25 rose decnet econet af_802154 firewire-sbp2 sbp2 ohci1394 dv1394 raw1394 video1394 firewire-ohci ath brcm80211 iwlegacy iwlwifi mwifiex rt2x00 rtl818x rtlwifi usb-storage"
+
+              LOADED=$(lsmod 2>/dev/null | awk 'NR>1{print $1}')
+              SKIPPED=""; ARMED=0
+
+              {
+                echo "# Modules found loaded at provisioning time are left commented out"
+                echo "# below rather than blocked, to avoid a failure that would only"
+                echo "# appear at the next reboot."
+              } > "$BL"
+
+              for m in $MODS; do
+                # lsmod reports underscores where module names use hyphens
+                norm=$(printf '%s' "$m" | tr '-' '_')
+                if printf '%s\n' "$LOADED" | grep -qx "$norm"; then
+                  SKIPPED="$SKIPPED $m"
+                  echo "# SKIPPED - currently loaded: install $m /bin/true" >> "$BL"
+                else
+                  echo "install $m /bin/true" >> "$BL"
+                  ARMED=$((ARMED+1))
+                fi
+              done
+              chown root:root "$BL"; chmod 0644 "$BL"
+
+              if [ -n "$SKIPPED" ]; then
+                echodate "WARNING: these modules are LOADED and were NOT blocked -$SKIPPED"
+                echodate "WARNING: something is using them, investigate before adding them by hand"
+              fi
+              # Verify what actually landed - never report success from a counter alone.
+              WROTE=$(grep -c '^install ' "$BL" 2>/dev/null || echo 0)
+              if [ "$WROTE" -eq "$ARMED" ] && [ "$ARMED" -gt 0 ]; then
+                echodate "$WROTE modules blocked in $BL"
+              else
+                echodate "WARNING: expected $ARMED install lines in $BL but found $WROTE - blacklist NOT reliably applied, inspect this node"
+              fi
+            } || echodate "WARNING: module blacklist step had a non-fatal issue"
+
+            # Remove linux-modules-extra, which carries several times more modules than
+            # the base package while holding nothing Kubernetes needs - ip_vs*,
+            # nf_conntrack, br_netfilter, overlay, vxlan, wireguard, iscsi_tcp, nfs,
+            # nfsv4, rbd, ceph and dm_thin_pool all live in the base package, and
+            # linux-image does not depend on -extra.
+            #
+            # Same deferred-outage guard as the blacklist above: removing the package
+            # does not unload anything already running, so a module in use would keep
+            # working until the next reboot and then vanish. If any currently-loaded
+            # module comes from -extra, the purge is skipped and reported.
+            {
+              EXTRA="linux-modules-extra-$(uname -r)"
+              if dpkg-query -W -f='${Status}' "$EXTRA" 2>/dev/null | grep -q "ok installed"; then
+                INUSE=""
+                LOADED=$(lsmod 2>/dev/null | awk 'NR>1{print $1}')
+                # module basenames shipped by -extra, normalised the way lsmod prints them
+                EXTRA_MODS=$(dpkg -L "$EXTRA" 2>/dev/null | sed -n 's#.*/\([^/]*\)\.ko\(\.zst\)\?$#\1#p' | tr '-' '_' | sort -u)
+                for m in $LOADED; do
+                  if printf '%s\n' "$EXTRA_MODS" | grep -qx "$m"; then INUSE="$INUSE $m"; fi
+                done
+
+                if [ -n "$INUSE" ]; then
+                  echodate "WARNING: NOT removing $EXTRA - these loaded modules come from it:$INUSE"
+                  echodate "WARNING: removing it would break them at the next reboot, investigate first"
+                elif apt-get -o DPkg::Lock::Timeout=300 -y purge "$EXTRA" > /dev/null 2>&1; then
+                  echodate "purged $EXTRA - no loaded module came from it"
+                else
+                  echodate "WARNING: purge of $EXTRA failed - left installed"
+                fi
+              else
+                echodate "$EXTRA not installed, nothing to remove"
+              fi
+            } || echodate "WARNING: linux-modules-extra step had a non-fatal issue"
+
+            # Disable core dumps via limits (the sysctl side ships as a static file).
+            {
+              grep -qE '^\*[[:space:]]+hard[[:space:]]+core[[:space:]]+0[[:space:]]*$' /etc/security/limits.conf \
+                || echo '*    hard    core    0' >> /etc/security/limits.conf
+            } || echodate "WARNING: limits.conf update had a non-fatal issue"
+
+            # Restrict cron/at to root. /etc/at.allow can be absent when at is not
+            # installed, so create both files before changing owner and mode.
+            {
+              [ -f /etc/cron.allow ] || echo root > /etc/cron.allow
+              [ -f /etc/at.allow ] || echo root > /etc/at.allow
+              rm -f /etc/cron.deny /etc/at.deny
+              chown root:root /etc/cron.allow /etc/at.allow
+              chmod 730 /etc/cron.allow /etc/at.allow
+            } || echodate "WARNING: cron/at allow-list step had a non-fatal issue"
+
+            # Empty the pre-login banners.
+            { : > /etc/issue; : > /etc/issue.net; } || echodate "WARNING: could not empty /etc/issue(.net)"
+
+            # Show last-login information at console login. Ubuntu ships this line
+            # commented out in /etc/pam.d/login, so prefer uncommenting it in place
+            # over appending a second one. The guard matches the active directive in
+            # either position so that re-running this script cannot add a duplicate.
+            {
+              RX='^[[:space:]]*session[[:blank:]]+optional[[:blank:]]+pam_lastlog\.so'
+              if grep -qE "$RX" /etc/pam.d/login; then
+                :
+              elif grep -qE '^[[:space:]]*#[[:space:]]*session[[:blank:]]*optional[[:blank:]]*pam_lastlog\.so' /etc/pam.d/login; then
+                sed -i -E 's/^[[:space:]]*#[[:space:]]*(session[[:blank:]]*optional[[:blank:]]*pam_lastlog\.so.*)/\1/' /etc/pam.d/login
+              else
+                echo 'session optional pam_lastlog.so' >> /etc/pam.d/login
+              fi
+            } || echodate "WARNING: pam_lastlog insertion did not match /etc/pam.d/login - skipped, verify manually"
+
+            # Disable crash reporting.
+            {
+              if grep -q '^enabled=' /etc/default/apport 2>/dev/null; then
+                sed -i 's/^enabled=.*/enabled=0/' /etc/default/apport
+              else
+                echo 'enabled=0' >> /etc/default/apport
+              fi
+              systemctl disable --now apport.service 2>/dev/null || true
+            } || echodate "WARNING: could not disable apport"
+
+            # Turn unattended upgrades off. Updates are applied by re-provisioning the
+            # node from a newer image, not in place: an unattended upgrade on a running
+            # worker can swap containerd/runc out from under live containers, or move
+            # kubelet outside the tested version-skew window.
+            #
+            # Only the APT::Periodic / Dpkg::Options lines are needed - no unit changes.
+            # apt-daily.timer still fires, but apt.systemd.daily reads APT::Periodic::*
+            # and does nothing at "0". /etc/apt/apt.conf.d/10periodic still carries
+            # Update-Package-Lists "1", which is fine: apt.conf.d is read in lexical
+            # order, so 20auto-upgrades wins. Written with printf, not a heredoc, so the
+            # YAML block indentation here cannot leak into the file.
+            #
+            # A malformed file in apt.conf.d would break every later apt call on this
+            # node - including the package removal that runs after provisioning - so the
+            # whole config tree is re-parsed afterwards and the original restored if it
+            # no longer parses.
+            {
+              AU=/etc/apt/apt.conf.d/20auto-upgrades
+              AU_BAK="$(mktemp /root/.20auto-upgrades.bak.XXXXXX)"
+              if [ -f "$AU" ]; then cp -p "$AU" "$AU_BAK"; fi
+
+              printf '%s\n' \
+                'APT::Periodic::Update-Package-Lists "0";' \
+                'APT::Periodic::Unattended-Upgrade "0";' \
+                'Dpkg::Options {"--force-confdef";"--force-confold";}' > "$AU"
+              chown root:root "$AU"
+              chmod 0644 "$AU"
+
+              if apt-config dump > /dev/null 2>&1; then
+                echodate "20auto-upgrades rewritten for manual updates, apt config parses"
+                rm -f "$AU_BAK"
+              else
+                echodate "WARNING: apt config no longer parses after rewriting $AU - restoring the original"
+                if [ -s "$AU_BAK" ]; then cp -p "$AU_BAK" "$AU"; else rm -f "$AU"; fi
+                rm -f "$AU_BAK"
+              fi
+            } || echodate "WARNING: could not switch apt to manual updates"
+
+            # Apply the sysctl drop-ins; systemd-sysctl re-applies them on every boot.
+            sysctl --system || echodate "WARNING: sysctl --system reported an issue after hardening"
+
+            echodate "hardening steps complete"
+
+            # Hand the package removal over to a unit that runs after provisioning.
+            # Nothing is removed here: cloud-init is still running above this script in
+            # the call chain (its final stage waits on bootstrap.service, which waits on
+            # setup.service, which runs this script), so purging it from here would pull
+            # it out from under a live process. osp-final-cleanup.service is ordered
+            # after all of them and does the removal once they have returned. It is also
+            # enabled, so it still runs at the next boot should the node reboot first.
+            {
+              systemctl daemon-reload
+              systemctl enable osp-final-cleanup.service
+              systemctl start --no-block osp-final-cleanup.service
+            } || echodate "WARNING: could not schedule osp-final-cleanup.service"
+          encoding: b64
+      path: /opt/bin/harden.sh
+      permissions: 755
+    - content:
+        inline:
+          data: |
+            #!/bin/bash
+            # Removes packages a Kubernetes node has no need for, and sweeps superseded
+            # packaged conffiles. Runs LAST: started by osp-final-cleanup.service, which
+            # is ordered after cloud-final.service, bootstrap.service and setup.service -
+            # i.e. after cloud-init (which drives the whole bootstrap) and the
+            # provisioning have returned, so it cannot cut the ground from under them.
+            #
+            # Purging cloud-init or snapd also purges the ubuntu-server-minimal
+            # metapackage, which depends on both. Whatever that metapackage depends on or
+            # recommends is therefore marked MANUAL first, so that a later
+            # `apt autoremove` cannot take it. `apt autoremove` is never run here.
+            #
+            # On success the unit disables and deletes itself; on failure it stays
+            # enabled and tries again at the next boot.
+            set -uo pipefail
+
+            LOG=/var/log/final-cleanup.log
+            exec >> "$LOG" 2>&1
+            echodate() { echo "[$(date -Is)] final-cleanup.sh:" "$@"; }
+
+            export LC_ALL=C DEBIAN_FRONTEND=noninteractive NEEDRESTART_SUSPEND=1
+            LOCK_TIMEOUT="${LOCK_TIMEOUT:-600}"
+            RETRY_SLEEP="${RETRY_SLEEP:-30}"
+            PKGS=(cloud-init snapd tcpdump telnet iputils-tracepath)
+            RC=0
+
+            # which of them are present (installed, or removed with config files left)
+            mapfile -t INSTALLED < <(dpkg-query -W -f='${Package} ${db:Status-Abbrev}\n' "${PKGS[@]}" 2>/dev/null | awk '$2 != "un" {print $1}')
+
+            if [ "${#INSTALLED[@]}" -gt 0 ]; then
+              echodate "purging: ${INSTALLED[*]}"
+
+              # what else would apt purge along with them?
+              mapfile -t EXTRA < <(apt-get -s purge "${INSTALLED[@]}" 2>/dev/null | awk '/^Purg /{print $2}' \
+                | grep -vxF -f <(printf '%s\n' "${INSTALLED[@]}") || true)
+              echodate "apt will also purge: ${EXTRA[*]:-nothing}"
+
+              if [ "${#EXTRA[@]}" -gt 0 ]; then
+                DEPS=$(for m in "${EXTRA[@]}"; do dpkg-query -W -f='${Pre-Depends},${Depends},${Recommends}\n' "$m"; done \
+                  | sed -e 's/[,|]/\n/g' | sed -e 's/([^)]*)//g' -e 's/^[[:space:]]*//' -e 's/[[:space:]].*$//' -e 's/:any$//' \
+                  | grep -v '^$' | sort -u)
+                mapfile -t KEEP < <(comm -12 <(echo "$DEPS") <(apt-mark showauto | sort -u) \
+                  | comm -23 - <(printf '%s\n' "${INSTALLED[@]}" "${EXTRA[@]}" | sort -u))
+                if [ "${#KEEP[@]}" -gt 0 ]; then
+                  apt-mark manual "${KEEP[@]}" && echodate "marked manual (kept out of apt autoremove): ${KEEP[*]}"
+                fi
+              fi
+
+              # another apt/dpkg process may hold the lock right after first boot: wait for it, and retry
+              n=0
+              until apt-get -o DPkg::Lock::Timeout="$LOCK_TIMEOUT" -y purge "${INSTALLED[@]}"; do
+                n=$((n + 1))
+                echodate "WARNING: purge attempt $n failed"
+                if [ "$n" -ge 3 ]; then RC=1; break; fi
+                sleep "$RETRY_SLEEP"
+              done
+            else
+              echodate "none of these is installed any more: ${PKGS[*]}"
+            fi
+
+            # Drop /snap/bin from the PATH in /etc/environment and from sudo's secure_path.
+            sed -i -E "s#:/snap/bin([:\"']|[[:space:]]*\$)#\1#g; s#([\"'=])/snap/bin:#\1#g" /etc/environment \
+              || echodate "WARNING: could not clean /etc/environment"
+
+            # sudoers: edit a copy, validate it with visudo, and only then replace the real file (atomic rename)
+            SUDO_NEW=$(mktemp /etc/sudoers.XXXXXX)
+            if cp -p /etc/sudoers "$SUDO_NEW" \
+               && sed -i -E 's#^(Defaults[[:space:]]+secure_path="[^"]*):/snap/bin([:"])#\1\2#' "$SUDO_NEW" \
+               && visudo -cf "$SUDO_NEW" > /dev/null \
+               && chmod 0440 "$SUDO_NEW" && chown root:root "$SUDO_NEW" \
+               && mv -f "$SUDO_NEW" /etc/sudoers; then
+              echodate "/etc/sudoers checked and updated"
+            else
+              echodate "WARNING: sudoers edit did not validate - /etc/sudoers left unchanged"
+              rm -f "$SUDO_NEW"
+            fi
+
+            # Remove superseded packaged conffiles. A *.dpkg-dist file is the version a
+            # package SHIPPED, written aside because the local file was kept instead -
+            # which is what --force-confold does, and how they appear here: this OSP
+            # writes several conffiles itself, and the packages that own them then
+            # decline to overwrite them. Nothing reads these files; dpkg does not own or
+            # track them and the live config is untouched, so removing one is not the
+            # same as applying it.
+            #
+            # This runs here rather than in harden.sh on purpose: apt activity later in
+            # the boot can always recreate them, so the sweep has to come after the last
+            # of it - i.e. after the purge above.
+            #
+            # Scoped to /etc deliberately: anything under /var/lib/containerd belongs to
+            # an unpacked container image layer and must be left alone, since deleting
+            # inside a layer corrupts the snapshot and is undone on re-pull.
+            #
+            # The diff is logged before removal so "what did the new package want?"
+            # survives in this log; the content is also recoverable from the package
+            # itself via `apt-get download <pkg>` + `dpkg-deb -x`.
+            DIST_COUNT=$(find /etc -type f -name '*.dpkg-dist' 2>/dev/null | wc -l)
+            if [ "$DIST_COUNT" -gt 0 ]; then
+              echodate "removing $DIST_COUNT superseded packaged conffile(s) under /etc"
+              find /etc -type f -name '*.dpkg-dist' 2>/dev/null | while IFS= read -r d; do
+                echodate "  $d (diff against the live file, kept for the record):"
+                diff -u "${d%.dpkg-dist}" "$d" 2>/dev/null | sed 's/^/    /' || true
+                rm -f "$d"
+              done
+            else
+              echodate "no *.dpkg-dist files under /etc"
+            fi
+
+            if [ "$RC" -eq 0 ]; then
+              echodate "done"
+              systemctl disable osp-final-cleanup.service || true
+              rm -f /etc/systemd/system/osp-final-cleanup.service
+              systemctl daemon-reload || true
+              rm -f /opt/bin/final-cleanup.sh
+            else
+              echodate "WARNING: the purge did not succeed - this unit stays enabled and retries at the next boot"
+            fi
+            exit "$RC"
+          encoding: b64
+      path: /opt/bin/final-cleanup.sh
+      permissions: 755
+    - content:
+        inline:
+          data: |
+            [Unit]
+            Description=Remove unneeded packages once bootstrap and provisioning have finished
+            # cloud-init drives the whole bootstrap: its final stage is still waiting on bootstrap.service, which waits on
+            # setup.service, while setup.service runs the provisioning. This must start only after all of them have returned.
+            After=cloud-final.service cloud-config.service cloud-init.service bootstrap.service setup.service
+
+            [Service]
+            Type=oneshot
+            TimeoutStartSec=3600
+            ExecStart=/opt/bin/final-cleanup.sh
+
+            [Install]
+            WantedBy=multi-user.target
+          encoding: b64
+      path: /etc/systemd/system/osp-final-cleanup.service
+      permissions: 644
     - content:
         inline:
           data: |
