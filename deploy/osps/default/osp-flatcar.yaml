@@ -628,6 +628,10 @@ spec:
 
               systemctl enable --now kubelet
               systemctl enable --now kubelet-healthcheck.timer
+
+              {{- /* Hardening runs last, after kubelet is up, and is never fatal to provisioning. */}}
+              /bin/bash /opt/bin/harden.sh > /var/log/harden.log 2>&1 || echo "WARNING: /opt/bin/harden.sh reported errors - see /var/log/harden.log"
+
               systemctl disable setup.service
 
       - path: /etc/kubernetes/pki/ca.crt
@@ -894,3 +898,110 @@ spec:
               PrintMotd no # handled by PAM
               PasswordAuthentication no
               ChallengeResponseAuthentication no
+
+      # Disable core dumps for SUID/privileged binaries.
+      - path: /etc/sysctl.d/98-hardening.conf
+        content:
+          inline:
+            data: |
+              fs.suid_dumpable = 0
+
+      # Disable the magic SysRq key.
+      - path: /etc/sysctl.d/10-magic-sysrq.conf
+        content:
+          inline:
+            data: |
+              kernel.sysrq = 0
+
+      # systemd's own default (/usr/lib/sysctl.d/50-default.conf) sets
+      # kernel.sysrq=16 and sorts after 10-magic-sysrq.conf, so pin it again
+      # here to make sure our value wins at runtime.
+      - path: /etc/sysctl.d/60-magic-sysrq-enforce.conf
+        content:
+          inline:
+            data: |
+              kernel.sysrq = 0
+
+      # Harden the BPF JIT and restrict BPF usage to privileged processes.
+      - path: /etc/sysctl.d/98-bpf-hardening.conf
+        content:
+          inline:
+            data: |
+              net.core.bpf_jit_harden = 1
+              net.core.bpf_jit_enable = 1
+              kernel.unprivileged_bpf_disabled = 1
+
+      # Default-deny fallback PAM service for anything not explicitly configured.
+      - path: /etc/pam.d/other
+        content:
+          inline:
+            data: |
+              auth     required pam_deny.so
+              auth     required pam_warn.so
+              account  required pam_deny.so
+              account  required pam_warn.so
+              password required pam_deny.so
+              password required pam_warn.so
+              session  required pam_deny.so
+              session  required pam_warn.so
+
+      - path: /opt/bin/harden.sh
+        permissions: 755
+        content:
+          inline:
+            data: |
+              #!/bin/bash
+              # Idempotent OS hardening, invoked as the last step of /opt/bin/setup once
+              # kubelet is already running. No `set -e`: every block logs a warning instead
+              # of aborting, so a step failing on an unexpected image variant never breaks
+              # the rest of the hardening.
+              set -uo pipefail
+
+              echodate() { echo "[$(date -Is)] harden.sh:" "$@"; }
+
+              # Password aging policy.
+              {
+                if [ -f /etc/login.defs ]; then
+                  sed -i -E 's/^PASS_MAX_DAYS.*/PASS_MAX_DAYS\t180/' /etc/login.defs
+                  sed -i -E 's/^PASS_MIN_DAYS.*/PASS_MIN_DAYS\t1/' /etc/login.defs
+                  sed -i -E 's/^PASS_WARN_AGE.*/PASS_WARN_AGE\t30/' /etc/login.defs
+                  grep -q '^PASS_MAX_DAYS' /etc/login.defs || echo -e 'PASS_MAX_DAYS\t180' >> /etc/login.defs
+                  grep -q '^PASS_MIN_DAYS' /etc/login.defs || echo -e 'PASS_MIN_DAYS\t1' >> /etc/login.defs
+                  grep -q '^PASS_WARN_AGE' /etc/login.defs || echo -e 'PASS_WARN_AGE\t30' >> /etc/login.defs
+                else
+                  echodate "SKIPPED: /etc/login.defs not found on this image"
+                fi
+              } || echodate "WARNING: password aging update had a non-fatal issue"
+
+              # Default umask for interactive shells.
+              {
+                if [ -f /etc/login.defs ]; then
+                  sed -i -E 's/^UMASK.*/UMASK\t\t027/' /etc/login.defs
+                  grep -q '^UMASK' /etc/login.defs || echo -e 'UMASK\t\t027' >> /etc/login.defs
+                else
+                  echodate "SKIPPED: /etc/login.defs not found on this image"
+                fi
+              } || echodate "WARNING: UMASK update had a non-fatal issue"
+
+              # Disable core dumps via limits (the sysctl side ships as a static file).
+              {
+                mkdir -p /etc/security
+                touch /etc/security/limits.conf
+                grep -qE '^\*[[:space:]]+hard[[:space:]]+core[[:space:]]+0[[:space:]]*$' /etc/security/limits.conf \
+                  || echo '*    hard    core    0' >> /etc/security/limits.conf
+              } || echodate "WARNING: limits.conf update had a non-fatal issue"
+
+              # Empty the pre-login banners. /etc/issue is a symlink into tmpfs that
+              # issuegen.service regenerates on every boot, so mask that unit and replace
+              # the symlink with a real empty file to make the change persistent.
+              {
+                systemctl mask issuegen.service
+                rm -f /etc/issue
+                : > /etc/issue
+                : > /etc/issue.net
+              } || echodate "WARNING: could not fully remediate /etc/issue(.net)"
+
+              # Apply the sysctl drop-ins now; systemd-sysctl re-applies them on every boot.
+              sysctl --system || echodate "WARNING: sysctl --system reported an issue after hardening"
+
+              echodate "hardening steps complete"
