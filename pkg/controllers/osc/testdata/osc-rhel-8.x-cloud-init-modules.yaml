@@ -3,8 +3,8 @@ kind: OperatingSystemConfig
 metadata:
   annotations:
     k8c.io/machine-deployment-revision: "1"
-    k8c.io/mdannotations-hash: 4f7979f79c658b81c59f77f3f57073f57df2943d79f6a6821fc871b5f608e09c
-    k8c.io/osp-version: v1.11.8
+    k8c.io/mdannotations-hash: 80765e800a0186ae20232d6afa4b9a64163e5adbbc2c66ec9fb134f64fc7ed79
+    k8c.io/osp-version: v1.12.0
   name: osp-rhel-aws-kube-system-config
   namespace: kube-system
   resourceVersion: "1"
@@ -50,8 +50,18 @@ spec:
             yum install -y curl jq
 
             curl -s -k -v --header 'Authorization: Bearer top-secret' https://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/osp-rhel-aws-kube-system-provisioning-config | jq '.data["cloud-config"]' -r| base64 -d > /etc/cloud/cloud.cfg.d/osp-rhel-aws-kube-system-provisioning-config.cfg
+
             cloud-init clean
-            cloud-init --file /etc/cloud/cloud.cfg.d/osp-rhel-aws-kube-system-provisioning-config.cfg init
+
+            CLOUD_INIT_VERSION=$(cloud-init --version | awk '{print $2}')
+
+            # Compare the semver values of cloud-init versions to determine the correct command to run.
+            # This is required because the command line arguments for cloud-init changed in version 24.1, for details: https://github.com/canonical/cloud-init/releases/tag/24.1.
+            if [[ $(echo -e "24.0.0\n$CLOUD_INIT_VERSION" | sort -V | head -n1) = "24.0.0" ]]; then
+                cloud-init init --file /etc/cloud/cloud.cfg.d/osp-rhel-aws-kube-system-provisioning-config.cfg
+            else
+                cloud-init --file /etc/cloud/cloud.cfg.d/osp-rhel-aws-kube-system-provisioning-config.cfg init
+            fi
 
             systemctl daemon-reload
 
@@ -102,7 +112,7 @@ spec:
       subnetID: test-subnet
       vpcId: e-123f
   osName: rhel
-  osVersion: "8.5"
+  osVersion: "9.5"
   provisioningConfig:
     files:
     - content:
@@ -129,6 +139,7 @@ spec:
             else
               modprobe nf_conntrack
             fi
+            modprobe br_netfilter
           encoding: b64
       path: /opt/load-kernel-modules.sh
       permissions: 755
@@ -193,15 +204,6 @@ spec:
               ipvsadm
 
             systemctl disable --now firewalld || true
-            yum install -y yum-utils
-            yum-config-manager --add-repo=https://download.docker.com/linux/rhel/docker-ce.repo
-            yum-config-manager --save --setopt=docker-ce-stable.module_hotfixes=true
-
-            yum install -y containerd.io-2.* yum-plugin-versionlock
-            yum versionlock add containerd.io
-
-            systemctl daemon-reload
-            systemctl enable --now containerd
 
             opt_bin=/opt/bin
             usr_local_bin=/usr/local/bin
@@ -223,7 +225,7 @@ spec:
                 ;;
             esac
             fi
-            CNI_VERSION="${CNI_VERSION:-v1.7.1}"
+            CNI_VERSION="${CNI_VERSION:-v1.9.1}"
             cni_base_url="https://github.com/containernetworking/plugins/releases/download/$CNI_VERSION"
             cni_filename="cni-plugins-linux-$arch-$CNI_VERSION.tgz"
             curl -Lfo "$cni_bin_dir/$cni_filename" "$cni_base_url/$cni_filename"
@@ -234,7 +236,7 @@ spec:
             rm -f "$cni_filename"
             cd -
             chown -R root:root "$cni_bin_dir"
-            CRI_TOOLS_RELEASE="v1.35.0"
+            CRI_TOOLS_RELEASE="v1.37.0"
 
             cri_tools_base_url="https://github.com/kubernetes-sigs/cri-tools/releases/download/${CRI_TOOLS_RELEASE}"
             cri_tools_filename="crictl-${CRI_TOOLS_RELEASE}-linux-${arch}.tar.gz"
@@ -265,6 +267,14 @@ spec:
             for bin in kubelet kubeadm kubectl; do
                 ln -sf "$kube_dir/$bin" "$opt_bin"/$bin
             done
+            yum install -y yum-utils
+            yum-config-manager --add-repo=https://download.docker.com/linux/rhel/docker-ce.repo
+
+            yum install -y containerd.io-2.2* yum-plugin-versionlock
+            yum versionlock add containerd.io
+
+            systemctl daemon-reload
+            systemctl enable --now containerd
 
             DEFAULT_IFC_NAME=$(ip -o route get 1  | grep -oP "dev \K\S+")
             IFC_CFG_FILE=/etc/sysconfig/network-scripts/ifcfg-$DEFAULT_IFC_NAME
@@ -286,6 +296,7 @@ spec:
             curl -s -k -v --header 'Authorization: Bearer top-secret' https://foo.bar:6443/api/v1/namespaces/cloud-init-settings/secrets/kube-system-osp-rhel-aws-kubelet-bootstrap-config | jq '.data["kubeconfig"]' -r| base64 -d > /etc/kubernetes/bootstrap-kubelet.conf
 
             systemctl enable --now kubelet
+            systemctl enable --now kubelet-healthcheck.timer
             systemctl disable setup.service
           encoding: b64
       path: /opt/bin/setup
@@ -295,7 +306,7 @@ spec:
           data: |
             [Unit]
             After=containerd.service
-            Requires=containerd.service
+            Wants=containerd.service
 
             Description=kubelet: The Kubernetes Node Agent
             Documentation=https://kubernetes.io/docs/home/
@@ -320,8 +331,6 @@ spec:
               --kubeconfig=/var/lib/kubelet/kubeconfig \
               --config=/etc/kubernetes/kubelet.conf \
               --cert-dir=/etc/kubernetes/pki \
-              --exit-on-lock-contention \
-              --lock-file=/tmp/kubelet.lock \
               --container-runtime-endpoint=unix:///run/containerd/containerd.sock \
               --node-ip ${KUBELET_NODE_IP}
 
@@ -329,6 +338,33 @@ spec:
             WantedBy=multi-user.target
           encoding: b64
       path: /etc/systemd/system/kubelet.service
+      permissions: 600
+    - content:
+        inline:
+          data: |
+            [Unit]
+            Description=Check kubelet health
+
+            [Service]
+            Type=oneshot
+            ExecStart=/bin/sh -c 'if ! curl -m 10 -fsS http://127.0.0.1:10248/healthz >/dev/null; then logger -t kubelet-healthcheck "kubelet unhealthy, restarting"; systemctl restart kubelet; fi'
+          encoding: b64
+      path: /etc/systemd/system/kubelet-healthcheck.service
+      permissions: 644
+    - content:
+        inline:
+          data: |
+            [Unit]
+            Description=Run kubelet health check every 30s
+
+            [Timer]
+            OnActiveSec=120
+            OnUnitActiveSec=30
+
+            [Install]
+            WantedBy=timers.target
+          encoding: b64
+      path: /etc/systemd/system/kubelet-healthcheck.timer
       permissions: 644
     - content:
         inline:
@@ -438,6 +474,9 @@ spec:
             authentication:
               anonymous:
                 enabled: false
+              webhook:
+                cacheTTL: 2m
+                enabled: true
               x509:
                 clientCAFile: /etc/kubernetes/pki/ca.crt
             authorization:
@@ -489,7 +528,7 @@ spec:
             volumePluginDir: /var/lib/kubelet/volumeplugins
           encoding: b64
       path: /etc/kubernetes/kubelet.conf
-      permissions: 644
+      permissions: 600
     - content:
         inline:
           data: |

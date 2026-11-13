@@ -234,8 +234,8 @@ func TestReconciler_Reconcile(t *testing.T) {
 		},
 		{
 			name:                   "RHEL OS in AWS with Containerd",
-			ospFile:                "osp-rhel-aws-cloud-init-modules.yaml",
-			ospName:                "osp-rhel-cloud-init-modules",
+			ospFile:                defaultOSPPathPrefix + "osp-rhel.yaml",
+			ospName:                "osp-rhel",
 			operatingSystem:        providerconfig.OperatingSystemRHEL,
 			oscFile:                "osc-rhel-8.x-cloud-init-modules.yaml",
 			provisioningSecretFile: "secret-osc-rhel-8.x-cloud-init-modules-provisioning.yaml",
@@ -298,52 +298,52 @@ func TestReconciler_Reconcile(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		osp := &osmv1alpha1.OperatingSystemProfile{}
-		if err := loadFile(osp, testCase.ospFile); err != nil {
-			t.Fatalf("failed loading osp %s from testdata: %v", testCase.name, err)
-		}
-		objects := []ctrlruntimeclient.Object{
-			&corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "cluster-info",
-					Namespace: "kube-public",
-				},
-				Data: map[string]string{"kubeconfig": clusterInfoKubeconfig},
-			},
-			&corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "cloud-init-getter-token",
-					Namespace: "cloud-init-settings",
-				},
-				Data: map[string][]byte{
-					"token": []byte("top-secret"),
-				},
-			},
-			&corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "bootstrap-token",
-					Namespace: "kube-system",
-					Labels:    map[string]string{"machinedeployment.k8s.io/name": fmt.Sprintf("%s-%s", testCase.config.namespace, testCase.mdName)},
-				},
-				Data: map[string][]byte{
-					"token-id":     []byte("test"),
-					"token-secret": []byte("test"),
-					"expiration":   []byte(metav1.Now().Add(10 * time.Hour).Format(time.RFC3339)),
-				},
-			},
-		}
-
-		objects = append(objects, osp)
-
-		fakeClient := ctrlruntimefakeclient.
-			NewClientBuilder().
-			WithScheme(scheme.Scheme).
-			WithObjects(objects...).
-			Build()
-
-		reconciler := buildReconciler(fakeClient, testCase.config)
-
 		t.Run(testCase.name, func(t *testing.T) {
+			osp := &osmv1alpha1.OperatingSystemProfile{}
+			if err := loadFile(osp, testCase.ospFile); err != nil {
+				t.Fatalf("failed loading osp %s: %v", testCase.ospFile, err)
+			}
+			objects := []ctrlruntimeclient.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cluster-info",
+						Namespace: "kube-public",
+					},
+					Data: map[string]string{"kubeconfig": clusterInfoKubeconfig},
+				},
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cloud-init-getter-token",
+						Namespace: "cloud-init-settings",
+					},
+					Data: map[string][]byte{
+						"token": []byte("top-secret"),
+					},
+				},
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "bootstrap-token",
+						Namespace: "kube-system",
+						Labels:    map[string]string{"machinedeployment.k8s.io/name": fmt.Sprintf("%s-%s", testCase.config.namespace, testCase.mdName)},
+					},
+					Data: map[string][]byte{
+						"token-id":     []byte("test"),
+						"token-secret": []byte("test"),
+						"expiration":   []byte(metav1.Now().Add(10 * time.Hour).Format(time.RFC3339)),
+					},
+				},
+			}
+
+			objects = append(objects, osp)
+
+			fakeClient := ctrlruntimefakeclient.
+				NewClientBuilder().
+				WithScheme(scheme.Scheme).
+				WithObjects(objects...).
+				Build()
+
+			reconciler := buildReconciler(fakeClient, testCase.config)
+
 			ctx := context.Background()
 			md := generateMachineDeployment(t, testCase.mdName, testCase.config.namespace, testCase.ospName, testCase.kubeletVersion, testCase.operatingSystem, testCase.cloudProvider, testCase.cloudProviderSpec, testCase.additionalAnnotations, testCase.ipFamily)
 
@@ -363,11 +363,6 @@ func TestReconciler_Reconcile(t *testing.T) {
 
 			if err := reconciler.reconcile(ctx, md); err != nil {
 				t.Fatalf("failed to reconcile: %v", err)
-			}
-
-			testOSC := &osmv1alpha1.OperatingSystemConfig{}
-			if err := loadFile(testOSC, testCase.oscFile); err != nil {
-				t.Fatalf("failed loading osc %s from testdata: %v", testCase.name, err)
 			}
 
 			oscName := fmt.Sprintf(resources.OperatingSystemConfigNamePattern, md.Name, md.Namespace)
@@ -401,11 +396,6 @@ func TestReconciler_Reconcile(t *testing.T) {
 				t.Fatalf("failed to get bootstrap secret: %v", err)
 			}
 
-			testSecret := &corev1.Secret{}
-			if err := loadFile(testSecret, testCase.bootstrapSecretFile); err != nil {
-				t.Fatalf("failed loading bootstrap secret %s from testdata: %v", testCase.bootstrapSecretFile, err)
-			}
-
 			secret.TypeMeta = metav1.TypeMeta{
 				Kind:       "Secret",
 				APIVersion: "v1",
@@ -430,10 +420,6 @@ func TestReconciler_Reconcile(t *testing.T) {
 			secret.TypeMeta = metav1.TypeMeta{
 				Kind:       "Secret",
 				APIVersion: "v1",
-			}
-
-			if err := loadFile(testSecret, testCase.provisioningSecretFile); err != nil {
-				t.Fatalf("failed loading secret %s from testdata: %v", testCase.provisioningSecretFile, err)
 			}
 
 			buff, err = yaml.Marshal(secret)
