@@ -21,6 +21,7 @@ source hack/lib.sh
 
 CONTAINERIZE_IMAGE=quay.io/kubermatic/build:go-1.27-node-24-4 containerize ./hack/update-fixtures.sh
 
+find . -wholename './pkg/*/testdata/*.yaml' -exec rm -f {} \;
 go test -v ./... -update || go test -v ./...
 
 if [[ $? -eq 0 ]]; then echo "Successfully updated fixtures"; else "Failed to update fixtures"; fi
