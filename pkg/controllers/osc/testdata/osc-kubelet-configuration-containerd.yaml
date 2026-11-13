@@ -4,7 +4,7 @@ metadata:
   annotations:
     k8c.io/machine-deployment-revision: "1"
     k8c.io/mdannotations-hash: 68de95b28cd658559904d777a9ef6c6a33af8537312e7fdb4ef8bb1a3a932365
-    k8c.io/osp-version: v1.11.8
+    k8c.io/osp-version: v1.12.0
   name: kubelet-configuration-kube-system-config
   namespace: kube-system
   resourceVersion: "1"
