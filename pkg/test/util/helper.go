@@ -43,6 +43,9 @@ func CompareOutput(t *testing.T, name, output string, update bool) {
 		t.Fatalf("failed to get absolute path to testdata file: %v", err)
 	}
 	if update {
+		if err := os.MkdirAll(filepath.Dir(golden), 0o755); err != nil {
+			t.Fatalf("failed to create testdata directory: %v", err)
+		}
 		if err := os.WriteFile(golden, []byte(output), 0o600); err != nil {
 			t.Fatalf("failed to write updated fixture: %v", err)
 		}
