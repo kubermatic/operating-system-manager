@@ -171,3 +171,29 @@ presubmits:
               cpu: 500m
           securityContext:
             privileged: true
+
+  - name: pull-operating-system-manager-docker-image-multiarch
+    run_if_changed: "^(Dockerfile|\\.dockerignore|Makefile|go\\.(mod|sum)|hack/ci/setup-docker-buildx\\.sh)$"
+    decorate: true
+    clone_uri: "ssh://git@github.com/kubermatic/operating-system-manager.git"
+    labels:
+      preset-goproxy: "true"
+    spec:
+      containers:
+        - image: quay.io/kubermatic/build:go-1.27-node-24-kind-0.32-5
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail &&
+              start-docker.sh &&
+              ./hack/ci/setup-docker-buildx.sh &&
+              make docker-image-multiarch
+          # docker-in-docker needs privileged mode
+          securityContext:
+            privileged: true
+          # all platforms of the multi-arch image are built in parallel
+          resources:
+            requests:
+              cpu: 4
+              memory: 8Gi
