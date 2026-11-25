@@ -31,7 +31,11 @@ REGISTRY_NAMESPACE ?= kubermatic
 
 IMAGE_TAG = \
 		$(shell echo $$(git rev-parse HEAD && if [[ -n $$(git status --porcelain) ]]; then echo '-dirty'; fi)|tr -d ' ')
-IMAGE_NAME ?= $(REGISTRY)/$(REGISTRY_NAMESPACE)/operating-system-manager:$(IMAGE_TAG)
+IMAGE_REPO ?= $(REGISTRY)/$(REGISTRY_NAMESPACE)/operating-system-manager
+IMAGE_NAME ?= $(IMAGE_REPO):$(IMAGE_TAG)
+PLATFORMS ?= linux/amd64,linux/arm64
+# GOPROXY without a value is taken from the environment, if set
+DOCKER_BUILD_ARGS = --build-arg GO_VERSION=$(GO_VERSION) --build-arg GOPROXY
 
 BASE64_ENC = \
 		$(shell if base64 -w0 <(echo "") &> /dev/null; then echo "base64 -w0"; else echo "base64 -b0"; fi)
@@ -114,25 +118,28 @@ update-fixtures:
 download-gocache:
 	@./hack/ci/download-gocache.sh
 
+# single-arch image for the host platform, loaded into the local image store
 .PHONY: docker-image
 docker-image:
-	docker build --build-arg GO_VERSION=$(GO_VERSION) -t $(IMAGE_NAME) .
+	docker build $(DOCKER_BUILD_ARGS) -t $(IMAGE_NAME) .
 
+# builds the image for all $(PLATFORMS) without pushing or loading it;
+# requires a docker-container buildx builder, see hack/ci/setup-docker-buildx.sh
+.PHONY: docker-image-multiarch
+docker-image-multiarch:
+	docker buildx build $(DOCKER_BUILD_ARGS) --platform $(PLATFORMS) .
+
+# builds the multi-arch image once and pushes it with the commit tag and,
+# for tagged commits, the git tag(s) and latest; all tags share one image index,
+# so the SBOMs only need to be attached once
 .PHONY: docker-image-publish
-docker-image-publish: docker-image
-	docker push $(IMAGE_NAME)
+docker-image-publish:
+	./hack/verify-osp-versions.sh
+	docker buildx build $(DOCKER_BUILD_ARGS) --platform $(PLATFORMS) \
+		--tag $(IMAGE_NAME) \
+		$(foreach tag,$(GIT_TAG) $(if $(GIT_TAG),latest),--tag $(IMAGE_REPO):$(tag)) \
+		--push .
 	./hack/attach-image-sbom.sh $(IMAGE_NAME)
-	if [[ -n "$(GIT_TAG)" ]]; then \
-		./hack/verify-osp-versions.sh || exit 1; \
-		$(eval IMAGE_TAG = $(GIT_TAG)) \
-		docker build -t $(IMAGE_NAME) . && \
-		docker push $(IMAGE_NAME) && \
-		./hack/attach-image-sbom.sh $(IMAGE_NAME) && \
-		$(eval IMAGE_TAG = latest) \
-		docker build -t $(IMAGE_NAME) . ;\
-		docker push $(IMAGE_NAME) ;\
-		./hack/attach-image-sbom.sh $(IMAGE_NAME) ;\
-	fi
 
 .PHONY: shfmt
 shfmt:

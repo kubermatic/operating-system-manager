@@ -10,3 +10,20 @@
 # Code
 /docs
 /hack
+
+# Build output and caches
+/_build
+/_dist
+/.buildcache
+
+# Local credentials
+*kubeconfig*
+*tfstate*
+
+# Editor, OS and agent state
+*.idea*
+*.vscode*
+*.local*
+*.DS_Store*
+.agent-sandbox
+.claude
