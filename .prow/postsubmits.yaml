@@ -19,6 +19,7 @@ postsubmits:
     clone_uri: "ssh://git@github.com/kubermatic/operating-system-manager.git"
     branches:
       - ^main$
+      - ^release/v\d+\.\d+$
       # Match on tags
       - ^v\d+\.\d+\.\d+.*
     labels:
